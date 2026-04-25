@@ -568,15 +568,55 @@ def run_monte_carlo(params):
     ph_yrs       = float(g('phase3_moat_years', 2))
     tent_rate    = float(g('tent_skim_rate', 0.50))
 
-    n_trials = int(g('trials', 1000))
+    SIZE_MAP = {"1k": 1_000, "10k": 10_000, "100k": 100_000, "1m": 1_000_000}
+    sim_size = g('sim_size', None)
+    if sim_size:
+        n_trials = SIZE_MAP.get(str(sim_size).lower(), 1_000)
+    else:
+        n_trials = min(int(g('trials', 1000)), 1_000_000)
+
+    return_model = str(g('return_model', 'normal')).lower()
+
     seq_yr   = int(g('seq_shock_year', 0))   # 0=off, 1/3/5 = years into retirement
 
     bridge_years  = max(1, ss_age_tgt - target_age)
     base_draw_ann = strict_moat  # already an annual figure
 
     rng = np.random.default_rng()
-    rets_all  = rng.normal(mu, sigma, (n_trials, n_years))
-    infl_all  = rng.normal(infl, infl_vol, (n_trials, n_years)) if use_si else None
+
+    if return_model == 'fat_tail':
+        fat_df = int(g('fat_tail_df', 5))
+        raw = rng.standard_t(fat_df, size=(n_trials, n_years))
+        rets_all = raw * (sigma / np.sqrt(fat_df / (fat_df - 2))) + mu
+    elif return_model == 'regime_switch':
+        mu_bull  = float(g('mu_bull', 0.12));   sigma_bull = float(g('sigma_bull', 0.14))
+        mu_bear  = float(g('mu_bear', -0.05));  sigma_bear = float(g('sigma_bear', 0.22))
+        p_to_bear = float(g('p_bull_to_bear', 0.15))
+        p_to_bull = float(g('p_bear_to_bull', 0.35))
+        states = np.zeros((n_trials, n_years), dtype=np.int8)
+        trans  = rng.random((n_trials, n_years))
+        for t in range(1, n_years):
+            flip_b = (states[:, t-1] == 0) & (trans[:, t] < p_to_bear)
+            flip_u = (states[:, t-1] == 1) & (trans[:, t] < p_to_bull)
+            states[:, t] = np.where(flip_b, 1, np.where(flip_u, 0, states[:, t-1]))
+        bull_mask = (states == 0)
+        rets_all = np.where(bull_mask,
+            rng.normal(mu_bull, sigma_bull, (n_trials, n_years)),
+            rng.normal(mu_bear, sigma_bear, (n_trials, n_years)))
+    elif return_model == 'garch':
+        g_omega = float(g('garch_omega', 0.0001))
+        g_alpha = float(g('garch_alpha', 0.15))
+        g_beta  = float(g('garch_beta',  0.80))
+        var_t   = np.full(n_trials, sigma ** 2)
+        rets_all = np.zeros((n_trials, n_years))
+        z = rng.standard_normal((n_trials, n_years))
+        for t in range(n_years):
+            rets_all[:, t] = mu + np.sqrt(np.maximum(var_t, 1e-8)) * z[:, t]
+            var_t = g_omega + g_alpha * rets_all[:, t] ** 2 + g_beta * var_t
+    else:
+        rets_all = rng.normal(mu, sigma, (n_trials, n_years))
+
+    infl_all = rng.normal(infl, infl_vol, (n_trials, n_years)) if use_si else None
 
     all_paths      = np.zeros((n_trials, n_years))
     moat_paths     = np.zeros((n_trials, n_years))
@@ -600,297 +640,382 @@ def run_monte_carlo(params):
     ph_refill_arr  = np.zeros(n_trials)
     ph_funded_arr  = np.zeros(n_trials)
 
-    for tr in range(n_trials):
-        eng     = engine0;  sg = sgov0;  chk = chk0
-        trad    = trad0;    sh_trad = trad0
-        ph3_moat = 0.0
-        infl_acc = 1.0;   yp = 0
-        cum_dev  = 0.0;   cdn = 0
-        ath      = eng
-        eng_ret  = 0.0;   br_moat = 0.0
-        cl_ss    = ss_age_tgt;  ss_ben = 0.0
-        ripcord  = False;  breached = False
-        rat_tiers = 0
-        rat_t1_fired = rat_t2_fired = rat_t3_fired = False
-        ph3_peak = ph_total_harv = ph_total_drawn = ph_refills = 0.0
-        ph_was_drawn = False;  ph_funded_age = 0
-        tot_gg = tot_sg = tot_ng = tot_ctx = tot_shx = 0.0
-        max_dd   = 0.0
+    # ── Vectorized trial loop ─────────────────────────────────────────────────
+    eng      = np.full(n_trials, engine0)
+    sg       = np.full(n_trials, sgov0)
+    chk      = np.full(n_trials, chk0)
+    trad     = np.full(n_trials, trad0)
+    sh_trad  = np.full(n_trials, trad0)
+    ph3_moat = np.zeros(n_trials)
+    infl_acc = np.ones(n_trials)
+    cum_dev  = np.zeros(n_trials)
+    cdn      = np.zeros(n_trials, dtype=np.int32)
+    ath      = np.full(n_trials, engine0)
+    eng_ret  = np.zeros(n_trials)
+    br_moat  = np.zeros(n_trials)
+    cl_ss    = np.full(n_trials, float(ss_age_tgt))
+    ss_ben   = np.zeros(n_trials)
+    ripcord  = np.zeros(n_trials, dtype=bool)
+    breached = np.zeros(n_trials, dtype=bool)
+    rat_tiers = np.zeros(n_trials, dtype=np.int32)
+    rat_t1_fired = np.zeros(n_trials, dtype=bool)
+    rat_t2_fired = np.zeros(n_trials, dtype=bool)
+    rat_t3_fired = np.zeros(n_trials, dtype=bool)
+    ph3_peak     = np.zeros(n_trials)
+    ph_total_harv = np.zeros(n_trials)
+    ph_total_drawn = np.zeros(n_trials)
+    ph_refills   = np.zeros(n_trials)
+    ph_was_drawn = np.zeros(n_trials, dtype=bool)
+    ph_funded_age = np.zeros(n_trials)
+    tot_gg = np.zeros(n_trials)
+    tot_sg = np.zeros(n_trials)
+    tot_ng = np.zeros(n_trials)
+    tot_ctx = np.zeros(n_trials)
+    tot_shx = np.zeros(n_trials)
+    max_dd  = np.zeros(n_trials)
+    yp      = 0
 
-        shock_set = set()
-        if use_tail:
-            cands = list(range(target_age, min(target_age+10, end_age+1)))
-            shock_set = set(random.sample(cands, min(tail_cnt, len(cands))))
+    # Pre-generate tail shock mask
+    shock_mask = np.zeros((n_trials, n_years), dtype=bool)
+    if use_tail:
+        for ti in range(n_trials):
+            cands = list(range(target_age, min(target_age + 10, end_age + 1)))
+            chosen = random.sample(cands, min(tail_cnt, len(cands)))
+            for age_c in chosen:
+                shock_mask[ti, age_c - current_age] = True
 
-        tax_rev_mult = 1.0
-        if use_tax_rev:
-            r = float(rng.random())
-            if r < tax_risk_near:
-                tax_rev_age = target_age + int(rng.integers(0, 5))
-            elif r < tax_risk_near + tax_risk_mid:
-                tax_rev_age = target_age + 5 + int(rng.integers(0, 5))
-            elif r < tax_risk_near + tax_risk_mid + tax_risk_late:
-                tax_rev_age = target_age + 10 + int(rng.integers(0, 10))
-            else:
-                tax_rev_age = end_age + 1
+    # Pre-generate tax reversion ages
+    if use_tax_rev:
+        rv = rng.random(n_trials)
+        tax_rev_age_arr = np.where(
+            rv < tax_risk_near,
+            target_age + rng.integers(0, 5, n_trials),
+            np.where(
+                rv < tax_risk_near + tax_risk_mid,
+                target_age + 5 + rng.integers(0, 5, n_trials),
+                np.where(
+                    rv < tax_risk_near + tax_risk_mid + tax_risk_late,
+                    target_age + 10 + rng.integers(0, 10, n_trials),
+                    np.full(n_trials, end_age + 1)
+                )
+            )
+        )
+    else:
+        tax_rev_age_arr = np.full(n_trials, end_age + 1)
+    tax_rev_mult = np.ones(n_trials)
+
+    for ai in range(n_years):
+        age = current_age + ai
+
+        # Tax reversion
+        tax_rev_mult = np.where(use_tax_rev & (age >= tax_rev_age_arr), 1.13, tax_rev_mult)
+
+        # Returns
+        raw = rets_all[:, ai].copy()
+        if use_mr and yp > 0:
+            raw += -mr_str * cum_dev
+        # Sequence shock (forced, all trials)
+        if seq_yr > 0 and age == target_age + seq_yr - 1:
+            ret = np.full(n_trials, tail_ret)
         else:
-            tax_rev_age = end_age + 1
+            ret = np.where(shock_mask[:, ai], tail_ret, raw)
+        cum_dev = (cum_dev + ret - mu) * 0.9
+        cdn = np.where(ret < 0, cdn + 1, np.zeros(n_trials, dtype=np.int32))
 
-        for ai in range(n_years):
-            age = current_age + ai
-            if use_tax_rev and age >= tax_rev_age:
-                tax_rev_mult = 1.13
-            raw = float(rets_all[tr, ai])
-            if use_mr and yp > 0:
-                raw += -mr_str * cum_dev
-            if seq_yr > 0 and age == target_age + seq_yr - 1:
-                ret = tail_ret   # forced shock in every trial at specific retirement year
-            else:
-                ret = tail_ret if age in shock_set else raw
-            cum_dev = (cum_dev + ret - mu) * 0.9
-            cdn = cdn + 1 if ret < 0 else 0
+        # Inflation
+        if use_si:
+            sh = np.where(ret < 0, np.abs(ret) * stag_corr, 0.0)
+            ai_infl = np.clip(infl_all[:, ai] + sh, infl_min, infl_max)
+        else:
+            ai_infl = np.full(n_trials, infl)
+        infl_acc *= (1 + ai_infl)
 
-            if use_si:
-                sh = abs(ret)*stag_corr if ret < 0 else 0
-                ai_infl = float(np.clip(infl_all[tr, ai] + sh, infl_min, infl_max))
-            else:
-                ai_infl = infl
-            infl_acc *= (1 + ai_infl)
-
-            # ── Phase 1: Accumulation ────────────────────────────────────
-            if age < target_age:
-                c = contrib * ((1 + wage_gr) ** yp)
-                if age >= target_age - 4 and ret > mu and sg < full_moat:
-                    excess = eng * ret - eng * mu
-                    if excess > 0:
-                        sk = min(excess * tent_rate, full_moat - sg)
-                        eng = eng*(1+ret) + c - sk;  sg += sk
-                    else:
-                        eng = eng*(1+ret) + c
-                else:
-                    eng = eng*(1+ret) + c
-                sg = sg*(1+syld)
-                if use_conv and trad > 0:
-                    trad   = trad*(1+ret)   + ann_match*((1+wage_gr)**yp)
-                    sh_trad = sh_trad*(1+ret) + ann_match*((1+wage_gr)**yp)
-                all_paths[tr, ai] = eng + sg + chk
-                yp += 1;  continue
-
-            # ── Transition: Enter retirement ─────────────────────────────
-            if age == target_age and eng_ret == 0.0:
-                port = eng + sg + chk
-                arrival_arr[tr] = port
-                dy = min(port, moat_target)            # carve moat_target from total portfolio into SGOV
-                br_moat = dy;  eng = max(0.0, port - dy - chk);  sg = 0.0
-                eng_ret = eng
-                runway = dy / base_draw_ann if base_draw_ann > 0 else bridge_years
-                ripcord = runway < bridge_years        # moat can't cover the full bridge
-                cl_ss  = round(min(70, max(62, target_age + runway))) if ripcord else ss_age_tgt
-                ripcord_arr[tr] = ripcord;  ss_age_arr[tr] = cl_ss
-                raw_ss = compute_ss_benefit(cl_ss, full_ss)
-                ss_ben = raw_ss*(1-haircut_pct) if use_haircut else raw_ss
-                if eng > ath: ath = eng
-
-            # ── Phase 2: Bridge ──────────────────────────────────────────
-            if age < cl_ss:
-                eng = eng*(1+ret)
-                if eng > ath: ath = eng
-                draw = base_draw_ann * infl_acc
-                if use_mc and age < 65:
-                    draw += mc_ann * ((1+hc_infl)**(age-target_age))
-                if use_aca_shock and target_age <= age < min(target_age + 3, cl_ss):
-                    if float(rng.random()) < aca_shock_prob:
-                        draw += aca_shock_mag * infl_acc
-                br_moat = br_moat*(1+syld) - draw
-                if br_moat < 0:
-                    eng = max(0.0, eng + br_moat)
-                    br_moat = 0.0;  breached = True;  breach_arr[tr] = True
-                if use_conv and age <= 74 and trad > 0:
-                    trad = trad*(1+ret);  sh_trad = sh_trad*(1+ret)
-                    yo = age - current_age
-                    cv = min(cust_conv, trad) if tgt_bkt == 'custom' else \
-                         compute_conversion_amount(trad, 0, tgt_bkt, yo, infl, filing)
-                    if cv > 0:
-                        fed = compute_federal_tax(cv, yo, infl, filing)
-                        ttx = fed * tax_rev_mult + cv*state_tx
-                        trad -= cv;  eng += cv
-                        fc = min(chk, ttx);  chk -= fc
-                        eng = max(0.0, eng - (ttx-fc))
-                        tot_ctx += ttx
-                    if trad < 1: trad = 0.0
-                dd = (ath-eng)/ath if ath > 0 else 0
-                if dd > max_dd: max_dd = dd
-                all_paths[tr, ai] = eng + br_moat
-                moat_paths[tr, ai] = br_moat
-                yp += 1;  continue
-
-            # ── Phase 3 entry ─────────────────────────────────────────────
-            if age == cl_ss and br_moat > 0:
-                eng += br_moat;  br_moat = 0.0
-
-            # ── Phase 3: Smile ────────────────────────────────────────────
-            s_eng = eng
-            if use_rat and eng_ret > 0:
-                ratio = eng/eng_ret
-                if rat_tiers==0 and ratio>=1.5:
-                    rat_tiers=1
-                    if not rat_t1_fired: rat_t1_fired=True; rat_t1_age_arr[tr]=age
-                elif rat_tiers==1 and ratio>=2.0:
-                    rat_tiers=2
-                    if not rat_t2_fired: rat_t2_fired=True; rat_t2_age_arr[tr]=age
-                elif rat_tiers==2 and ratio>=2.5:
-                    rat_tiers=3
-                    if not rat_t3_fired: rat_t3_fired=True; rat_t3_age_arr[tr]=age
-            divs = s_eng * divyld
-            eng  = eng*(1+ret)
-            if eng > ath: ath = eng
-            mgain = eng - s_eng
-
-            if use_ph:
-                ph3_moat *= (1+syld)
-                if ret >= euph_trig and mgain > 0:
-                    tgt_ph = base_draw_ann * infl_acc * ph_yrs
-                    if ph3_moat < tgt_ph:
-                        hv = min(tgt_ph-ph3_moat, mgain)
-                        eng -= hv;  ph3_moat += hv;  mgain -= hv
-                        ph_total_harv += hv
-                        if ph3_moat >= tgt_ph:
-                            if ph_funded_age == 0: ph_funded_age = age
-                            if ph_was_drawn: ph_refills += 1; ph_was_drawn = False
-                if ph3_moat > ph3_peak: ph3_peak = ph3_moat
-
-            ss_now   = ss_ben * infl_acc
-            floor_now = base_draw_ann * infl_acc
-            if use_mc and age < 65:
-                floor_now += mc_ann*((1+hc_infl)**(age-target_age))
-            gap = max(0.0, floor_now - ss_now)
-            if gap > 0:
-                fd = min(divs, gap); divs -= fd; eng -= fd; gap -= fd
-                if use_ph and ph3_moat > 0 and gap > 0:
-                    ph_d = min(ph3_moat, gap); ph3_moat -= ph_d; gap -= ph_d
-                    ph_total_drawn += ph_d; ph_was_drawn = True
-                eng = max(0.0, eng - gap)
-
-            if use_res and not ripcord:
-                rgap = max(0.0, res_ann*infl_acc - ss_now)
-                if rgap > 0:
-                    fd = min(divs, rgap); divs -= fd; eng -= fd; rgap -= fd
-                    if use_ph and ph3_moat > 0 and rgap > 0:
-                        ph_d = min(ph3_moat, rgap); ph3_moat -= ph_d; rgap -= ph_d
-                        ph_total_drawn += ph_d; ph_was_drawn = True
-                    eng = max(0.0, eng - rgap)
-
-            # Skim
-            if age <= 75:   er, nr = gogo_e, gogo_n
-            elif age <= 85: er, nr = slgo_e, slgo_n
-            else:           er, nr = nogo_e, nogo_n
-            if use_mort: mm = mortality_mult(age); er *= mm; nr *= mm
-
-            skim = 0.0
-            if ret >= euph_trig and mgain > 0: skim = mgain * er
-            elif ret > 0 and mgain > 0:        skim = mgain * nr
-            skim = min(skim, eng)
-
-            dd = (ath-eng)/ath if ath > 0 else 0
-            if dd > max_dd: max_dd = dd
-            if dd > gk_trig and skim > 0:   skim *= (1-gk_cut)
-            if cdn >= bear_yrs and skim > 0: skim *= (1-bear_cut)
-
-            if use_rat and rat_tiers > 0 and ret > 0:
-                rf = rat_tiers * rat_ann * ((1+infl)**(age-target_age))
-                skim = max(skim, min(rf, eng))
-            if use_wf and ret > 0:
-                wf = s_eng * wf_rate
-                if dd > gk_trig: wf *= (1-gk_cut)
-                if cdn >= bear_yrs: wf *= (1-bear_cut)
-                skim = max(skim, min(wf, eng))
-            if use_eb and ret >= euph_trig:
-                bn = s_eng * eb_rate
-                if dd > gk_trig: bn *= (1-gk_cut)
-                if cdn >= bear_yrs: bn *= (1-bear_cut)
-                bn = min(bn, eng-skim)
-                if bn > 0: skim += bn
-
-            eng -= skim
-            if age <= 75:   tot_gg += skim
-            elif age <= 85: tot_sg += skim
-            else:           tot_ng += skim
-
-            if use_gf and age <= 75:
-                top = max(0.0, gogo_fl_ann*infl_acc - skim)
-                if top > 0 and eng > 0:
-                    a = min(top, eng); eng -= a; tot_gg += a
-
-            if age <= 75:   cr = cap_gg
-            elif age <= 85: cr = cap_sg
-            else:           cr = cap_ng
-            nc = p_cap * ((1+cap_infl)**(age-target_age))
-            if eng > nc:
-                hc = (eng-nc)*cr
-                if dd > gk_trig: hc *= (1-gk_cut)
-                if cdn >= bear_yrs: hc *= (1-bear_cut)
-                eng -= hc
-                if age <= 75: tot_gg += hc
-                elif age <= 85: tot_sg += hc
-                else: tot_ng += hc
-
-            yo = age - current_age
-            if use_conv and age <= 74 and trad > 0:
-                trad = trad*(1+ret);  sh_trad = sh_trad*(1+ret)
-                cv = min(cust_conv, trad) if tgt_bkt == 'custom' else \
-                     compute_conversion_amount(trad, ss_now, tgt_bkt, yo, infl, filing)
-                if cv > 0:
-                    twc = taxable_ss_amount(ss_now, cv, filing)
-                    tnc = taxable_ss_amount(ss_now, 0, filing)
-                    fed = max(0.0,
-                        compute_federal_tax(cv+twc, yo, infl, filing) -
-                        compute_federal_tax(tnc,    yo, infl, filing))
-                    ttx = fed * tax_rev_mult + cv*state_tx
-                    trad -= cv;  eng += cv
-                    fc = min(chk, ttx);  chk -= fc
-                    eng = max(0.0, eng-(ttx-fc))
-                    tot_ctx += ttx
-                if trad < 1: trad = 0.0
-
-            if use_conv and age >= 75 and trad > 0:
-                trad = trad*(1+ret)
-                rf = RMD_TABLE.get(min(age,95), 8.6)
-                rmd = trad/rf
-                tss = taxable_ss_amount(ss_now, rmd, filing)
-                fed = max(0.0,
-                    compute_federal_tax(rmd+tss, yo, infl, filing) -
-                    compute_federal_tax(tss,     yo, infl, filing))
-                st = rmd*state_tx
-                eng += max(0.0, rmd-fed-st);  trad -= rmd
-                if trad < 0: trad = 0.0
-                tot_ctx += (fed+st)
-                if sh_trad > 0:
-                    sh_trad = sh_trad*(1+ret)
-                    sr = sh_trad/rf
-                    sts = taxable_ss_amount(ss_now, sr, filing)
-                    sf = max(0.0,
-                        compute_federal_tax(sr+sts, yo, infl, filing) -
-                        compute_federal_tax(sts,    yo, infl, filing))
-                    tot_shx += (sf + sr*state_tx)
-                    sh_trad -= sr
-                    if sh_trad < 0: sh_trad = 0.0
-
-            all_paths[tr, ai] = max(0.0, eng + ph3_moat)
+        # ── Phase 1: Accumulation ─────────────────────────────────────────────
+        if age < target_age:
+            c = contrib * ((1 + wage_gr) ** yp)
+            # Tent skim in last 4 years before retirement
+            tent_eligible = (age >= target_age - 4) & (ret > mu) & (sg < full_moat)
+            excess = eng * ret - eng * mu
+            sk = np.where(tent_eligible & (excess > 0),
+                          np.minimum(excess * tent_rate, full_moat - sg), 0.0)
+            eng = eng * (1 + ret) + c - sk
+            sg  = sg + sk
+            sg  = sg * (1 + syld)
+            if use_conv:
+                trad    = trad * (1 + ret) + ann_match * ((1 + wage_gr) ** yp)
+                sh_trad = sh_trad * (1 + ret) + ann_match * ((1 + wage_gr) ** yp)
+            all_paths[:, ai] = eng + sg + chk
             yp += 1
+            continue
 
-        term_vals[tr]     = max(0.0, eng)
-        gogo_arr[tr]      = tot_gg
-        slgo_arr[tr]      = tot_sg
-        nogo_arr[tr]      = tot_ng
-        conv_tx_arr[tr]   = tot_ctx
-        shadow_tx_arr[tr] = tot_shx
-        dd_arr[tr]        = max_dd
+        # ── Transition: Enter retirement ──────────────────────────────────────
+        entering = (age == target_age) & (eng_ret == 0.0)
+        if np.any(entering):
+            port = eng + sg + chk
+            arrival_arr = np.where(entering, port, arrival_arr)
+            dy = np.where(entering, np.minimum(port, moat_target), 0.0)
+            new_eng = np.where(entering, np.maximum(0.0, port - dy - chk), eng)
+            eng_ret = np.where(entering, new_eng, eng_ret)
+            br_moat = np.where(entering, dy, br_moat)
+            eng     = new_eng
+            sg      = np.where(entering, 0.0, sg)
+            runway  = np.where(base_draw_ann > 0, dy / base_draw_ann, float(bridge_years))
+            rip     = runway < bridge_years
+            ripcord = np.where(entering, rip, ripcord)
+            new_cl  = np.where(rip,
+                               np.round(np.minimum(70.0, np.maximum(62.0, target_age + runway))),
+                               float(ss_age_tgt))
+            cl_ss   = np.where(entering, new_cl, cl_ss)
+            ripcord_arr = np.where(entering, rip, ripcord_arr)
+            ss_age_arr  = np.where(entering, new_cl, ss_age_arr)
+            raw_ss = np.array([compute_ss_benefit(float(a), full_ss) for a in cl_ss])
+            raw_ss = np.where(entering, raw_ss, ss_ben)
+            ss_ben = np.where(entering,
+                              raw_ss * (1 - haircut_pct) if use_haircut else raw_ss,
+                              ss_ben)
+            ath = np.where(entering & (eng > ath), eng, ath)
+
+        # ── Phase 2: Bridge ───────────────────────────────────────────────────
+        in_bridge = age < cl_ss
+        if np.any(in_bridge):
+            eng_new = np.where(in_bridge, eng * (1 + ret), eng)
+            ath = np.where(in_bridge & (eng_new > ath), eng_new, ath)
+            draw = base_draw_ann * infl_acc
+            if use_mc and age < 65:
+                draw = draw + mc_ann * ((1 + hc_infl) ** (age - target_age))
+            if use_aca_shock and target_age <= age < min(target_age + 3, int(np.min(cl_ss)) + 1):
+                aca_hit = rng.random(n_trials) < aca_shock_prob
+                draw = np.where(in_bridge & aca_hit, draw + aca_shock_mag * infl_acc, draw)
+            br_moat_new = np.where(in_bridge, br_moat * (1 + syld) - draw, br_moat)
+            overflow = br_moat_new < 0
+            eng_new = np.where(in_bridge & overflow, np.maximum(0.0, eng_new + br_moat_new), eng_new)
+            br_moat_new = np.where(in_bridge & overflow, 0.0, br_moat_new)
+            breached = np.where(in_bridge & overflow, True, breached)
+            breach_arr = np.where(in_bridge & overflow, True, breach_arr)
+            if use_conv:
+                conv_eligible = in_bridge & (age <= 74) & (trad > 0)
+                if np.any(conv_eligible):
+                    trad    = np.where(conv_eligible, trad * (1 + ret), trad)
+                    sh_trad = np.where(conv_eligible, sh_trad * (1 + ret), sh_trad)
+                    yo = age - current_age
+                    cv_arr = np.zeros(n_trials)
+                    for ti in np.where(conv_eligible)[0]:
+                        if tgt_bkt == 'custom':
+                            cv_arr[ti] = min(cust_conv, trad[ti])
+                        else:
+                            cv_arr[ti] = compute_conversion_amount(trad[ti], 0, tgt_bkt, yo, infl, filing)
+                    has_conv = conv_eligible & (cv_arr > 0)
+                    if np.any(has_conv):
+                        fed_arr = np.array([compute_federal_tax(cv_arr[ti], yo, infl, filing)
+                                            if has_conv[ti] else 0.0 for ti in range(n_trials)])
+                        ttx = fed_arr * tax_rev_mult + cv_arr * state_tx
+                        trad = np.where(has_conv, trad - cv_arr, trad)
+                        eng_new = np.where(has_conv, eng_new + cv_arr, eng_new)
+                        fc = np.minimum(chk, ttx)
+                        chk = np.where(has_conv, chk - fc, chk)
+                        eng_new = np.where(has_conv, np.maximum(0.0, eng_new - (ttx - fc)), eng_new)
+                        tot_ctx = np.where(has_conv, tot_ctx + ttx, tot_ctx)
+                    trad = np.where(conv_eligible & (trad < 1), 0.0, trad)
+            dd = np.where(ath > 0, (ath - eng_new) / ath, 0.0)
+            max_dd = np.maximum(max_dd, dd)
+            all_paths[:, ai] = np.where(in_bridge, eng_new + br_moat_new, all_paths[:, ai])
+            moat_paths[:, ai] = np.where(in_bridge, br_moat_new, moat_paths[:, ai])
+            eng    = np.where(in_bridge, eng_new, eng)
+            br_moat = np.where(in_bridge, br_moat_new, br_moat)
+            yp += 1
+            continue
+
+        # ── Phase 3 entry (merge moat into engine) ────────────────────────────
+        at_ss = (age == cl_ss.astype(int)) & (br_moat > 0)
+        eng = np.where(at_ss, eng + br_moat, eng)
+        br_moat = np.where(at_ss, 0.0, br_moat)
+
+        # ── Phase 3: Smile ────────────────────────────────────────────────────
+        s_eng = eng.copy()
+        if use_rat and np.any(eng_ret > 0):
+            ratio = np.where(eng_ret > 0, eng / eng_ret, 0.0)
+            fire1 = ~rat_t1_fired & (rat_tiers == 0) & (ratio >= 1.5)
+            fire2 = ~rat_t2_fired & (rat_tiers == 1) & (ratio >= 2.0)
+            fire3 = ~rat_t3_fired & (rat_tiers == 2) & (ratio >= 2.5)
+            rat_tiers = np.where(fire1, 1, np.where(fire2, 2, np.where(fire3, 3, rat_tiers)))
+            rat_t1_fired = rat_t1_fired | fire1
+            rat_t2_fired = rat_t2_fired | fire2
+            rat_t3_fired = rat_t3_fired | fire3
+            rat_t1_age_arr = np.where(fire1, age, rat_t1_age_arr)
+            rat_t2_age_arr = np.where(fire2, age, rat_t2_age_arr)
+            rat_t3_age_arr = np.where(fire3, age, rat_t3_age_arr)
+
+        divs = s_eng * divyld
+        eng  = eng * (1 + ret)
+        ath  = np.maximum(ath, eng)
+        mgain = eng - s_eng
+
         if use_ph:
-            ph_peak_arr[tr]   = ph3_peak
-            ph_harv_arr[tr]   = ph_total_harv
-            ph_drawn_arr[tr]  = ph_total_drawn
-            ph_refill_arr[tr] = ph_refills
-            ph_funded_arr[tr] = ph_funded_age
+            ph3_moat *= (1 + syld)
+            euph = ret >= euph_trig
+            tgt_ph = base_draw_ann * infl_acc * ph_yrs
+            can_harv = euph & (mgain > 0) & (ph3_moat < tgt_ph)
+            hv = np.where(can_harv, np.minimum(tgt_ph - ph3_moat, mgain), 0.0)
+            eng -= hv; ph3_moat += hv; mgain -= hv
+            ph_total_harv += hv
+            newly_funded = can_harv & (ph3_moat >= tgt_ph)
+            ph_funded_age = np.where(newly_funded & (ph_funded_age == 0), age, ph_funded_age)
+            refilling = can_harv & ph_was_drawn
+            ph_refills = np.where(refilling, ph_refills + 1, ph_refills)
+            ph_was_drawn = np.where(refilling, False, ph_was_drawn)
+            ph3_peak = np.maximum(ph3_peak, ph3_moat)
+
+        ss_now    = ss_ben * infl_acc
+        floor_now = base_draw_ann * infl_acc
+        if use_mc and age < 65:
+            floor_now = floor_now + mc_ann * ((1 + hc_infl) ** (age - target_age))
+        gap = np.maximum(0.0, floor_now - ss_now)
+        fd = np.minimum(divs, gap); divs -= fd; eng -= fd; gap -= fd
+        if use_ph:
+            ph_d = np.where(gap > 0, np.minimum(ph3_moat, gap), 0.0)
+            ph3_moat -= ph_d; gap -= ph_d
+            ph_total_drawn += ph_d
+            ph_was_drawn = ph_was_drawn | (ph_d > 0)
+        eng = np.maximum(0.0, eng - gap)
+
+        if use_res and not ripcord.all():
+            rgap = np.maximum(0.0, res_ann * infl_acc - ss_now)
+            rgap = np.where(ripcord, 0.0, rgap)
+            fd2 = np.minimum(divs, rgap); divs -= fd2; eng -= fd2; rgap -= fd2
+            if use_ph:
+                ph_d2 = np.where(rgap > 0, np.minimum(ph3_moat, rgap), 0.0)
+                ph3_moat -= ph_d2; rgap -= ph_d2
+                ph_total_drawn += ph_d2
+                ph_was_drawn = ph_was_drawn | (ph_d2 > 0)
+            eng = np.maximum(0.0, eng - rgap)
+
+        # Spend rate by age band
+        er = np.where(age <= 75, gogo_e, np.where(age <= 85, slgo_e, nogo_e))
+        nr = np.where(age <= 75, gogo_n, np.where(age <= 85, slgo_n, nogo_n))
+        if use_mort:
+            mm = mortality_mult(age)
+            er = er * mm; nr = nr * mm
+
+        euph_vec = ret >= euph_trig
+        skim = np.where(euph_vec & (mgain > 0), mgain * er,
+               np.where((ret > 0) & (mgain > 0), mgain * nr, 0.0))
+        skim = np.minimum(skim, eng)
+
+        dd = np.where(ath > 0, (ath - eng) / ath, 0.0)
+        max_dd = np.maximum(max_dd, dd)
+        gk_active  = dd > gk_trig
+        bear_active = cdn >= bear_yrs
+        skim = np.where(gk_active & (skim > 0), skim * (1 - gk_cut), skim)
+        skim = np.where(bear_active & (skim > 0), skim * (1 - bear_cut), skim)
+
+        if use_rat:
+            rf = rat_tiers * rat_ann * ((1 + infl) ** (age - target_age))
+            skim = np.where((rat_tiers > 0) & (ret > 0), np.maximum(skim, np.minimum(rf, eng)), skim)
+        if use_wf:
+            wf = s_eng * wf_rate
+            wf = np.where(gk_active, wf * (1 - gk_cut), wf)
+            wf = np.where(bear_active, wf * (1 - bear_cut), wf)
+            skim = np.where(ret > 0, np.maximum(skim, np.minimum(wf, eng)), skim)
+        if use_eb:
+            bn = s_eng * eb_rate
+            bn = np.where(gk_active, bn * (1 - gk_cut), bn)
+            bn = np.where(bear_active, bn * (1 - bear_cut), bn)
+            bn = np.minimum(bn, np.maximum(0.0, eng - skim))
+            skim = np.where(euph_vec, skim + bn, skim)
+
+        eng -= skim
+        tot_gg = np.where(age <= 75, tot_gg + skim, tot_gg)
+        tot_sg = np.where((age > 75) & (age <= 85), tot_sg + skim, tot_sg)
+        tot_ng = np.where(age > 85, tot_ng + skim, tot_ng)
+
+        if use_gf and age <= 75:
+            top = np.maximum(0.0, gogo_fl_ann * infl_acc - skim)
+            a = np.minimum(top, np.maximum(0.0, eng))
+            eng -= a; tot_gg += a
+
+        cr = np.where(age <= 75, cap_gg, np.where(age <= 85, cap_sg, cap_ng))
+        nc = p_cap * ((1 + cap_infl) ** (age - target_age))
+        over_cap = eng > nc
+        hc = np.where(over_cap, (eng - nc) * cr, 0.0)
+        hc = np.where(gk_active, hc * (1 - gk_cut), hc)
+        hc = np.where(bear_active, hc * (1 - bear_cut), hc)
+        eng -= hc
+        tot_gg = np.where(over_cap & (age <= 75), tot_gg + hc, tot_gg)
+        tot_sg = np.where(over_cap & (age > 75) & (age <= 85), tot_sg + hc, tot_sg)
+        tot_ng = np.where(over_cap & (age > 85), tot_ng + hc, tot_ng)
+
+        yo = age - current_age
+        if use_conv and age <= 74:
+            conv_ok = trad > 0
+            if np.any(conv_ok):
+                trad    = np.where(conv_ok, trad * (1 + ret), trad)
+                sh_trad = np.where(conv_ok, sh_trad * (1 + ret), sh_trad)
+                cv_arr = np.zeros(n_trials)
+                for ti in np.where(conv_ok)[0]:
+                    if tgt_bkt == 'custom':
+                        cv_arr[ti] = min(cust_conv, trad[ti])
+                    else:
+                        cv_arr[ti] = compute_conversion_amount(trad[ti], ss_ben[ti]*infl_acc[ti], tgt_bkt, yo, infl, filing)
+                has_cv = conv_ok & (cv_arr > 0)
+                if np.any(has_cv):
+                    for ti in np.where(has_cv)[0]:
+                        ss_n = ss_ben[ti] * infl_acc[ti]
+                        twc = taxable_ss_amount(ss_n, cv_arr[ti], filing)
+                        tnc = taxable_ss_amount(ss_n, 0, filing)
+                        fed = max(0.0,
+                            compute_federal_tax(cv_arr[ti]+twc, yo, infl, filing) -
+                            compute_federal_tax(tnc, yo, infl, filing))
+                        ttx = fed * tax_rev_mult[ti] + cv_arr[ti] * state_tx
+                        trad[ti] -= cv_arr[ti]; eng[ti] += cv_arr[ti]
+                        fc = min(chk[ti], ttx); chk[ti] -= fc
+                        eng[ti] = max(0.0, eng[ti] - (ttx - fc))
+                        tot_ctx[ti] += ttx
+                trad = np.where(conv_ok & (trad < 1), 0.0, trad)
+
+        if use_conv and age >= 75:
+            rmd_ok = trad > 0
+            if np.any(rmd_ok):
+                trad = np.where(rmd_ok, trad * (1 + ret), trad)
+                rf_val = RMD_TABLE.get(min(age, 95), 8.6)
+                rmd = np.where(rmd_ok, trad / rf_val, 0.0)
+                for ti in np.where(rmd_ok)[0]:
+                    ss_n = ss_ben[ti] * infl_acc[ti]
+                    tss = taxable_ss_amount(ss_n, rmd[ti], filing)
+                    fed = max(0.0,
+                        compute_federal_tax(rmd[ti]+tss, yo, infl, filing) -
+                        compute_federal_tax(tss, yo, infl, filing))
+                    st = rmd[ti] * state_tx
+                    eng[ti] += max(0.0, rmd[ti] - fed - st)
+                    trad[ti] -= rmd[ti]
+                    tot_ctx[ti] += fed + st
+                    if sh_trad[ti] > 0:
+                        sh_trad[ti] *= (1 + ret[ti])
+                        sr = sh_trad[ti] / rf_val
+                        sts = taxable_ss_amount(ss_n, sr, filing)
+                        sf = max(0.0,
+                            compute_federal_tax(sr+sts, yo, infl, filing) -
+                            compute_federal_tax(sts, yo, infl, filing))
+                        tot_shx[ti] += sf + sr * state_tx
+                        sh_trad[ti] -= sr
+                        if sh_trad[ti] < 0: sh_trad[ti] = 0.0
+                trad = np.where(rmd_ok & (trad < 0), 0.0, trad)
+
+        all_paths[:, ai] = np.maximum(0.0, eng + ph3_moat)
+        yp += 1
+
+    term_vals      = np.maximum(0.0, eng)
+    gogo_arr       = tot_gg
+    slgo_arr       = tot_sg
+    nogo_arr       = tot_ng
+    conv_tx_arr    = tot_ctx
+    shadow_tx_arr  = tot_shx
+    dd_arr         = max_dd
+    if use_ph:
+        ph_peak_arr   = ph3_peak
+        ph_harv_arr   = ph_total_harv
+        ph_drawn_arr  = ph_total_drawn
+        ph_refill_arr = ph_refills
+        ph_funded_arr = ph_funded_age
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     ages = list(range(current_age, end_age + 1))
@@ -1078,7 +1203,9 @@ async def api_rules(request: Request):
         "ira_roth_limit": 7500,
         "ira_roth_50_plus": 8600,
         "rothification_income_threshold": 145000,
-        "year": 2026
+        "year": 2026,
+        "return_models": ["normal", "fat_tail", "regime_switch", "garch"],
+        "sim_sizes": ["1k", "10k", "100k", "1m"],
     })
 
 async def api_ledger_dashboard(request: Request):
@@ -2564,11 +2691,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
             <div style="font-size:0.61rem;color:var(--muted2);margin-bottom:4px;">Used for AI Playbook and chat. Set OLLAMA_URL env var if not on host network.</div>
 
-            <div class="mc-section-title">Trials</div>
-            <div class="mc-radio-row">
-              <label><input type="radio" name="mc_trials" value="500"> 500</label>
-              <label><input type="radio" name="mc_trials" value="1000" checked> 1,000</label>
+            <div class="mc-section-title">Sim Size</div>
+            <div class="mc-radio-row" id="simSizeBtns" style="gap:4px;">
+              <label><input type="radio" name="mc_sim_size" value="1k" checked> 1K</label>
+              <label><input type="radio" name="mc_sim_size" value="10k"> 10K</label>
+              <label><input type="radio" name="mc_sim_size" value="100k"> 100K</label>
+              <label><input type="radio" name="mc_sim_size" value="1m"> 1M</label>
             </div>
+            <div style="font-size:0.61rem;color:var(--muted2);margin-bottom:4px;">Higher = more accurate, slower. 1M uses full server CPU.</div>
+
+            <div class="mc-section-title">Market Model</div>
+            <div class="mc-radio-row">
+              <label><input type="radio" name="mc_return_model" value="normal" checked> Normal</label>
+              <label><input type="radio" name="mc_return_model" value="fat_tail"> Fat Tail</label>
+              <label><input type="radio" name="mc_return_model" value="regime_switch"> Regime</label>
+              <label><input type="radio" name="mc_return_model" value="garch"> GARCH</label>
+            </div>
+            <div style="font-size:0.61rem;color:var(--muted2);margin-bottom:4px;">Fat Tail: heavier crash risk &bull; Regime: bull/bear cycles &bull; GARCH: volatility clustering</div>
 
             <div class="mc-section-title">Sequence-of-Returns Stress</div>
             <div class="mc-radio-row">
@@ -3340,8 +3479,10 @@ async function runMC() {
   const btn     = document.getElementById('mc_run_btn');
   const spinner = document.getElementById('mc_spinner');
   const panel   = document.getElementById('mc_results_panel');
-  const trialsEl = document.querySelector('input[name="mc_trials"]:checked');
-  const trials  = trialsEl ? parseInt(trialsEl.value) : 1000;
+  const simSizeEl = document.querySelector('input[name="mc_sim_size"]:checked');
+  const simSize   = simSizeEl ? simSizeEl.value : '1k';
+  const returnModelEl = document.querySelector('input[name="mc_return_model"]:checked');
+  const returnModel   = returnModelEl ? returnModelEl.value : 'normal';
   const pct     = id => parseFloat(document.getElementById(id).value) / 100;
 
   const params = {
@@ -3370,7 +3511,8 @@ async function runMC() {
     target_bracket:          parseFloat(document.getElementById('mc_tgt_bkt').value)  || 0.12,
     state_tax_rate:          pct('mc_state_tx'),
     seq_shock_year:          parseInt(document.querySelector('input[name="mc_seq"]:checked')?.value || '0'),
-    trials,
+    sim_size: simSize,
+    return_model: returnModel,
     wage_growth: 0.02, dividend_yield: 0.015, ss_age: 67,
     gogo_e: 0.25, gogo_n: 0.15, slowgo_e: 0.20, slowgo_n: 0.10, nogo_e: 0.10, nogo_n: 0.05,
     euphoric_offset: 0.03,
@@ -3381,7 +3523,7 @@ async function runMC() {
 
   btn.disabled = true; btn.textContent = 'Running\u2026';
   spinner.style.display = 'block';
-  panel.innerHTML = `<div class="mc-result-hint">Running ${trials.toLocaleString()} trials\u2026</div>`;
+  panel.innerHTML = `<div class="mc-result-hint">Running ${simSize.toUpperCase()} trials\u2026</div>`;
 
   try {
     const r = await fetch('/api/monte-carlo', {
@@ -3409,27 +3551,28 @@ function renderMCChart(d) {
     data: {
       labels: d.bands.ages,
       datasets: [
-        { label: 'P90', data: d.bands.p90, fill: '+1', borderColor: 'rgba(16,185,129,0.7)',  backgroundColor: 'rgba(16,185,129,0.06)', tension: 0.45, pointRadius: 0, borderWidth: 2 },
-        { label: 'P75', data: d.bands.p75, fill: '+1', borderColor: 'rgba(16,185,129,0.2)', backgroundColor: 'rgba(16,185,129,0.04)', tension: 0.45, pointRadius: 0, borderWidth: 0 },
-        { label: 'P50 (Median)', data: d.bands.p50, fill: false, borderColor: '#f0f4ff', borderWidth: 2.5, backgroundColor: 'transparent', tension: 0.45, pointRadius: 0 },
-        { label: 'P25', data: d.bands.p25, fill: '-1',  borderColor: 'rgba(244,63,94,0.2)', backgroundColor: 'rgba(244,63,94,0.04)', tension: 0.45, pointRadius: 0, borderWidth: 0 },
-        { label: 'P10', data: d.bands.p10, fill: false, borderColor: 'rgba(244,63,94,0.7)',  backgroundColor: 'transparent', tension: 0.45, pointRadius: 0, borderWidth: 2 },
+        { label: 'P90', data: d.bands.p90, fill: '+1', borderColor: 'rgba(205,133,63,0.55)', backgroundColor: 'rgba(205,133,63,0.07)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'P75', data: d.bands.p75, fill: '+1', borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.13)', tension: 0.4, pointRadius: 0, borderWidth: 0 },
+        { label: 'P50', data: d.bands.p50, fill: false, borderColor: '#cd853f', borderWidth: 2.5, backgroundColor: 'transparent', tension: 0.4, pointRadius: 0 },
+        { label: 'P25', data: d.bands.p25, fill: '-1',  borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.13)', tension: 0.4, pointRadius: 0, borderWidth: 0 },
+        { label: 'P10', data: d.bands.p10, fill: '-1',  borderColor: 'rgba(205,133,63,0.55)', backgroundColor: 'rgba(205,133,63,0.07)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
       ]
     },
     options: {
       responsive: true,
+      animation: { duration: 900, easing: 'easeOutQuart' },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(9,13,26,0.92)', borderColor: 'rgba(255,255,255,0.10)', borderWidth: 1,
-          titleColor: '#8899b8', bodyColor: '#f0f4ff', padding: 12, cornerRadius: 8,
+          backgroundColor: 'rgba(5,5,5,0.95)', borderColor: 'rgba(205,133,63,0.30)', borderWidth: 1,
+          titleColor: '#cd853f', bodyColor: '#c8b89a', padding: 12, cornerRadius: 6,
           callbacks: { label: ctx => `  ${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(0)}k` }
         }
       },
       scales: {
-        x: { ticks: { color: '#526070', font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.06)' } },
-        y: { ticks: { color: '#526070', callback: v => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k', font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.06)' } }
+        x: { ticks: { color: '#5a5040', font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } },
+        y: { ticks: { color: '#5a5040', callback: v => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k', font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } }
       }
     }
   });
