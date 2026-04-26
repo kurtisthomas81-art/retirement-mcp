@@ -53,8 +53,48 @@ SYSTEM_PROMPT = (
     "- Short paragraphs. Breathe. Don't lecture.\n"
     "- If you don't have the data to answer precisely, say so simply\n"
     "- No corporate filler: no 'It is worth noting', no 'As an AI', no 'Great question!'\n"
-    "- Today is {today}"
+    "- Today is {today}\n\n"
+    "2026 TAX & RETIREMENT RULES (verified IRS figures — use these, don't guess):\n"
+    "- 401k/403b limit: $24,500 base. Catch-up (50+): +$8,000. Super catch-up (60–63): +$11,250.\n"
+    "- IRA/Roth IRA: $7,500 under 50 / $8,600 age 50+.\n"
+    "- Roth-ification: If 2025 FICA wages > $150,000, ALL catch-up contributions must be Roth.\n"
+    "- Standard deduction: $16,100 single / $32,200 MFJ. Age 65+ adds $2,050 (single) / $1,650 (MFJ).\n"
+    "- Senior bonus deduction: extra $6,000 if age 65+ and MAGI < $75k (single) / $150k (MFJ).\n"
+    "- Long-term capital gains: 0% up to $49,450 (single) / $98,900 (MFJ) taxable income.\n"
+    "- NIIT: 3.8% surcharge on investment income if MAGI > $200k (single) / $250k (MFJ).\n"
+    "- Roth IRA phase-out: $153k–$168k (single) / $242k–$252k (MFJ)."
 )
+
+# ── 2026 Rules constant (single source of truth for API + AI context) ─────────
+RULES_2026 = {
+    "contrib_401k": 24500,
+    "catchup_50_plus": 8000,
+    "super_catchup_60_63": 11250,
+    "ira_roth_limit": 7500,
+    "ira_roth_50_plus": 8600,
+    "simple_ira_limit": 17000,
+    "rothification_income_threshold": 150000,
+    "std_deduction_single": 16100,
+    "std_deduction_mfj": 32200,
+    "senior_addl_deduction_single": 2050,
+    "senior_addl_deduction_mfj": 1650,
+    "senior_bonus_deduction": 6000,
+    "senior_bonus_magi_single": 75000,
+    "senior_bonus_magi_mfj": 150000,
+    "ltcg_0pct_single": 49450,
+    "ltcg_0pct_mfj": 98900,
+    "ltcg_15pct_single": 492300,
+    "ltcg_15pct_mfj": 553850,
+    "niit_threshold_single": 200000,
+    "niit_threshold_mfj": 250000,
+    "roth_phaseout_single_low": 153000,
+    "roth_phaseout_single_high": 168000,
+    "roth_phaseout_mfj_low": 242000,
+    "roth_phaseout_mfj_high": 252000,
+    "year": 2026,
+    "return_models": ["normal", "fat_tail", "regime_switch", "garch"],
+    "sim_sizes": ["1k", "10k", "100k", "1m"],
+}
 
 # ── MCP Server ────────────────────────────────────────────────────────────────
 
@@ -1248,39 +1288,7 @@ def run_retirement_simulation(
 # ── REST API handlers ──────────────────────────────────────────────────────────
 
 async def api_rules(request: Request):
-    return JSONResponse({
-        # Retirement contributions
-        "contrib_401k": 24500,
-        "catchup_50_plus": 8000,
-        "super_catchup_60_63": 11250,
-        "ira_roth_limit": 7500,
-        "ira_roth_50_plus": 8600,
-        "simple_ira_limit": 17000,
-        "rothification_income_threshold": 150000,  # FICA wages prior year
-        # Standard deductions
-        "std_deduction_single": 16100,
-        "std_deduction_mfj": 32200,
-        "senior_addl_deduction_single": 2050,   # age 65+
-        "senior_addl_deduction_mfj": 1650,      # age 65+
-        "senior_bonus_deduction": 6000,         # age 65+, MAGI < $75k/$150k
-        "senior_bonus_magi_single": 75000,
-        "senior_bonus_magi_mfj": 150000,
-        # Long-term capital gains
-        "ltcg_0pct_single": 49450,
-        "ltcg_0pct_mfj": 98900,
-        "ltcg_15pct_single": 492300,
-        "ltcg_15pct_mfj": 553850,
-        "niit_threshold_single": 200000,        # +3.8% net investment income tax
-        "niit_threshold_mfj": 250000,
-        # Roth IRA phase-out
-        "roth_phaseout_single_low": 153000,
-        "roth_phaseout_single_high": 168000,
-        "roth_phaseout_mfj_low": 242000,
-        "roth_phaseout_mfj_high": 252000,
-        "year": 2026,
-        "return_models": ["normal", "fat_tail", "regime_switch", "garch"],
-        "sim_sizes": ["1k", "10k", "100k", "1m"],
-    })
+    return JSONResponse(RULES_2026)
 
 async def api_ledger_dashboard(request: Request):
     try:
@@ -1646,6 +1654,18 @@ def _build_context_string(sim_data, dashboard_data):
         if extras:
             lines.append("\nADDITIONAL BALANCES:")
             lines.extend(extras)
+
+    r = RULES_2026
+    lines += [
+        "\n2026 TAX & RETIREMENT RULES:",
+        f"  401k limit: ${r['contrib_401k']:,}  |  Catch-up 50+: +${r['catchup_50_plus']:,}  |  Super catch-up 60–63: +${r['super_catchup_60_63']:,}",
+        f"  IRA/Roth: ${r['ira_roth_limit']:,} (<50) / ${r['ira_roth_50_plus']:,} (50+)  |  SIMPLE IRA: ${r['simple_ira_limit']:,}",
+        f"  Roth-ification threshold: ${r['rothification_income_threshold']:,} FICA wages (prior year)",
+        f"  Std deduction: ${r['std_deduction_single']:,} single / ${r['std_deduction_mfj']:,} MFJ  (+${r['senior_addl_deduction_single']:,}/${r['senior_addl_deduction_mfj']:,} if 65+)",
+        f"  Senior bonus deduction: ${r['senior_bonus_deduction']:,} if 65+ and MAGI < ${r['senior_bonus_magi_single']:,} single / ${r['senior_bonus_magi_mfj']:,} MFJ",
+        f"  LTCG 0%: ≤${r['ltcg_0pct_single']:,} single / ≤${r['ltcg_0pct_mfj']:,} MFJ  |  NIIT 3.8%: MAGI >${r['niit_threshold_single']:,} single / >${r['niit_threshold_mfj']:,} MFJ",
+        f"  Roth IRA phase-out: ${r['roth_phaseout_single_low']:,}–${r['roth_phaseout_single_high']:,} single / ${r['roth_phaseout_mfj_low']:,}–${r['roth_phaseout_mfj_high']:,} MFJ",
+    ]
 
     return '\n'.join(lines) if lines else 'No financial data available.'
 
