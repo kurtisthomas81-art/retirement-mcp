@@ -22,6 +22,35 @@ LEDGER_PATH = os.environ.get('LEDGER_PATH', os.path.join(os.path.dirname(os.path
 # Set OLLAMA_URL env var to override if Ollama container uses bridge networking (not host)
 OLLAMA_URL  = os.environ.get('OLLAMA_URL', 'http://172.17.0.1:11434')
 
+SYSTEM_PROMPT = (
+    "You are a sharp, direct fiduciary retirement advisor for Kurtis — "
+    "a 44-year-old Best Buy employee on track to retire at 62. You know his plan inside out. "
+    "Speak like a trusted advisor, not a chatbot. Be specific, reference exact numbers, "
+    "skip generic disclaimers. If a number isn't in the data, say so — never invent figures.\n\n"
+    "PERSONAL RETIREMENT STRATEGY — Money Machine V2.6:\n"
+    "- Retire at 62 (target). Work identity kept until then; no early exit pressure.\n"
+    "- SGOV Bridge Moat: $300,000 carved into SGOV at retirement to cover the 62–67 gap. "
+    "  This funds a strict floor draw without touching the equity engine during sequence risk.\n"
+    "- Social Security: Claim at 67. Projected $36,697/yr. This covers the entire annual floor.\n"
+    "- Protocol Alpha: At 67, SS income = floor cost → 0% withdrawal rate from investments. "
+    "  The portfolio becomes a pure wealth-compounding machine post-67.\n"
+    "- Lifestyle Ratchet: Discretionary spending unlocks only when portfolio hits 1.5× the "
+    "  retirement-entry balance. Prevents lifestyle creep in early retirement.\n"
+    "- Spending Smile: Go-go (62–75) active travel spending, slow-go (75–85) declining, "
+    "  no-go (85+) minimal. Skim rates adjust by phase.\n"
+    "- Freedom Levels: A tiered system of financial milestones tracked in the ledger. "
+    "  Reference achieved vs pending levels when relevant.\n"
+    "- Equity engine: VTI-heavy brokerage (Schwab). Not touched during bridge period.\n"
+    "- Key risk: Sequence-of-returns in first 5 years of retirement. The SGOV moat is the "
+    "  primary defense. Secondary: Ripcord — claim SS early at 62 if moat runway < 5 years.\n\n"
+    "RESPONSE STYLE:\n"
+    "- 2–4 paragraphs for analysis; bullet points for action items\n"
+    "- Always lead with the number that matters most\n"
+    "- Name risks plainly (e.g., 'moat breach rate is X% — that's elevated')\n"
+    "- No filler phrases like 'Great question!' or 'It's important to note that'\n"
+    "- Today is {today}"
+)
+
 # ── MCP Server ────────────────────────────────────────────────────────────────
 
 mcp = FastMCP("RetirementAuditor", host="0.0.0.0", port=8000)
@@ -1539,7 +1568,94 @@ def _build_context_string(sim_data, dashboard_data):
         if sp:
             lines.append(f"  Monthly spending: ${sp.get('monthly_total',0):,.0f}")
             if sp.get('savings_rate'): lines.append(f"  Savings rate: {sp['savings_rate']:.1f}%")
+    # Freedom levels
+    if dashboard_data and dashboard_data.get('freedom_levels'):
+        lines.append("\nFREEDOM LEVELS:")
+        for lv in dashboard_data['freedom_levels']:
+            prog = lv.get('progress')
+            status = lv.get('status') or ('✓ Achieved' if (prog and prog >= 1) else '… Pending')
+            goal = f"  (goal: ${lv['goal']:,.0f})" if isinstance(lv.get('goal'), (int, float)) else ''
+            lines.append(f"  {lv['name']}{goal}: {status}")
+
+    # Asset allocation
+    if dashboard_data and dashboard_data.get('allocation'):
+        lines.append("\nASSET ALLOCATION:")
+        for k, v in dashboard_data['allocation'].items():
+            lines.append(f"  {k}: {v:.1f}%")
+
+    # Spending by category — most recent month
+    if dashboard_data and dashboard_data.get('spending') and dashboard_data.get('spending_months'):
+        months = dashboard_data['spending_months']
+        lines.append(f"\nSPENDING (most recent: {months[0] if months else 'N/A'}):")
+        for cat, vals in dashboard_data['spending'].items():
+            if vals and isinstance(vals[0], (int, float)):
+                lines.append(f"  {cat}: ${vals[0]:,.0f}")
+
+    # Additional balance details
+    if dashboard_data:
+        mc = dashboard_data.get('mc_prefill', {})
+        extras = []
+        if mc.get('checking_balance'): extras.append(f"  Checking balance: ${mc['checking_balance']:,.0f}")
+        if mc.get('monthly_burn'):     extras.append(f"  Monthly burn: ${mc['monthly_burn']:,.0f}")
+        if mc.get('annual_floor_cost'): extras.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
+        if extras:
+            lines.append("\nADDITIONAL BALANCES:")
+            lines.extend(extras)
+
     return '\n'.join(lines) if lines else 'No financial data available.'
+
+async def api_chat_stream(request: Request):
+    import json as _json
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({'error': 'invalid JSON'}, status_code=400)
+    message        = str(body.get('message', '')).strip()
+    context_type   = body.get('context_type', 'all')
+    model          = body.get('model', 'llama3.1:8b')
+    history        = body.get('history', [])
+    sim_data       = body.get('sim_data') if context_type in ('all', 'simulation') else None
+    dashboard_data = None
+    if context_type in ('all', 'dashboard'):
+        try:
+            dashboard_data = await asyncio.to_thread(read_dashboard_data)
+        except Exception:
+            pass
+    ctx = _build_context_string(sim_data, dashboard_data)
+    system_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    system_prompt = system_prompt + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
+    messages = [{'role': 'system', 'content': system_prompt}]
+    for turn in history[-8:]:
+        if turn.get('role') in ('user', 'assistant') and turn.get('content'):
+            messages.append({'role': turn['role'], 'content': turn['content']})
+    messages.append({'role': 'user', 'content': message})
+
+    async def generate():
+        try:
+            resp = requests.post(
+                f"{OLLAMA_URL}/api/chat",
+                json={'model': model, 'messages': messages, 'stream': True},
+                stream=True,
+                timeout=120
+            )
+            for line in resp.iter_lines():
+                if line:
+                    chunk = _json.loads(line)
+                    token = chunk.get('message', {}).get('content', '')
+                    if token:
+                        yield f"data: {_json.dumps({'token': token})}\n\n"
+                    if chunk.get('done'):
+                        yield "data: [DONE]\n\n"
+                        break
+        except requests.exceptions.ConnectionError:
+            yield f"data: {_json.dumps({'error': f'Ollama unreachable at {OLLAMA_URL}'})}\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'error': str(e)})}\n\n"
+
+    from starlette.responses import StreamingResponse
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
 
 async def api_chat(request: Request):
     try:
@@ -1558,18 +1674,8 @@ async def api_chat(request: Request):
         except Exception:
             pass
     ctx = _build_context_string(sim_data, dashboard_data)
-    system_prompt = (
-        f"You are a fiduciary retirement planning AI for Road To FI, a personal finance PWA.\n"
-        f"Today is {time.strftime('%Y-%m-%d')}. This user plans to retire at age 62, "
-        f"claim Social Security at 67, and uses a SGOV bridge moat strategy for the 5-year gap.\n\n"
-        f"LIVE FINANCIAL DATA (reference these exact numbers):\n{ctx}\n\n"
-        f"Guidelines:\n"
-        f"- Reference specific numbers from the data above. Never invent figures.\n"
-        f"- Draw on your knowledge of historical market returns, safe withdrawal rate research, "
-        f"CAPE ratios, sequence-of-returns risk, IRMAA thresholds, and tax bracket mechanics where relevant.\n"
-        f"- Identify trends and anomalies. Be direct about risks.\n"
-        f"- Responses: 2-4 paragraphs unless asked for something shorter."
-    )
+    system_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    system_prompt = system_prompt + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
     messages = [{'role': 'system', 'content': system_prompt}]
     for turn in history[-8:]:
         if turn.get('role') in ('user', 'assistant') and turn.get('content'):
@@ -1602,6 +1708,11 @@ async def api_summarize(request: Request):
     summary_type = body.get('summary_type', 'playbook')
     sim_data     = body.get('sim_data')
     dash_data    = body.get('dashboard_data')
+    if not dash_data:
+        try:
+            dash_data = await asyncio.to_thread(read_dashboard_data)
+        except Exception:
+            pass
     ctx = _build_context_string(sim_data, dash_data)
     today = time.strftime('%Y-%m-%d')
     if summary_type == 'playbook':
@@ -1630,7 +1741,11 @@ async def api_summarize(request: Request):
             f"and one concrete mitigation strategy based on the data.\n"
             f"Use specific numbers throughout. No generic advice. Plain text, no headers or bullets."
         )
-    messages = [{'role': 'user', 'content': prompt}]
+    sys_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    messages = [
+        {'role': 'system', 'content': sys_prompt},
+        {'role': 'user',   'content': prompt},
+    ]
     t0 = time.time()
     try:
         resp = await asyncio.to_thread(
@@ -2278,6 +2393,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .chat-input-row textarea { flex: 1; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-size: 0.73rem; padding: 7px 10px; resize: none; line-height: 1.4; font-family: var(--font-ui); }
   .chat-send { background: var(--pink); border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: opacity 0.15s; }
   .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-cursor { display: inline-block; animation: blink 0.7s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
   .compare-better { color: var(--green); font-weight: 700; } .compare-worse { color: var(--red); }
   .pin-btn { float: right; font-size: 0.60rem; padding: 4px 10px; margin-top: -2px; border-radius: 6px; min-height: 28px; }
 
@@ -5259,19 +5376,49 @@ async function sendChat() {
       sim_data:       window._lastMCResult   || null,
       dashboard_data: window._lastDashboard  || null,
     };
-    const r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    const d = await r.json();
     thinkBubble.remove();
     const aiBubble = document.createElement('div');
     aiBubble.className = 'chat-msg-ai';
-    if (d.error) {
-      aiBubble.style.color = 'var(--red)';
-      aiBubble.textContent = '\u26a0 ' + d.error;
-    } else {
-      aiBubble.innerHTML = mdLite(d.reply);
-      chatMessages.push({role: 'assistant', content: d.reply});
-    }
+    aiBubble.innerHTML = '<span class="chat-cursor">\u258b</span>';
     hist.appendChild(aiBubble);
+
+    const streamResp = await fetch('/api/chat/stream', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!streamResp.ok || !streamResp.body) {
+      aiBubble.style.color = 'var(--red)';
+      aiBubble.textContent = '\u26a0 Stream error.';
+    } else {
+      const reader = streamResp.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      outer: while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, {stream: true});
+        for (const line of text.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const payload2 = line.slice(6).trim();
+          if (payload2 === '[DONE]') { break outer; }
+          try {
+            const chunk = JSON.parse(payload2);
+            if (chunk.error) {
+              aiBubble.style.color = 'var(--red)';
+              aiBubble.textContent = '\u26a0 ' + chunk.error;
+              break outer;
+            }
+            if (chunk.token) {
+              accumulated += chunk.token;
+              aiBubble.innerHTML = mdLite(accumulated) + '<span class="chat-cursor">\u258b</span>';
+              hist.scrollTop = hist.scrollHeight;
+            }
+          } catch {}
+        }
+      }
+      aiBubble.innerHTML = mdLite(accumulated);
+      chatMessages.push({role: 'assistant', content: accumulated});
+    }
   } catch(e) {
     thinkBubble.remove();
     const errBubble = document.createElement('div');
@@ -5381,6 +5528,7 @@ app = Starlette(routes=[
     Route("/api/tax-loss", api_tax_loss),
     Route("/api/grid-search", api_grid_search, methods=["POST"]),
     Route("/api/chat", api_chat, methods=["POST"]),
+    Route("/api/chat/stream", api_chat_stream, methods=["POST"]),
     Route("/api/summarize", api_summarize, methods=["POST"]),
     Route("/.well-known/oauth-authorization-server", oauth_metadata),
     Route("/oauth/token", oauth_token, methods=["GET", "POST"]),
