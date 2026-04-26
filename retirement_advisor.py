@@ -1249,12 +1249,34 @@ def run_retirement_simulation(
 
 async def api_rules(request: Request):
     return JSONResponse({
+        # Retirement contributions
         "contrib_401k": 24500,
         "catchup_50_plus": 8000,
         "super_catchup_60_63": 11250,
         "ira_roth_limit": 7500,
         "ira_roth_50_plus": 8600,
-        "rothification_income_threshold": 145000,
+        "simple_ira_limit": 17000,
+        "rothification_income_threshold": 150000,  # FICA wages prior year
+        # Standard deductions
+        "std_deduction_single": 16100,
+        "std_deduction_mfj": 32200,
+        "senior_addl_deduction_single": 2050,   # age 65+
+        "senior_addl_deduction_mfj": 1650,      # age 65+
+        "senior_bonus_deduction": 6000,         # age 65+, MAGI < $75k/$150k
+        "senior_bonus_magi_single": 75000,
+        "senior_bonus_magi_mfj": 150000,
+        # Long-term capital gains
+        "ltcg_0pct_single": 49450,
+        "ltcg_0pct_mfj": 98900,
+        "ltcg_15pct_single": 492300,
+        "ltcg_15pct_mfj": 553850,
+        "niit_threshold_single": 200000,        # +3.8% net investment income tax
+        "niit_threshold_mfj": 250000,
+        # Roth IRA phase-out
+        "roth_phaseout_single_low": 153000,
+        "roth_phaseout_single_high": 168000,
+        "roth_phaseout_mfj_low": 242000,
+        "roth_phaseout_mfj_high": 252000,
         "year": 2026,
         "return_models": ["normal", "fat_tail", "regime_switch", "garch"],
         "sim_sizes": ["1k", "10k", "100k", "1m"],
@@ -3382,9 +3404,18 @@ async function loadRules() {
       <div class="stat-card accent-sky"><div class="sc-label">Catch-up (50+)</div><div class="sc-value" style="font-size:1.2rem;">$${d.catchup_50_plus.toLocaleString()}</div><div class="sc-sub">additional</div></div>
       <div class="stat-card accent-violet"><div class="sc-label">Super Catch-up (60–63)</div><div class="sc-value" style="font-size:1.2rem;">$${d.super_catchup_60_63.toLocaleString()}</div><div class="sc-sub">replaces standard</div></div>
       <div class="stat-card accent-emerald"><div class="sc-label">IRA / Roth IRA</div><div class="sc-value" style="font-size:1.2rem;">$${d.ira_roth_limit.toLocaleString()}</div><div class="sc-sub">$${d.ira_roth_50_plus.toLocaleString()} if 50+</div></div>
+      <div class="stat-card accent-amber"><div class="sc-label">SIMPLE IRA</div><div class="sc-value" style="font-size:1.2rem;">$${d.simple_ira_limit.toLocaleString()}</div><div class="sc-sub">employee limit</div></div>
+      <div class="stat-card accent-sky"><div class="sc-label">Std Deduction (Single)</div><div class="sc-value" style="font-size:1.2rem;">$${d.std_deduction_single.toLocaleString()}</div><div class="sc-sub">+$${d.senior_addl_deduction_single.toLocaleString()} if 65+</div></div>
+      <div class="stat-card accent-sky"><div class="sc-label">Std Deduction (MFJ)</div><div class="sc-value" style="font-size:1.2rem;">$${d.std_deduction_mfj.toLocaleString()}</div><div class="sc-sub">+$${d.senior_addl_deduction_mfj.toLocaleString()} if 65+</div></div>
+      <div class="stat-card accent-violet"><div class="sc-label">Senior Bonus Deduction</div><div class="sc-value" style="font-size:1.2rem;">$${d.senior_bonus_deduction.toLocaleString()}</div><div class="sc-sub">65+, MAGI &lt; $${(d.senior_bonus_magi_single/1000).toFixed(0)}k/$${(d.senior_bonus_magi_mfj/1000).toFixed(0)}k</div></div>
+      <div class="stat-card accent-emerald"><div class="sc-label">LTCG 0% (Single)</div><div class="sc-value" style="font-size:1.2rem;">≤ $${d.ltcg_0pct_single.toLocaleString()}</div><div class="sc-sub">taxable income</div></div>
+      <div class="stat-card accent-emerald"><div class="sc-label">LTCG 0% (MFJ)</div><div class="sc-value" style="font-size:1.2rem;">≤ $${d.ltcg_0pct_mfj.toLocaleString()}</div><div class="sc-sub">taxable income</div></div>
+      <div class="stat-card accent-amber"><div class="sc-label">NIIT (3.8%)</div><div class="sc-value" style="font-size:1.2rem;">$${(d.niit_threshold_single/1000).toFixed(0)}k / $${(d.niit_threshold_mfj/1000).toFixed(0)}k</div><div class="sc-sub">single / MFJ trigger</div></div>
+      <div class="stat-card accent-violet"><div class="sc-label">Roth IRA Phase-out (Single)</div><div class="sc-value" style="font-size:1rem;">$${(d.roth_phaseout_single_low/1000).toFixed(0)}k–$${(d.roth_phaseout_single_high/1000).toFixed(0)}k</div><div class="sc-sub">MAGI range</div></div>
+      <div class="stat-card accent-violet"><div class="sc-label">Roth IRA Phase-out (MFJ)</div><div class="sc-value" style="font-size:1rem;">$${(d.roth_phaseout_mfj_low/1000).toFixed(0)}k–$${(d.roth_phaseout_mfj_high/1000).toFixed(0)}k</div><div class="sc-sub">MAGI range</div></div>
     `;
     document.getElementById('rothNote').innerHTML =
-      `<span>&#9888; Roth-ification rule:</span> If ${d.year-1} income &gt; $${d.rothification_income_threshold.toLocaleString()}, catch-up contributions <strong>must</strong> go Roth.`;
+      `<span>&#9888; Roth-ification rule:</span> If ${d.year-1} FICA wages &gt; $${d.rothification_income_threshold.toLocaleString()}, catch-up contributions <strong>must</strong> go Roth (SECURE 2.0).`;
     rulesLoaded = true;
   } catch(e) {
     document.getElementById('rulesGrid').innerHTML = '<div class="stat-card"><div class="sc-label" style="color:var(--red)">Failed to load</div></div>';
