@@ -1630,7 +1630,7 @@ async def api_chat_stream(request: Request):
             messages.append({'role': turn['role'], 'content': turn['content']})
     messages.append({'role': 'user', 'content': message})
 
-    async def generate():
+    def generate():
         try:
             resp = requests.post(
                 f"{OLLAMA_URL}/api/chat",
