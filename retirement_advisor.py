@@ -63,12 +63,30 @@ mcp = FastMCP("RetirementAuditor", host="0.0.0.0", port=8000)
 @mcp.resource("finance://2026_rules")
 def get_2026_rules() -> str:
     return """
-    2026 RETIREMENT LIMITS (GROUND TRUTH):
-    - 401k/403b Limit: $24,500
-    - Standard Catch-up (Age 50+): $8,000
-    - 'Super' Catch-up (Age 60-63): $11,250
-    - IRA/Roth Limit: $7,500 ($8,600 if 50+)
-    - ROTH-IFICATION: If 2025 income >$145k, catch-ups MUST be Roth.
+    2026 TAX & RETIREMENT RULES (GROUND TRUTH — IRS confirmed):
+
+    RETIREMENT CONTRIBUTION LIMITS:
+    - 401k/403b employee limit: $24,500
+    - Catch-up (age 50+): $8,000 additional
+    - Super catch-up (age 60–63): $11,250 additional (SECURE 2.0)
+    - IRA/Roth IRA limit: $7,500 (under 50) / $8,600 (age 50+)
+    - SIMPLE IRA limit: $17,000
+    - ROTH-IFICATION MANDATE: If 2025 FICA wages > $150,000, ALL catch-up contributions must be Roth (no pre-tax option). Threshold indexed periodically.
+
+    ROTH IRA INCOME PHASE-OUT:
+    - Single / Head of Household: $153,000–$168,000
+    - Married Filing Jointly: $242,000–$252,000
+
+    FEDERAL INCOME TAX BRACKETS (2026, 7 brackets: 10/12/22/24/32/35/37%):
+    - Standard deduction: $16,100 (single) / $32,200 (married filing jointly)
+    - Additional standard deduction (age 65+): $2,050 (single) / $1,650 (MFJ)
+    - Senior bonus deduction (age 65+, MAGI < $75k single / $150k MFJ): extra $6,000
+
+    LONG-TERM CAPITAL GAINS RATES (2026):
+    - 0% rate: taxable income ≤ $49,450 (single) / $98,900 (MFJ)
+    - 15% rate: up to $492,300 (single) / $553,850 (MFJ)
+    - 20% rate: above those thresholds
+    - Net Investment Income Tax (NIIT): +3.8% if MAGI > $200k (single) / $250k (MFJ)
     """
 
 @mcp.tool()
