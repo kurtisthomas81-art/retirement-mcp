@@ -5498,7 +5498,7 @@ async function saveFinnCorrection(userMsg, finnReply) {
     if (d.ok) {
       const toast = document.createElement('div');
       toast.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#1a3a1a;color:#4ade80;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;border:1px solid #4ade80;';
-      toast.textContent = '📌 Saved to Finn\'s memory';
+      toast.textContent = '📌 Saved to Finn memory';
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
@@ -5566,7 +5566,7 @@ async function sendChat() {
       chatMessages.push({role: 'assistant', content: reply});
       const rememberBtn = document.createElement('button');
       rememberBtn.className = 'finn-remember-btn';
-      rememberBtn.title = 'Save a correction to Finn\'s memory';
+      rememberBtn.title = 'Save a correction to Finn memory';
       rememberBtn.innerHTML = '&#128204; Remember a correction';
       rememberBtn.onclick = () => saveFinnCorrection(msg, reply);
       aiBubble.appendChild(rememberBtn);
