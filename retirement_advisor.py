@@ -2553,6 +2553,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <button class="tab-btn" data-tab="roadmap" onclick="switchTab('roadmap',this)">Roadmap</button>
   <button class="tab-btn" data-tab="transactions" onclick="switchTab('transactions',this)">Transactions</button>
   <button class="tab-btn" data-tab="forecast" onclick="switchTab('forecast',this)">Forecast</button>
+  <button class="tab-btn" data-tab="chat" onclick="switchTab('chat',this)">&#129302; AI Advisor</button>
 </nav>
 
 <!-- Mobile bottom navigation -->
@@ -2596,6 +2597,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <button class="bn-item" data-tab="taxloss" onclick="switchTab('taxloss',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
     Tax Loss
+  </button>
+  <button class="bn-item" data-tab="chat" onclick="switchTab('chat',this)">
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+    AI Advisor
   </button>
 </nav>
 
@@ -2996,6 +3001,10 @@ function switchTab(name, btn) {
   if (name === 'transactions' && !transactionsLoaded) loadTransactions(1);
   if (name === 'forecast'     && !forecastLoaded)     loadForecast();
   if (name === 'taxloss'      && !taxlossLoaded)      loadTaxLoss();
+  if (name === 'chat') {
+    if (chatMessages.length === 0) showChatSuggestions();
+    setTimeout(() => document.getElementById('chatInput')?.focus(), 80);
+  }
   if (name === 'rothlad') {
     // Pre-fill from ledger data if available
     const rl = document.getElementById('rl_trad');
@@ -5271,31 +5280,37 @@ async function loadTaxLoss() {
 loadHome();
 </script>
 
-<!-- ══ CHAT FAB + OVERLAY ══════════════════════════════════════════════════ -->
-<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="Ask AI">&#129302;</button>
-<div id="chatOverlay" class="chat-overlay" style="display:none;">
-  <div class="chat-hdr">
-    <span>&#129302; Ask AI</span>
-    <select id="chatCtx" title="Context">
+<!-- ══ AI ADVISOR TAB ═══════════════════════════════════════════════════════ -->
+<div id="tab-chat" class="tab-pane">
+<main style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;height:calc(100vh - var(--bottom-nav-h) - 48px);padding:16px 16px 8px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <span style="font-size:1.4rem;">&#129302;</span>
+    <h2 style="margin:0;font-size:1.1rem;color:var(--gold);">AI Advisor</h2>
+    <select id="chatCtx" title="Context" style="margin-left:auto;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;">
       <option value="all">All data</option>
       <option value="simulation">Last Sim</option>
       <option value="dashboard">Dashboard</option>
     </select>
-    <button onclick="clearChat()" title="Clear history">&#8635;</button>
-    <button onclick="toggleChat()" title="Close">&#10005;</button>
+    <select id="aiModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-family:var(--font-mono);">
+      <option value="llama3.1:8b">llama3.1:8b</option>
+      <option value="llama3.2:3b">llama3.2:3b</option>
+      <option value="mistral">mistral</option>
+    </select>
+    <button onclick="clearChat()" title="Clear history" style="background:none;border:1px solid var(--border2);color:var(--muted2);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.85rem;">&#8635; Clear</button>
   </div>
-  <div id="chatHistory" class="chat-hist"></div>
-  <div class="chat-input-row">
+  <div id="chatHistory" class="chat-hist" style="flex:1;overflow-y:auto;min-height:0;"></div>
+  <div class="chat-input-row" style="margin-top:8px;">
     <textarea id="chatInput" placeholder="Ask about your finances\u2026" rows="2"
+      style="flex:1;resize:none;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px 12px;font-size:0.9rem;font-family:inherit;"
       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
     <button class="chat-send" id="chatSendBtn" onclick="sendChat()">&#8593;</button>
   </div>
+</main>
 </div>
 
 <script>
 // ── Chat globals ──────────────────────────────────────────────────────────────
 let chatMessages = [];
-let chatOpen = false;
 const CHAT_SUGGESTIONS = [
   "What\u2019s my plan\u2019s biggest tail risk?",
   "Is my SGOV moat sized correctly for my bridge period?",
@@ -5304,16 +5319,10 @@ const CHAT_SUGGESTIONS = [
   "How long until I hit my FI number at current pace?"
 ];
 
-function toggleChat() {
-  chatOpen = !chatOpen;
-  const ov = document.getElementById('chatOverlay');
-  ov.style.display = chatOpen ? 'flex' : 'none';
-  if (chatOpen) {
-    if (chatMessages.length === 0) showChatSuggestions();
-    const hist = document.getElementById('chatHistory');
-    hist.scrollTop = hist.scrollTop + 9999;
-    setTimeout(() => document.getElementById('chatInput')?.focus(), 80);
-  }
+function openChatTab() {
+  switchTab('chat', document.querySelector('[data-tab="chat"]'));
+  if (chatMessages.length === 0) showChatSuggestions();
+  setTimeout(() => document.getElementById('chatInput')?.focus(), 80);
 }
 
 function showChatSuggestions() {
