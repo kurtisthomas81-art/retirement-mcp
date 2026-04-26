@@ -5291,7 +5291,7 @@ loadHome();
       <option value="simulation">Last Sim</option>
       <option value="dashboard">Dashboard</option>
     </select>
-    <select id="aiModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-family:var(--font-mono);">
+    <select id="chatModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-family:var(--font-mono);">
       <option value="llama3.1:8b">llama3.1:8b</option>
       <option value="llama3.2:3b">llama3.2:3b</option>
       <option value="mistral">mistral</option>
@@ -5374,66 +5374,41 @@ async function sendChat() {
 
   chatMessages.push({role: 'user', content: msg});
 
+  const ctx   = document.getElementById('chatCtx')?.value || 'all';
+  const model = document.getElementById('chatModel')?.value || document.getElementById('aiModel')?.value || 'llama3.1:8b';
+  const payload = {
+    message:        msg,
+    context_type:   ctx,
+    model:          model,
+    history:        chatMessages.slice(-8),
+    sim_data:       window._lastMCResult  || null,
+    dashboard_data: window._lastDashboard || null,
+  };
+
   try {
-    const ctx    = document.getElementById('chatCtx').value;
-    const model  = document.getElementById('aiModel')?.value || 'llama3.1:8b';
-    const payload = {
-      message:        msg,
-      context_type:   ctx,
-      model:          model,
-      history:        chatMessages.slice(-8),
-      sim_data:       window._lastMCResult   || null,
-      dashboard_data: window._lastDashboard  || null,
-    };
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
     thinkBubble.remove();
     const aiBubble = document.createElement('div');
     aiBubble.className = 'chat-msg-ai';
-    aiBubble.innerHTML = '<span class="chat-cursor">\u258b</span>';
-    hist.appendChild(aiBubble);
-
-    const streamResp = await fetch('/api/chat/stream', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
-    if (!streamResp.ok || !streamResp.body) {
+    if (d.error) {
       aiBubble.style.color = 'var(--red)';
-      aiBubble.textContent = '\u26a0 Stream error.';
+      aiBubble.textContent = '\u26a0 ' + d.error;
     } else {
-      const reader = streamResp.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-      outer: while (true) {
-        const {value, done} = await reader.read();
-        if (done) break;
-        const text = decoder.decode(value, {stream: true});
-        for (const line of text.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const payload2 = line.slice(6).trim();
-          if (payload2 === '[DONE]') { break outer; }
-          try {
-            const chunk = JSON.parse(payload2);
-            if (chunk.error) {
-              aiBubble.style.color = 'var(--red)';
-              aiBubble.textContent = '\u26a0 ' + chunk.error;
-              break outer;
-            }
-            if (chunk.token) {
-              accumulated += chunk.token;
-              aiBubble.innerHTML = mdLite(accumulated) + '<span class="chat-cursor">\u258b</span>';
-              hist.scrollTop = hist.scrollHeight;
-            }
-          } catch {}
-        }
-      }
-      aiBubble.innerHTML = mdLite(accumulated);
-      chatMessages.push({role: 'assistant', content: accumulated});
+      aiBubble.innerHTML = mdLite(d.reply || '');
+      chatMessages.push({role: 'assistant', content: d.reply || ''});
     }
+    hist.appendChild(aiBubble);
   } catch(e) {
     thinkBubble.remove();
     const errBubble = document.createElement('div');
     errBubble.className = 'chat-msg-ai';
     errBubble.style.color = 'var(--red)';
-    errBubble.textContent = '\u26a0 Could not reach Ollama. Check OLLAMA_URL setting.';
+    errBubble.textContent = '\u26a0 Could not reach server: ' + e.message;
     hist.appendChild(errBubble);
   }
   hist.scrollTop = 99999;
