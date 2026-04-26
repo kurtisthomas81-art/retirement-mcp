@@ -30,7 +30,11 @@ SYSTEM_PROMPT = (
     "FIDUCIARY STANDARD: Always give the advice you would give a close family member. "
     "Flag risks plainly. Never omit a concern to avoid discomfort. Never recommend something "
     "you wouldn't stake your own reputation on.\n\n"
-    "Always use 'you' and 'your'. Never use their name.\n\n"
+    "CLIENT PROFILE:\n"
+    "- Name: Kurtis (always say 'you'/'your' in responses — never use the name)\n"
+    "- DOB: January 29, 1981 | Current age: {age}\n"
+    "- Employer: Best Buy\n"
+    "- Target retirement: age 62 ({retire_year}) — {years_to_retire} years away\n\n"
     "RESPONSE LENGTH — match to the question:\n"
     "- Simple factual question → 1–2 sentences. Stop there.\n"
     "- Analysis or 'am I on track' → 2–3 short paragraphs max.\n"
@@ -314,14 +318,17 @@ def read_dashboard_data():
     # Derived MC pre-fill values
     engine_bal = max(0.0, nw['total_invested'] - nw['sgov_balance'])
     mc_prefill = {
-        "current_age":       None,   # not in ledger — user enters
-        "engine_balance":    round(engine_bal),
-        "sgov_balance":      round(nw['sgov_balance']),
-        "checking_balance":  round(nw['checking_balance']),
-        "full_ss_annual":    round(nw['ss_monthly_67'] * 12),
-        "ss_monthly_67":     nw['ss_monthly_67'],
-        "monthly_burn":      round(nw['monthly_burn']),
-        "annual_floor_cost": round(nw['monthly_burn'] * 12),
+        "current_age":        None,   # not in ledger — user enters
+        "engine_balance":     round(engine_bal),
+        "sgov_balance":       round(nw['sgov_balance']),
+        "checking_balance":   round(nw['checking_balance']),
+        "full_ss_annual":     round(nw['ss_monthly_67'] * 12),
+        "ss_monthly_67":      nw['ss_monthly_67'],
+        "ss_monthly_62":      nw['ss_monthly_62'],
+        "ss_monthly_70":      nw['ss_monthly_70'],
+        "monthly_burn":       round(nw['monthly_burn']),
+        "annual_floor_cost":  round(nw['monthly_burn'] * 12),
+        "net_monthly_income": round(nw['net_monthly_income']),
     }
 
     return {
@@ -1289,6 +1296,20 @@ def run_retirement_simulation(
     ]
     return "\n".join(lines)
 
+def _fmt_system_prompt():
+    from datetime import date
+    dob = date(1981, 1, 29)
+    today_d = date.today()
+    age = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
+    retire_year = 1981 + 62
+    years_to_retire = retire_year - today_d.year
+    return SYSTEM_PROMPT.format(
+        today=today_d.isoformat(),
+        age=age,
+        retire_year=retire_year,
+        years_to_retire=years_to_retire,
+    )
+
 # ── REST API handlers ──────────────────────────────────────────────────────────
 
 async def api_rules(request: Request):
@@ -1609,22 +1630,28 @@ def _build_context_string(sim_data, dashboard_data):
         if ls:
             lines.append(f"  Lifetime spend P50: ${ls.get('p50_total',0):,.0f} (go-go ${ls.get('p50_gogo',0):,.0f} / slow-go ${ls.get('p50_slowgo',0):,.0f} / no-go ${ls.get('p50_nogo',0):,.0f})")
     if dashboard_data:
-        nw = dashboard_data.get('net_worth', {})
-        sp = dashboard_data.get('spending', {})
+        m  = dashboard_data.get('metrics', {})
         mc = dashboard_data.get('mc_prefill', {})
-        if nw:
-            lines += [
-                "\nCURRENT FINANCIAL SNAPSHOT:",
-                f"  Liquid net worth: ${nw.get('liquid_nw',0):,.0f}",
-                f"  Total net worth: ${nw.get('total_nw',0):,.0f}",
-            ]
+        lnw = m.get('LIQUID NET WORTH', 0) or 0
+        tnw = m.get('TOTAL NET WORTH', 0) or 0
+        pct = float(m.get('PROGRESS TO FI', 0) or 0) * 100
+        fi_target  = m.get('FI TARGET (Age 62)', 0) or 0
+        runway     = m.get('SURVIVAL RUNWAY')
+        lines += [
+            "\nCURRENT FINANCIAL SNAPSHOT:",
+            f"  Liquid net worth: ${lnw:,.0f}",
+            f"  Total net worth: ${tnw:,.0f}",
+            f"  FI progress: {pct:.1f}%  (target: ${fi_target:,.0f})",
+        ]
+        if runway: lines.append(f"  Survival runway: {runway}")
         if mc:
-            if mc.get('engine_balance'): lines.append(f"  VTI/brokerage balance: ${mc['engine_balance']:,.0f}")
-            if mc.get('sgov_balance'):   lines.append(f"  SGOV balance: ${mc['sgov_balance']:,.0f}")
-            if mc.get('full_ss_annual'): lines.append(f"  Projected SS benefit: ${mc['full_ss_annual']:,.0f}/yr")
-        if sp:
-            lines.append(f"  Monthly spending: ${sp.get('monthly_total',0):,.0f}")
-            if sp.get('savings_rate'): lines.append(f"  Savings rate: {sp['savings_rate']:.1f}%")
+            if mc.get('engine_balance'):    lines.append(f"  VTI/brokerage balance: ${mc['engine_balance']:,.0f}")
+            if mc.get('sgov_balance'):      lines.append(f"  SGOV / bridge fund balance: ${mc['sgov_balance']:,.0f}")
+            if mc.get('checking_balance'):  lines.append(f"  Checking balance: ${mc['checking_balance']:,.0f}")
+            if mc.get('full_ss_annual'):    lines.append(f"  Projected SS benefit (age 67): ${mc['full_ss_annual']:,.0f}/yr")
+            if mc.get('monthly_burn'):      lines.append(f"  Monthly burn rate: ${mc['monthly_burn']:,.0f}")
+            if mc.get('annual_floor_cost'): lines.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
+            if mc.get('net_monthly_income'):lines.append(f"  Net monthly income: ${mc['net_monthly_income']:,.0f}")
     # Freedom levels
     if dashboard_data and dashboard_data.get('freedom_levels'):
         lines.append("\nFREEDOM LEVELS:")
@@ -1647,17 +1674,6 @@ def _build_context_string(sim_data, dashboard_data):
         for cat, vals in dashboard_data['spending'].items():
             if vals and isinstance(vals[0], (int, float)):
                 lines.append(f"  {cat}: ${vals[0]:,.0f}")
-
-    # Additional balance details
-    if dashboard_data:
-        mc = dashboard_data.get('mc_prefill', {})
-        extras = []
-        if mc.get('checking_balance'): extras.append(f"  Checking balance: ${mc['checking_balance']:,.0f}")
-        if mc.get('monthly_burn'):     extras.append(f"  Monthly burn: ${mc['monthly_burn']:,.0f}")
-        if mc.get('annual_floor_cost'): extras.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
-        if extras:
-            lines.append("\nADDITIONAL BALANCES:")
-            lines.extend(extras)
 
     r = RULES_2026
     lines += [
@@ -1691,7 +1707,7 @@ async def api_chat_stream(request: Request):
         except Exception:
             pass
     ctx = _build_context_string(sim_data, dashboard_data)
-    system_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    system_prompt = _fmt_system_prompt()
     system_prompt = system_prompt + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
     messages = [{'role': 'system', 'content': system_prompt}]
     for turn in history[-8:]:
@@ -1743,7 +1759,7 @@ async def api_chat(request: Request):
         except Exception:
             pass
     ctx = _build_context_string(sim_data, dashboard_data)
-    system_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    system_prompt = _fmt_system_prompt()
     system_prompt = system_prompt + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
     messages = [{'role': 'system', 'content': system_prompt}]
     for turn in history[-8:]:
@@ -1810,7 +1826,7 @@ async def api_summarize(request: Request):
             f"and one concrete mitigation strategy based on the data.\n"
             f"Use specific numbers throughout. No generic advice. Plain text, no headers or bullets."
         )
-    sys_prompt = SYSTEM_PROMPT.format(today=time.strftime('%Y-%m-%d'))
+    sys_prompt = _fmt_system_prompt()
     messages = [
         {'role': 'system', 'content': sys_prompt},
         {'role': 'user',   'content': prompt},
