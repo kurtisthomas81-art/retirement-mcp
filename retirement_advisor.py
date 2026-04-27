@@ -1961,8 +1961,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     --pink-glow:   rgba(236,72,153,0.30);
     --pink-glow2:  rgba(236,72,153,0.12);
     --pink-glass:  rgba(236,72,153,0.07);
-    --gold:        #ec4899;
-    --gold-dim:    #9d174d;
+    --gold:        #cd853f;
+    --gold-dim:    #a0622a;
     --grad-card:   linear-gradient(135deg,#131e30 0%,#0f1829 100%);
     --grad-pink:   linear-gradient(135deg,#ec4899 0%,#be185d 100%);
     --grad-success:linear-gradient(135deg,#10b981 0%,#059669 100%);
@@ -1978,7 +1978,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     --radius-pill: 9999px;
     --bottom-nav-h:64px;
   }
-  body { font-family: var(--font-ui); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.9rem; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
   /* ── Header ── */
   header {
@@ -2070,9 +2070,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   /* ── Glass panels ── */
   .panel, .glass {
     background: linear-gradient(135deg, var(--surface2) 0%, var(--surface) 100%);
-    border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px;
-    position: relative; overflow: hidden;
+    border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px;
+    position: relative;
   }
+  details.panel { overflow: visible; }
+  .stat-card.key-metric { border-left: 3px solid var(--gold); }
   .panel::before, .glass::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
     background: linear-gradient(90deg, transparent 0%, var(--border2) 30%, var(--border2) 70%, transparent 100%);
@@ -2085,10 +2087,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     border-radius: 50%; pointer-events: none; opacity: 0.6;
   }
   .panel h2, .glass h2 {
-    font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 1rem; font-weight: 600;
+    letter-spacing: 0.02em; color: var(--muted);
     margin-bottom: 18px; position: relative; z-index: 1;
   }
+  .panel-risk { border-left: 3px solid var(--red); }
 
   /* ── Accent system (ambient glow replaces border-left) ── */
   .accent-pink    { --panel-glow: radial-gradient(circle,rgba(236,72,153,0.10) 0%,transparent 70%); }
@@ -2124,11 +2127,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .stat-card.accent-violet  { --card-accent: var(--grad-violet);   --card-glow: rgba(167,139,250,0.07); }
   .stat-card.accent-teal    { --card-accent: var(--grad-teal);     --card-glow: rgba(20,184,166,0.07); }
   .stat-card.accent-rose    { --card-accent: linear-gradient(135deg,#f43f5e,#be123c); --card-glow: rgba(244,63,94,0.07); }
-  .stat-card .sc-label { font-family: var(--font-ui); font-size: 0.65rem; font-weight: 600;
+  .stat-card .sc-label { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.72rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; position: relative; z-index: 1; }
   .stat-card .sc-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; line-height: 1;
     color: var(--text); letter-spacing: -0.02em; position: relative; z-index: 1; }
-  .stat-card .sc-sub   { font-family: var(--font-ui); font-size: 0.62rem; color: var(--muted2); margin-top: 5px; position: relative; z-index: 1; }
+  .stat-card .sc-sub   { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.7rem; color: var(--muted2); margin-top: 5px; position: relative; z-index: 1; }
   .stat-card.gl-pos .sc-value { color: var(--green); }
   .stat-card.gl-neg .sc-value { color: var(--red); }
 
@@ -2183,38 +2186,38 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   input[type="number"], input[type="text"], input[type="password"], select {
     background: rgba(255,255,255,0.03); border: 1px solid var(--border2); color: var(--text);
     font-family: var(--font-mono); font-size: 0.88rem; padding: 9px 12px;
-    border-radius: var(--radius-sm); outline: none; width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s; min-height: 44px;
+    border-radius: 8px; outline: none; width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; min-height: 44px;
   }
   input:focus, select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--pink-glow2); }
   label { font-family: var(--font-ui); font-size: 0.68rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: block; margin-bottom: 5px; }
   button {
     background: var(--surface3); color: var(--muted); border: 1px solid var(--border2);
-    border-radius: var(--radius-sm); font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+    border-radius: var(--radius-sm); font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.78rem; font-weight: 600;
     letter-spacing: 0.04em; text-transform: uppercase; padding: 9px 18px;
-    cursor: pointer; transition: all 0.2s ease; white-space: nowrap; min-height: 44px;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s; white-space: nowrap; min-height: 44px;
   }
   button:hover { background: var(--surface2); border-color: var(--border-hi); color: var(--text); }
   button:disabled { opacity: 0.35; cursor: not-allowed; }
   button.btn-primary {
-    background: var(--grad-pink); color: #fff; border: none; font-weight: 700; letter-spacing: 0.06em;
-    box-shadow: 0 0 20px var(--pink-glow), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    background: var(--gold); color: #111; border: none; font-weight: 700; letter-spacing: 0.06em;
+    box-shadow: 0 0 16px rgba(205,133,63,0.35), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
     position: relative; overflow: hidden;
   }
   button.btn-primary::after { content: ''; position: absolute; inset: 0;
-    background: linear-gradient(180deg,rgba(255,255,255,0.10) 0%,transparent 60%); pointer-events: none; }
+    background: linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 60%); pointer-events: none; }
   button.btn-primary:hover {
-    box-shadow: 0 0 32px rgba(236,72,153,0.50), 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
-    transform: translateY(-1px); border: none; color: #fff; background: var(--grad-pink);
+    box-shadow: 0 0 28px rgba(205,133,63,0.50), 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    transform: translateY(-1px); border: none; color: #111; background: var(--gold);
   }
-  button.btn-primary:active { transform: translateY(0); box-shadow: 0 0 16px var(--pink-glow), 0 2px 8px rgba(0,0,0,0.4); }
+  button.btn-primary:active { transform: translateY(0); box-shadow: 0 0 12px rgba(205,133,63,0.35), 0 2px 8px rgba(0,0,0,0.4); }
   .btn { background: var(--surface3); color: var(--muted); border: 1px solid var(--border2);
-    border-radius: var(--radius-sm); font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+    border-radius: var(--radius-sm); font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.78rem; font-weight: 600;
     letter-spacing: 0.04em; text-transform: uppercase; padding: 9px 18px;
-    cursor: pointer; transition: all 0.2s ease; white-space: nowrap; min-height: 44px; }
+    cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s, color 0.15s; white-space: nowrap; min-height: 44px; }
   .btn:hover { background: var(--surface2); border-color: var(--border-hi); color: var(--text); }
-  .btn-sm { font-size: 0.60rem; padding: 4px 10px; border-radius: 6px; min-height: 28px; }
+  .btn-sm { font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; min-height: 28px; }
   .price { color: var(--pink); font-size: 1.5rem; font-weight: bold; font-family: var(--font-mono); }
   .change.up { color: var(--green); } .change.down { color: var(--red); }
   .err { color: var(--red); font-size: 0.8rem; }
@@ -2523,7 +2526,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .chat-sug-btn:hover { border-color: var(--pink); color: var(--text); }
   .chat-input-row { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border2); align-items: flex-end; }
   .chat-input-row textarea { flex: 1; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-size: 0.73rem; padding: 7px 10px; resize: none; line-height: 1.4; font-family: var(--font-ui); }
-  .chat-send { background: var(--pink); border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: opacity 0.15s; }
+  .chat-send { background: var(--gold); border: none; border-radius: 8px; color: #111; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: background 0.15s, opacity 0.15s; }
   .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
   .chat-cursor { display: inline-block; animation: blink 0.7s step-end infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -2640,6 +2643,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .digest-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; margin-bottom:10px; }
   .digest-note { font-size:0.65rem; color:var(--muted2); margin-top:6px; }
 
+  /* ── Plan sub-nav ── */
+  .plan-subnav {
+    display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .plan-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted2); font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 10px 14px 8px; cursor: pointer; min-height: unset; border-radius: 0;
+    transition: color 0.15s; margin-bottom: -1px; white-space: nowrap;
+  }
+  .plan-tab:hover { color: var(--text); background: none; border-color: transparent; }
+  .plan-tab.active { color: var(--gold); border-bottom-color: var(--gold); background: none; }
+  .plan-sub-pane { display: none; }
+  .plan-sub-pane.active { display: block; }
+
+  /* ── Table row polish ── */
+  .spending-table td, .spending-table th { padding: 10px 12px; }
+  .tl-table td, .tl-table th { padding: 10px 12px; }
+
   /* ── Print ── */
   @media print {
     .tab-nav, .bottom-nav, .mc-inputs, .port-refresh-bar, #budgetEditForm,
@@ -2676,27 +2700,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 <!-- Desktop Tab navigation -->
 <nav class="tab-nav">
-  <button class="tab-btn active" data-tab="home" onclick="switchTab('home',this)">Home</button>
-  <button class="tab-btn" data-tab="ledger" onclick="switchTab('ledger',this)">Ledger</button>
+  <button class="tab-btn active" data-tab="home" onclick="switchTab('home',this)">Overview</button>
   <button class="tab-btn" data-tab="portfolio" onclick="switchTab('portfolio',this)">Portfolio</button>
-  <button class="tab-btn" data-tab="montecarlo" onclick="switchTab('montecarlo',this)">Monte Carlo</button>
-  <button class="tab-btn" data-tab="rothlad" onclick="switchTab('rothlad',this)">Roth Ladder</button>
-  <button class="tab-btn" data-tab="rules" onclick="switchTab('rules',this)">Rules</button>
-  <button class="tab-btn" data-tab="roadmap" onclick="switchTab('roadmap',this)">Roadmap</button>
+  <button class="tab-btn" data-tab="montecarlo" onclick="switchTab('montecarlo',this)">Simulate</button>
+  <button class="tab-btn" data-tab="roadmap" onclick="switchTab('roadmap',this)">Plan</button>
   <button class="tab-btn" data-tab="transactions" onclick="switchTab('transactions',this)">Transactions</button>
-  <button class="tab-btn" data-tab="forecast" onclick="switchTab('forecast',this)">Forecast</button>
-  <button class="tab-btn" data-tab="chat" onclick="switchTab('chat',this)">&#129302; AI Advisor</button>
+  <button class="tab-btn" data-tab="chat" onclick="switchTab('chat',this)">Finn</button>
 </nav>
 
 <!-- Mobile bottom navigation -->
 <nav class="bottom-nav">
   <button class="bn-item active" data-tab="home" onclick="switchTab('home',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-    Home
-  </button>
-  <button class="bn-item" data-tab="ledger" onclick="switchTab('ledger',this)">
-    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-    Ledger
+    Overview
   </button>
   <button class="bn-item" data-tab="portfolio" onclick="switchTab('portfolio',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -2704,41 +2720,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </button>
   <button class="bn-item" data-tab="montecarlo" onclick="switchTab('montecarlo',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-    Sim
-  </button>
-  <button class="bn-item" data-tab="rothlad" onclick="switchTab('rothlad',this)">
-    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-    Roth
-  </button>
-  <button class="bn-item" data-tab="rules" onclick="switchTab('rules',this)">
-    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-    Rules
+    Simulate
   </button>
   <button class="bn-item" data-tab="roadmap" onclick="switchTab('roadmap',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-    Roadmap
+    Plan
   </button>
   <button class="bn-item" data-tab="transactions" onclick="switchTab('transactions',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-    Ledger
-  </button>
-  <button class="bn-item" data-tab="forecast" onclick="switchTab('forecast',this)">
-    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-    Forecast
-  </button>
-  <button class="bn-item" data-tab="taxloss" onclick="switchTab('taxloss',this)">
-    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
-    Tax Loss
+    Transactions
   </button>
   <button class="bn-item" data-tab="chat" onclick="switchTab('chat',this)">
     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-    AI Advisor
+    Finn
   </button>
 </nav>
 
 <!-- ══ HOME TAB ════════════════════════════════════════════════════════════ -->
 <div id="tab-home" class="tab-pane active">
 <main>
+  <!-- Home hero / quick stats loaded by loadHome() -->
   <div id="homeContent">
     <div class="skeleton-wrap">
       <div class="skeleton sk-chart" style="height:180px;border-radius:var(--radius);"></div>
@@ -2747,14 +2748,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </div>
   </div>
-</main>
-</div>
 
-<!-- ══ LEDGER TAB ══════════════════════════════════════════════════════════ -->
-<div id="tab-ledger" class="tab-pane">
-<main>
-  <div class="panel accent-pink">
-    <h2>FI Dashboard Snapshot <button class="btn-sm" onclick="loadLedger()">Refresh</button></h2>
+  <!-- Ledger detail (merged into Overview) -->
+  <div class="panel" style="margin-top:0;">
+    <h2>Your Financial Picture <button class="btn-sm" onclick="loadLedger()">Refresh</button></h2>
     <div id="ledgerContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading ledger&hellip;</div></div>
     <div id="allocChartWrap" style="display:none;">
       <div class="donut-wrap">
@@ -2764,17 +2761,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Net Worth History -->
-  <div id="nwhPanel" style="display:none;margin-top:14px;">
-    <div class="panel accent-sky">
-      <h2>Net Worth History <button class="btn-sm" onclick="clearNWHistory()" style="font-size:0.6rem;">Clear</button></h2>
+  <!-- Net Worth Over Time -->
+  <div id="nwhPanel" style="display:none;">
+    <div class="panel">
+      <h2>Net Worth Over Time <button class="btn-sm" onclick="clearNWHistory()">Clear</button></h2>
       <canvas id="nwhChart" style="max-height:200px;"></canvas>
     </div>
   </div>
 
-  <!-- Budget vs Actual -->
-  <div class="panel accent-amber" style="margin-top:14px;" id="budgetPanel">
-    <h2>Budget vs Actual <button class="btn-sm" onclick="toggleBudgetEdit()">Edit Budgets</button></h2>
+  <!-- Spending vs Budget -->
+  <div class="panel" id="budgetPanel">
+    <h2>Spending vs Budget <button class="btn-sm" onclick="toggleBudgetEdit()">Edit Budgets</button></h2>
     <div id="budgetEditForm" style="display:none;margin-bottom:12px;">
       <div class="budget-edit-grid" id="budgetInputs"></div>
       <button class="btn-sm btn-primary" onclick="saveBudget()">Save Budget</button>
@@ -2782,28 +2779,37 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div id="budgetTable"><div style="color:var(--muted2);font-size:0.75rem;">Budgets auto-populate once Ledger loads.</div></div>
   </div>
 
-  <!-- Email Digest Config -->
-  <div class="panel digest-panel" style="margin-top:14px;">
-    <h2>Weekly Email Digest</h2>
-    <div class="digest-grid" id="digestForm">
-      <div class="field"><label>Gmail / SMTP User</label><input id="dig_user" type="email" placeholder="you@gmail.com"></div>
-      <div class="field"><label>App Password</label><input id="dig_pass" type="password" placeholder="Google App Password"></div>
-      <div class="field"><label>Send To</label><input id="dig_to" type="email" placeholder="same as above"></div>
+  <!-- Email Digest (collapsed by default) -->
+  <details class="panel digest-panel">
+    <summary style="cursor:pointer;list-style:none;font-size:0.88rem;font-weight:600;color:var(--muted);padding:2px 0;user-select:none;display:flex;align-items:center;gap:6px;">
+      <span style="font-size:0.65rem;color:var(--muted2);">&#9660;</span>
+      Email Digest
+      <span style="font-size:0.72rem;color:var(--muted2);font-weight:400;margin-left:4px;">configure weekly summary email</span>
+    </summary>
+    <div style="margin-top:14px;">
+      <div class="digest-grid" id="digestForm">
+        <div class="field"><label>Gmail / SMTP User</label><input id="dig_user" type="email" placeholder="you@gmail.com"></div>
+        <div class="field"><label>App Password</label><input id="dig_pass" type="password" placeholder="Google App Password"></div>
+        <div class="field"><label>Send To</label><input id="dig_to" type="email" placeholder="same as above"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+        <button class="btn-sm btn-primary" onclick="sendDigest()">Send Now</button>
+        <span id="digestStatus" style="font-size:0.72rem;color:var(--muted2);"></span>
+      </div>
+      <div class="digest-note">For Gmail: enable 2FA then create an App Password at myaccount.google.com &rarr; Security. Credentials saved locally in your browser.</div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-      <button class="btn-sm btn-primary" onclick="sendDigest()">Send Now</button>
-      <span id="digestStatus" style="font-size:0.72rem;color:var(--muted2);"></span>
-    </div>
-    <div class="digest-note">For Gmail: enable 2FA then create an App Password at myaccount.google.com &rarr; Security. Credentials saved locally in your browser.</div>
-  </div>
+  </details>
 </main>
 </div>
+
+<!-- ══ LEDGER TAB (hidden — content merged into Overview) ══════════════════ -->
+<div id="tab-ledger" class="tab-pane" style="display:none !important;"></div>
 
 <!-- ══ PORTFOLIO TAB ═══════════════════════════════════════════════════════ -->
 <div id="tab-portfolio" class="tab-pane">
 <main>
-  <div class="panel accent-teal">
-    <h2>Holdings <button class="btn-sm" onclick="loadPortfolio()">Reload from Ledger</button></h2>
+  <div class="panel">
+    <h2>Your Portfolio <button class="btn-sm" onclick="loadPortfolio()">Reload from Ledger</button></h2>
 
     <!-- Summary stat-cards -->
     <div class="port-summary">
@@ -2833,8 +2839,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <!-- ══ MONTE CARLO TAB ════════════════════════════════════════════════════ -->
 <div id="tab-montecarlo" class="tab-pane">
 <main>
-  <div class="panel accent-indigo">
-    <h2>Monte Carlo Retirement Simulation</h2>
+  <div class="panel">
+    <h2>Retirement Simulator</h2>
     <div class="mc-layout">
 
       <!-- LEFT: Inputs -->
@@ -3004,68 +3010,87 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </main>
 </div>
 
-<!-- ══ RULES TAB ══════════════════════════════════════════════════════════ -->
-<div id="tab-rules" class="tab-pane">
-<main>
-  <div class="panel accent-amber">
-    <h2>2026 Contribution Limits</h2>
-    <div class="rules-grid" id="rulesGrid">
-      <div class="stat-card"><div class="sc-label">Loading&hellip;</div></div>
-    </div>
-    <div class="note" id="rothNote"></div>
-  </div>
-</main>
-</div>
-
-<!-- ══ ROTH LADDER TAB ══════════════════════════════════════════════════════ -->
-<div id="tab-rothlad" class="tab-pane">
-<main>
-  <div class="panel accent-emerald" style="margin-bottom:16px;">
-    <h2>Roth Conversion Ladder</h2>
-    <div class="rl-layout">
-      <div class="rl-inputs">
-        <div class="mc-field"><label>Traditional IRA Balance</label><input type="number" id="rl_trad" value="0" min="0" step="1000"></div>
-        <div class="mc-field"><label>Current Age</label><input type="number" id="rl_age" value="45" min="20" max="80"></div>
-        <div class="mc-field"><label>Retirement Age</label><input type="number" id="rl_ret" value="62" min="40" max="75"></div>
-        <div class="mc-field"><label>Filing Status</label>
-          <select id="rl_filing">
-            <option value="single">Single</option>
-            <option value="mfj" selected>Married Filing Jointly</option>
-          </select>
-        </div>
-        <div class="mc-field"><label>SS Monthly Benefit @67</label><input type="number" id="rl_ss" value="1800" min="0"></div>
-        <div class="mc-field"><label>State Tax Rate %</label><input type="number" id="rl_state" value="0" min="0" max="15" step="0.1"></div>
-        <div class="mc-field"><label>Target Bracket</label>
-          <select id="rl_bracket">
-            <option value="0.12">12%</option>
-            <option value="0.22" selected>22%</option>
-          </select>
-        </div>
-        <div class="mc-field"><label>Annual Return on Roth %</label><input type="number" id="rl_ret_rate" value="8" min="0" max="20" step="0.5"></div>
-        <button class="btn" onclick="calcRothLadder()" style="width:100%;margin-top:8px;">Calculate</button>
-      </div>
-      <div id="rl_results">
-        <div class="rl-result-hint">Enter your Traditional IRA details and click Calculate.</div>
-      </div>
-    </div>
-  </div>
-</main>
-</div>
-
-<!-- ══ ROADMAP TAB ══════════════════════════════════════════════════════════ -->
+<!-- ══ PLAN TAB (hub for Roadmap / Rules / Roth Ladder / Forecast) ══════════ -->
 <div id="tab-roadmap" class="tab-pane">
 <main>
-  <div class="panel accent-teal">
-    <h2>FI Roadmap — GPS to Age 62</h2>
-    <div id="roadmapContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading roadmap&hellip;</div></div>
+  <div class="plan-subnav">
+    <button class="plan-tab active" onclick="switchPlanTab('roadmap', this)">Roadmap</button>
+    <button class="plan-tab" onclick="switchPlanTab('rules', this)">Rules</button>
+    <button class="plan-tab" onclick="switchPlanTab('rothlad', this)">Roth Ladder</button>
+    <button class="plan-tab" onclick="switchPlanTab('forecast', this)">Forecast</button>
+  </div>
+
+  <!-- Sub-pane: Roadmap -->
+  <div id="plan-sub-roadmap" class="plan-sub-pane active">
+    <div class="panel">
+      <h2>FI Roadmap &mdash; GPS to Age 62</h2>
+      <div id="roadmapContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading roadmap&hellip;</div></div>
+    </div>
+  </div>
+
+  <!-- Sub-pane: Rules -->
+  <div id="plan-sub-rules" class="plan-sub-pane">
+    <div class="panel">
+      <h2>2026 Contribution Limits</h2>
+      <div class="rules-grid" id="rulesGrid">
+        <div class="stat-card"><div class="sc-label">Loading&hellip;</div></div>
+      </div>
+      <div class="note" id="rothNote"></div>
+    </div>
+  </div>
+
+  <!-- Sub-pane: Roth Ladder -->
+  <div id="plan-sub-rothlad" class="plan-sub-pane">
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>Roth Conversion Ladder</h2>
+      <div class="rl-layout">
+        <div class="rl-inputs">
+          <div class="mc-field"><label>Traditional IRA Balance</label><input type="number" id="rl_trad" value="0" min="0" step="1000"></div>
+          <div class="mc-field"><label>Current Age</label><input type="number" id="rl_age" value="45" min="20" max="80"></div>
+          <div class="mc-field"><label>Retirement Age</label><input type="number" id="rl_ret" value="62" min="40" max="75"></div>
+          <div class="mc-field"><label>Filing Status</label>
+            <select id="rl_filing">
+              <option value="single">Single</option>
+              <option value="mfj" selected>Married Filing Jointly</option>
+            </select>
+          </div>
+          <div class="mc-field"><label>SS Monthly Benefit @67</label><input type="number" id="rl_ss" value="1800" min="0"></div>
+          <div class="mc-field"><label>State Tax Rate %</label><input type="number" id="rl_state" value="0" min="0" max="15" step="0.1"></div>
+          <div class="mc-field"><label>Target Bracket</label>
+            <select id="rl_bracket">
+              <option value="0.12">12%</option>
+              <option value="0.22" selected>22%</option>
+            </select>
+          </div>
+          <div class="mc-field"><label>Annual Return on Roth %</label><input type="number" id="rl_ret_rate" value="8" min="0" max="20" step="0.5"></div>
+          <button class="btn" onclick="calcRothLadder()" style="width:100%;margin-top:8px;">Calculate</button>
+        </div>
+        <div id="rl_results">
+          <div class="rl-result-hint">Enter your Traditional IRA details and click Calculate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-pane: Forecast -->
+  <div id="plan-sub-forecast" class="plan-sub-pane">
+    <div class="panel">
+      <h2>30-Day Cash Flow Forecast</h2>
+      <div id="forecastContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading forecast&hellip;</div></div>
+    </div>
   </div>
 </main>
 </div>
+
+<!-- Hidden alias tabs — content is now in the Plan sub-nav above -->
+<div id="tab-rules" class="tab-pane" style="display:none !important;"></div>
+<div id="tab-rothlad" class="tab-pane" style="display:none !important;"></div>
+<div id="tab-forecast" class="tab-pane" style="display:none !important;"></div>
 
 <!-- ══ TRANSACTIONS TAB ════════════════════════════════════════════════════ -->
 <div id="tab-transactions" class="tab-pane">
 <main>
-  <div class="panel accent-indigo">
+  <div class="panel">
     <h2>Transaction Ledger</h2>
     <div id="txFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <select id="txMonthFilter" onchange="loadTransactions(1)" style="flex:1;min-width:120px;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:6px 8px;font-size:0.72rem;">
@@ -3081,20 +3106,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </main>
 </div>
 
-<!-- ══ FORECAST TAB ════════════════════════════════════════════════════════ -->
-<div id="tab-forecast" class="tab-pane">
-<main>
-  <div class="panel accent-amber">
-    <h2>30-Day Cash Flow Forecast</h2>
-    <div id="forecastContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading forecast&hellip;</div></div>
-  </div>
-</main>
-</div>
-
-<!-- ══ TAX LOSS TAB ═════════════════════════════════════════════════════════ -->
+<!-- ══ TAX LOSS TAB (hidden — Tax Loss is a secondary feature; accessible via direct nav if needed) -->
 <div id="tab-taxloss" class="tab-pane">
 <main>
-  <div class="panel accent-rose" style="margin-bottom:14px;">
+  <div class="panel panel-risk" style="margin-bottom:14px;">
     <h2>Tax-Loss Harvesting Log</h2>
     <div class="tl-summary" id="tlSummary">
       <div class="stat-card"><div class="sc-label">Loading&hellip;</div></div>
@@ -3118,27 +3133,44 @@ let transactionsLoaded = false;
 let forecastLoaded = false;
 let taxlossLoaded = false;
 let homeLoaded = false;
+let ledgerLoaded = false;
 let _txState = { page: 1, pages: 1 };
 let scenarioA = null;
 function switchTab(name, btn) {
+  // Redirect merged/hidden tabs to their new locations
+  if (name === 'ledger') { switchTab('home', document.querySelector('[data-tab="home"]')); return; }
+  if (name === 'rules')    { switchTab('roadmap', document.querySelector('[data-tab="roadmap"]')); setTimeout(() => switchPlanTab('rules'), 0); return; }
+  if (name === 'rothlad')  { switchTab('roadmap', document.querySelector('[data-tab="roadmap"]')); setTimeout(() => switchPlanTab('rothlad'), 0); return; }
+  if (name === 'forecast') { switchTab('roadmap', document.querySelector('[data-tab="roadmap"]')); setTimeout(() => switchPlanTab('forecast'), 0); return; }
+
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
+  const pane = document.getElementById('tab-' + name);
+  if (pane) pane.classList.add('active');
   document.querySelectorAll('[data-tab="' + name + '"]').forEach(b => b.classList.add('active'));
-  if (name === 'home'         && !homeLoaded)         loadHome();
-  if (name === 'rules'        && !rulesLoaded)        loadRules();
+  if (name === 'home') { if (!homeLoaded) loadHome(); if (!ledgerLoaded) { ledgerLoaded = true; loadLedger(); } }
   if (name === 'montecarlo'   && !mcPrefilled)        prefillMC();
   if (name === 'portfolio'    && !portfolioLoaded)    loadPortfolio();
-  if (name === 'roadmap'      && !roadmapLoaded)      loadRoadmap();
+  if (name === 'roadmap'      && !roadmapLoaded)      { loadRoadmap(); if (!rulesLoaded) loadRules(); }
   if (name === 'transactions' && !transactionsLoaded) loadTransactions(1);
-  if (name === 'forecast'     && !forecastLoaded)     loadForecast();
   if (name === 'taxloss'      && !taxlossLoaded)      loadTaxLoss();
   if (name === 'chat') {
     if (chatMessages.length === 0) showChatSuggestions();
     setTimeout(() => document.getElementById('chatInput')?.focus(), 80);
   }
+}
+
+function switchPlanTab(name, btn) {
+  // Show the correct sub-pane inside the Plan tab
+  document.querySelectorAll('.plan-sub-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.plan-tab').forEach(b => b.classList.remove('active'));
+  const sub = document.getElementById('plan-sub-' + name);
+  if (sub) sub.classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Lazy-load sub-sections
+  if (name === 'rules'    && !rulesLoaded)    loadRules();
+  if (name === 'forecast' && !forecastLoaded) loadForecast();
   if (name === 'rothlad') {
-    // Pre-fill from ledger data if available
     const rl = document.getElementById('rl_trad');
     if (rl && !rl._prefilled) {
       rl._prefilled = true;
@@ -3277,10 +3309,6 @@ async function loadHome() {
         <!-- Quick nav grid -->
         <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:8px;">Quick Access</div>
         <div class="home-nav-grid" style="margin-bottom:16px;">
-          <button class="home-nav-tile" onclick="switchTab('ledger')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Ledger
-          </button>
           <button class="home-nav-tile" onclick="switchTab('portfolio')">
             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             Portfolio
@@ -3291,7 +3319,7 @@ async function loadHome() {
           </button>
           <button class="home-nav-tile" onclick="switchTab('roadmap')">
             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-            Roadmap
+            Plan
           </button>
           <button class="home-nav-tile" onclick="switchTab('transactions')">
             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
@@ -3300,6 +3328,10 @@ async function loadHome() {
           <button class="home-nav-tile" onclick="switchTab('forecast')">
             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             Forecast
+          </button>
+          <button class="home-nav-tile" onclick="switchTab('chat')">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+            Finn
           </button>
         </div>
 
@@ -3403,12 +3435,12 @@ async function loadLedger() {
     document.getElementById('refreshTs').textContent = 'Last read: ' + new Date().toLocaleTimeString();
     el.innerHTML = `
       <div class="stat-grid">
-        <div class="stat-card accent-pink"><div class="sc-label">Liquid Net Worth</div><div class="sc-value">${fm(lnw)}</div><div class="sc-sub">Freedom Number</div></div>
-        <div class="stat-card accent-indigo"><div class="sc-label">Total Net Worth</div><div class="sc-value">${fm(tnw)}</div><div class="sc-sub">Estate Number</div></div>
-        <div class="stat-card accent-sky"><div class="sc-label">Liquid Cash</div><div class="sc-value">${fm(cash)}</div><div class="sc-sub">Safety Net</div></div>
-        <div class="stat-card accent-amber"><div class="sc-label">Survival Runway</div><div class="sc-value" style="font-size:1.05rem;">${runway}</div><div class="sc-sub">at current burn</div></div>
-        <div class="stat-card accent-teal"><div class="sc-label">FI Target (Age 62)</div><div class="sc-value">${fm(target)}</div><div class="sc-sub">The Goal</div></div>
-        ${latestSR !== null ? `<div class="stat-card accent-emerald"><div class="sc-label">Savings Rate</div><div class="sc-value">${(latestSR*100).toFixed(1)}%</div><div class="sc-sub">latest month</div></div>` : ''}
+        <div class="stat-card key-metric"><div class="sc-label">Liquid Net Worth</div><div class="sc-value">${fm(lnw)}</div><div class="sc-sub">Freedom Number</div></div>
+        <div class="stat-card"><div class="sc-label">Total Net Worth</div><div class="sc-value">${fm(tnw)}</div><div class="sc-sub">Estate Number</div></div>
+        <div class="stat-card"><div class="sc-label">Liquid Cash</div><div class="sc-value">${fm(cash)}</div><div class="sc-sub">Safety Net</div></div>
+        <div class="stat-card"><div class="sc-label">Survival Runway</div><div class="sc-value" style="font-size:1.05rem;">${runway}</div><div class="sc-sub">at current burn</div></div>
+        <div class="stat-card key-metric"><div class="sc-label">FI Target (Age 62)</div><div class="sc-value">${fm(target)}</div><div class="sc-sub">The Goal</div></div>
+        ${latestSR !== null ? `<div class="stat-card"><div class="sc-label">Savings Rate</div><div class="sc-value">${(latestSR*100).toFixed(1)}%</div><div class="sc-sub">latest month</div></div>` : ''}
       </div>
       <div class="fi-progress-wrap">
         <div class="fi-label"><span>Road to FI</span><span class="pct">${pct}%</span></div>
@@ -3928,12 +3960,12 @@ function renderMCResults(d) {
       <button class="pin-btn btn-sm" id="pinScenBtn" onclick="pinScenario()" style="margin-top:10px;">${scenarioA ? 'Scenario A pinned &#10003;' : 'Pin as Scenario A'}</button>
     </div>
 
-    <div class="panel accent-indigo" style="margin-bottom:14px;padding:16px 18px;">
+    <div class="panel" style="margin-bottom:14px;padding:16px 18px;">
       <h2>Wealth Trajectory</h2>
       <canvas id="mcChart" style="max-height:240px;"></canvas>
     </div>
 
-    <div class="panel accent-sky" style="margin-bottom:14px;padding:16px 18px;">
+    <div class="panel" style="margin-bottom:14px;padding:16px 18px;">
       <h2>Wealth Percentiles by Age</h2>
       <table class="mc-table">
         <thead><tr><th>Age</th><th>P10 (Bear)</th><th>P50 (Median)</th><th>P90 (Bull)</th></tr></thead>
@@ -3941,14 +3973,14 @@ function renderMCResults(d) {
       </table>
     </div>
 
-    <div class="panel accent-violet" style="padding:16px 18px;">
+    <div class="panel" style="padding:16px 18px;">
       <h2>Simulation Statistics</h2>
       <div class="mc-stats-strip">
-        <div class="stat-card"><div class="sc-label">Arrival Wealth</div><div class="sc-value" style="font-size:1rem;">${fm(s.median_arrival)}</div></div>
+        <div class="stat-card key-metric"><div class="sc-label">Arrival Wealth</div><div class="sc-value" style="font-size:1rem;">${fm(s.median_arrival)}</div></div>
         <div class="stat-card"><div class="sc-label">SS Claim Age</div><div class="sc-value" style="font-size:1rem;">${s.median_ss_age}</div></div>
         <div class="stat-card"><div class="sc-label">Ripcord Rate</div><div class="sc-value" style="font-size:1rem;">${s.ripcord_rate}%</div></div>
         <div class="stat-card"><div class="sc-label">Moat Breach</div><div class="sc-value" style="font-size:1rem;">${s.moat_breach_rate}%</div></div>
-        <div class="stat-card"><div class="sc-label">Terminal Wealth</div><div class="sc-value" style="font-size:1rem;">${fm(s.median_terminal)}</div></div>
+        <div class="stat-card key-metric"><div class="sc-label">Terminal Wealth</div><div class="sc-value" style="font-size:1rem;">${fm(s.median_terminal)}</div></div>
         <div class="stat-card"><div class="sc-label">Go-Go Spend</div><div class="sc-value" style="font-size:1rem;">${fm(s.median_gogo_spend)}</div></div>
         <div class="stat-card"><div class="sc-label">Max Drawdown</div><div class="sc-value" style="font-size:1rem;">${s.median_drawdown}%</div></div>
         ${convStats}
@@ -4013,7 +4045,7 @@ function renderMCResults(d) {
       return `<tr><td>By Age ${age}</td><td class="${rc}">${pct2}%</td></tr>`;
     }).join('');
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-red" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel panel-risk" style="margin-top:14px;padding:16px 18px;">
         <h2>Probability of Ruin</h2>
         <table class="ruin-table">
           <thead><tr><th>Milestone</th><th style="text-align:right;">P(Wealth &le; 0)</th></tr></thead>
@@ -4037,7 +4069,7 @@ function renderMCResults(d) {
       </tr>`;
     }).join('');
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-amber" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
         <h2>SGOV Moat Balance — Bridge Period</h2>
         <table class="mc-table">
           <thead><tr><th>Age</th><th>P10 (Stress)</th><th>P50 (Median)</th><th>P90 (Bull)</th></tr></thead>
@@ -4053,7 +4085,7 @@ function renderMCResults(d) {
   const ssHistEntries = Object.entries(ssHist).filter(([,v]) => v > 0);
   if (ssHistEntries.length) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-sky" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
          <h2>Social Security Claim Age Distribution</h2>
          <canvas id="ssHistChart" style="max-height:180px;"></canvas>
        </div>`
@@ -4087,7 +4119,7 @@ function renderMCResults(d) {
   const ls = d.lifetime_spend;
   if (ls) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-teal" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
          <h2>Lifetime Discretionary Spending</h2>
          <div class="mc-stats-strip">
            <div class="stat-card"><div class="sc-label">Total (Median)</div><div class="sc-value" style="font-size:1rem;">${fm(ls.p50_total)}</div></div>
@@ -4105,7 +4137,7 @@ function renderMCResults(d) {
   const ss2 = d.spend_scenarios;
   if (ss2) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-teal" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
          <h2>Spending Distribution by Phase</h2>
          <canvas id="spendPhaseChart" style="max-height:220px;"></canvas>
          <div style="font-size:0.62rem;color:var(--muted2);margin-top:6px;">Bars show P10/P25/P50/P75/P90 discretionary spend per retirement phase.</div>
@@ -4154,7 +4186,7 @@ function renderMCResults(d) {
       `<div class="sc-value" style="font-size:1rem;">${pct}%</div>` +
       `<div class="sc-sub">${age ? 'median age ' + age : 'never reached'}</div></div>`;
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-pink" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
          <h2>Abundance Ratchet</h2>
          <div class="mc-stats-strip">
            ${tierRow(1, rs.tier1_pct, rs.median_tier1_age)}
@@ -4200,7 +4232,7 @@ function renderMCResults(d) {
   const ph = d.prime_harvest_stats;
   if (ph) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
-      `<div class="panel accent-amber" style="margin-top:14px;padding:16px 18px;">
+      `<div class="panel" style="margin-top:14px;padding:16px 18px;">
          <h2>Prime Harvest Buffer</h2>
          <div class="mc-stats-strip">
            <div class="stat-card"><div class="sc-label">Median Peak</div><div class="sc-value" style="font-size:1rem;">${fm(ph.median_peak)}</div></div>
@@ -5117,7 +5149,7 @@ async function runSSSensitivity() {
         <td class="${dcls}">${row.delta_from_67 >= 0 ? '+' : ''}${fm(row.delta_from_67)}</td>
       </tr>`;
     }).join('');
-    el.innerHTML = `<div class="panel accent-indigo" style="margin-top:8px;padding:16px 18px;">
+    el.innerHTML = `<div class="panel" style="margin-top:8px;padding:16px 18px;">
       <h2>SS Claim Age Sensitivity</h2>
       <table class="mc-table">
         <thead><tr><th>Claim Age</th><th>Success %</th><th>Terminal (P50)</th><th>vs Age 67</th></tr></thead>
@@ -5132,7 +5164,7 @@ async function runSSSensitivity() {
 
 function renderTornadoChart(data) {
   const el = document.getElementById('tornadoResult');
-  el.innerHTML = `<div class="panel accent-teal tornado-wrap">
+  el.innerHTML = `<div class="panel tornado-wrap">
     <h2>Sensitivity Analysis <span style="font-weight:400;font-size:0.72rem;color:var(--muted);">(base: ${data.base_pct}%)</span></h2>
     <canvas id="tornadoCanvas"></canvas>
   </div>`;
@@ -5421,12 +5453,12 @@ async function loadTaxLoss() {
 loadHome();
 </script>
 
-<!-- ══ AI ADVISOR TAB ═══════════════════════════════════════════════════════ -->
+<!-- ══ FINN TAB ══════════════════════════════════════════���════════════════════ -->
 <div id="tab-chat" class="tab-pane">
 <main style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;height:calc(100vh - var(--bottom-nav-h) - 48px);padding:16px 16px 8px;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
     <span style="font-size:1.4rem;">&#129302;</span>
-    <h2 style="margin:0;font-size:1.1rem;color:var(--gold);">AI Advisor</h2>
+    <h2 style="margin:0;font-size:1.1rem;color:var(--gold);">Finn</h2>
     <select id="chatCtx" title="Context" style="margin-left:auto;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;">
       <option value="all">All data</option>
       <option value="simulation">Last Sim</option>
