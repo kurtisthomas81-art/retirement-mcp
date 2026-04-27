@@ -735,6 +735,23 @@ async def oauth_token(request: Request):
 
 # ── Starlette app factory ─────────────────────────────────────────────────────
 
+async def api_upload_ledger(request: Request):
+    try:
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            return JSONResponse({"error": "no file provided"}, status_code=400)
+        if not upload.filename.lower().endswith(".xlsx"):
+            return JSONResponse({"error": "file must be .xlsx"}, status_code=400)
+        dest = Path(config.LEDGER_PATH)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = await upload.read()
+        dest.write_bytes(content)
+        return JSONResponse({"ok": True, "saved_to": str(dest), "bytes": len(content)})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 def build_app(mcp_app):
     return Starlette(routes=[
         Route("/",                          dashboard),
@@ -762,6 +779,7 @@ def build_app(mcp_app):
         Route("/api/chat",                  api_chat,                  methods=["POST"]),
         Route("/api/chat/stream",           api_chat_stream,           methods=["POST"]),
         Route("/api/summarize",             api_summarize,             methods=["POST"]),
+        Route("/api/upload-ledger",         api_upload_ledger,         methods=["POST"]),
         Route("/.well-known/oauth-authorization-server", oauth_metadata),
         Route("/oauth/token",               oauth_token,               methods=["GET", "POST"]),
         Mount("/static",                    StaticFiles(directory=str(STATIC_DIR)), name="static"),

@@ -888,6 +888,16 @@
   <div class="panel">
     <h2>Your Portfolio <button class="btn-sm" onclick="loadPortfolio()">Reload from Ledger</button></h2>
 
+    <!-- Ledger upload -->
+    <div class="port-refresh-bar" style="margin-top:0;margin-bottom:18px;">
+      <div class="field">
+        <label>Update Ledger (xlsx)</label>
+        <input id="ledgerUploadInput" type="file" accept=".xlsx" style="display:none" onchange="uploadLedger(this)">
+        <button class="btn-sm" onclick="document.getElementById('ledgerUploadInput').click()">Upload File</button>
+      </div>
+      <div id="ledgerUploadStatus" style="font-size:0.72rem;color:var(--muted2);align-self:center;"></div>
+    </div>
+
     <!-- Summary stat-cards -->
     <div class="port-summary">
       <div class="stat-card"><div class="sc-label">Total Value</div><div class="sc-value" id="ps_value">—</div><div class="sc-sub" id="ps_asof">Cached from ledger</div></div>
@@ -1615,6 +1625,33 @@ async function loadRules() {
     rulesLoaded = true;
   } catch(e) {
     document.getElementById('rulesGrid').innerHTML = '<div class="stat-card"><div class="sc-label" style="color:var(--red)">Failed to load</div></div>';
+  }
+}
+
+// ── Ledger upload ──────────────────────────────────────────────────────────
+async function uploadLedger(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('ledgerUploadStatus');
+  status.style.color = 'var(--muted2)';
+  status.textContent = 'Uploading…';
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const r = await fetch('/api/upload-ledger', { method: 'POST', body: form });
+    const d = await r.json();
+    if (d.ok) {
+      status.style.color = 'var(--green, #4ade80)';
+      status.textContent = `Uploaded ${(d.bytes / 1024).toFixed(0)} KB — ledger updated`;
+      input.value = '';
+      setTimeout(() => loadPortfolio(), 800);
+    } else {
+      status.style.color = 'var(--pink)';
+      status.textContent = d.error || 'Upload failed';
+    }
+  } catch(e) {
+    status.style.color = 'var(--pink)';
+    status.textContent = 'Upload failed: ' + e.message;
   }
 }
 
