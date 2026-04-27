@@ -1,0 +1,8 @@
+fastmcp
+starlette
+uvicorn[standard]
+openpyxl
+numpy
+requests
+python-dotenv
+pytest
