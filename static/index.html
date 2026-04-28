@@ -980,8 +980,8 @@
 
             <div class="mc-section-title">Return Assumptions</div>
             <div class="mc-row-3">
-              <div class="field"><label>Mean Return (%)</label><input type="number" id="mc_mu" value="9" step="0.1" min="1" max="20"></div>
-              <div class="field"><label>Volatility (%)</label><input type="number" id="mc_sigma" value="16" step="0.1" min="1" max="40"></div>
+              <div class="field"><label>Mean Return (%)</label><input type="number" id="mc_mu" value="10" step="0.1" min="1" max="20"></div>
+              <div class="field"><label>Volatility (%)</label><input type="number" id="mc_sigma" value="15" step="0.1" min="1" max="40"></div>
               <div class="field"><label>SGOV Yield (%)</label><input type="number" id="mc_syld" value="4" step="0.1" min="0" max="15"></div>
             </div>
             <div class="mc-row-3">
@@ -3173,8 +3173,8 @@ function loadSavedScenario(idx) {
   setV('mc_checking',p.start_checking);
   setV('mc_contrib', p.annual_contribution);
   setV('mc_full_ss', p.full_ss);
-  setV('mc_mu',      Math.round((p.mean_return || 0.09) * 100));
-  setV('mc_sigma',   Math.round((p.volatility  || 0.16) * 100));
+  setV('mc_mu',      Math.round((p.mean_return || 0.10) * 100));
+  setV('mc_sigma',   Math.round((p.volatility  || 0.15) * 100));
   setV('mc_syld',    Math.round((p.sgov_yield  || 0.04) * 100));
   setV('mc_infl',    Math.round((p.inflation_rate || 0.03) * 100));
   setV('mc_floor',   p.strict_moat_cost);
@@ -3216,9 +3216,9 @@ const GS_PARAMS = [
   {key:'retirement_age',    label:'Retire Age',        def:62,    min:55, max:70,  step:1},
   {key:'annual_contribution',label:'Annual Contrib ($)', def:19341, min:5000,max:50000,step:1000},
   {key:'moat_target',       label:'Moat Target ($)',   def:300000,min:100000,max:500000,step:25000},
-  {key:'mean_return',       label:'Mean Return (%)',   def:9,     min:5,  max:14,  step:0.5},
+  {key:'mean_return',       label:'Mean Return (%)',   def:10,    min:5,  max:14,  step:0.5},
   {key:'inflation_rate',    label:'Inflation (%)',     def:3,     min:2,  max:6,   step:0.5},
-  {key:'strict_moat_cost',  label:'Annual Draw ($)',   def:54292, min:30000,max:80000,step:2000},
+  {key:'bridge_draw_ann',   label:'Annual Draw ($)',   def:72000, min:30000,max:120000,step:2000},
 ];
 
 let gsAxisCount = 0;
