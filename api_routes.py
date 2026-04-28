@@ -666,12 +666,15 @@ async def api_summarize(request: Request):
             f"You are a fiduciary retirement planning AI. Today is {today}.\n"
             f"The user plans to retire at 62, claim SS at 67, and uses a SGOV bridge moat strategy.\n\n"
             f"SIMULATION DATA:\n{ctx}\n\n"
-            f"Generate a 3-5 bullet Advisor Playbook. Each bullet must:\n"
-            f"- Reference a specific dollar amount or percentage from the data\n"
-            f"- Identify either a strength, a risk, or a concrete action item\n"
-            f"- Draw on historical SWR research or sequence-of-returns literature where relevant\n"
-            f"Format: Start each bullet with a symbol (✓ for strength, ⚠ for risk, → for action). "
-            f"No headers. Plain text only. Be specific and non-generic."
+            f"Write an Advisor Playbook with exactly three sections using these exact labels:\n\n"
+            f"WHAT WORKS\n"
+            f"1–3 sentences on the strongest signals — what the plan is doing right. Reference specific numbers.\n\n"
+            f"A SECOND LOOK\n"
+            f"1–3 sentences on the most significant risk or weakness visible in the data. Reference specific numbers.\n\n"
+            f"FINN SUGGESTS\n"
+            f"1–3 sentences on the single most actionable next step based on the data.\n\n"
+            f"Rules: No bullets. No sub-headers. No extra sections. Plain sentences only. "
+            f"Use the exact section labels above. Max 3 sentences per section."
         )
     else:
         prompt = (

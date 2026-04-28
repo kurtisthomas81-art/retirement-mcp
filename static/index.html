@@ -575,7 +575,13 @@
   .ai-playbook-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .ai-playbook-hdr h3 { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted2); }
   .ai-playbook-hdr .ai-badge { font-size: 0.58rem; background: rgba(236,72,153,0.15); color: var(--pink); border: 1px solid rgba(236,72,153,0.25); border-radius: 4px; padding: 2px 6px; font-weight: 600; }
-  .ai-playbook-body { font-size: 0.74rem; color: var(--text); line-height: 1.65; white-space: pre-wrap; }
+  .ai-playbook-body { font-size: 0.74rem; color: var(--text); line-height: 1.65; }
+  .pb-block { padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .pb-block:last-child { border-bottom: none; }
+  .pb-block-hdr { font-size: 0.61rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; }
+  .pb-block-hdr.emerald { color: #10b981; }
+  .pb-block-hdr.amber   { color: #f59e0b; }
+  .pb-block-hdr.teal    { color: #14b8a6; }
   .ai-thinking { display: flex; align-items: center; gap: 8px; color: var(--muted2); font-size: 0.72rem; padding: 8px 0; }
   .ai-thinking-dots { display: inline-flex; gap: 3px; }
   .ai-thinking-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--pink); animation: aiDot 1.2s infinite; }
@@ -1210,6 +1216,22 @@
 const fm = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
 const fp = n => (n * 100).toFixed(1) + '%';
 const mdLite = t => t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\\n/g,'<br>').replace(/^[\\u2713\\u26a0\\u2192\\u2022]\\s/gm, m => `<span style="color:var(--pink)">${m}</span>`);
+function renderPlaybookBlocks(text) {
+  const sections = [
+    { key: 'WHAT WORKS',    cls: 'emerald' },
+    { key: 'A SECOND LOOK', cls: 'amber'   },
+    { key: 'FINN SUGGESTS', cls: 'teal'    },
+  ];
+  let html = '';
+  for (let i = 0; i < sections.length; i++) {
+    const { key, cls } = sections[i];
+    const nextKey = sections[i + 1] ? sections[i + 1].key : null;
+    const re = new RegExp(key + '[:\\s]*([\\s\\S]*?)' + (nextKey ? `(?=${nextKey})` : '$'), 'i');
+    const m = text.match(re);
+    if (m) html += `<div class="pb-block"><div class="pb-block-hdr ${cls}">${key}</div><div class="pb-block-body">${mdLite(m[1].trim())}</div></div>`;
+  }
+  return html || `<div class="pb-block-body">${mdLite(text)}</div>`;
+}
 
 // ── Tab switching ──────────────────────────────────────────────────────────
 let mcPrefilled = false;
@@ -1980,7 +2002,7 @@ function renderMCChart(d) {
         tooltip: {
           backgroundColor: 'rgba(5,5,5,0.95)', borderColor: 'rgba(205,133,63,0.30)', borderWidth: 1,
           titleColor: '#cd853f', bodyColor: '#c8b89a', padding: 12, cornerRadius: 6,
-          callbacks: { label: ctx => `  ${ctx.dataset.label}: $${(ctx.raw/1000).toFixed(0)}k` }
+          callbacks: { label: ctx => `  ${ctx.dataset.label}: ${ctx.raw >= 1000000 ? '$' + (ctx.raw/1000000).toFixed(2) + 'M' : '$' + (ctx.raw/1000).toFixed(0) + 'k'}` }
         }
       },
       scales: {
@@ -2144,7 +2166,7 @@ function renderMCResults(d) {
       });
       const sd = await r.json();
       const bodyEl = document.getElementById('aiPlaybookBody');
-      if (bodyEl) bodyEl.innerHTML = sd.error ? mdLite(renderPlaybook(d) || sd.error) : mdLite(sd.summary);
+      if (bodyEl) bodyEl.innerHTML = sd.error ? mdLite(renderPlaybook(d) || sd.error) : renderPlaybookBlocks(sd.summary);
     } catch(_) {
       const bodyEl = document.getElementById('aiPlaybookBody');
       if (bodyEl) { const fb = renderPlaybook(d); bodyEl.innerHTML = fb || '\u26a0 AI unavailable.'; }
