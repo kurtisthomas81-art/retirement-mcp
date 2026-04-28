@@ -992,7 +992,7 @@
 
             <div class="mc-section-title">Roth Conversion</div>
             <div class="mc-toggle-row">
-              <label class="mc-toggle"><input type="checkbox" id="mc_use_conv" onchange="document.getElementById('mc_conv_opts').style.display=this.checked?'grid':'none'"> Enable Roth Conversion</label>
+              <label class="mc-toggle"><input type="checkbox" id="mc_use_conv" onchange="const v=this.checked?'grid':'none';document.getElementById('mc_conv_opts').style.display=v;document.getElementById('mc_conv_cliff_opts').style.display=this.checked?'flex':'none';"> Enable Roth Conversion</label>
             </div>
             <div id="mc_conv_opts" class="mc-row-3" style="display:none">
               <div class="field"><label>Trad Balance ($)</label><input type="number" id="mc_trad" value="0" min="0"></div>
@@ -1003,6 +1003,10 @@
                 </select>
               </div>
               <div class="field"><label>State Tax (%)</label><input type="number" id="mc_state_tx" value="3.99" step="0.01" min="0" max="15"></div>
+            </div>
+            <div id="mc_conv_cliff_opts" class="mc-toggle-row" style="display:none;margin-top:4px;">
+              <label class="mc-toggle" title="Restrict Roth conversions at ages 62–64 to stay below ACA MAGI cliff (~$60k). Preserves subsidy eligibility during early bridge."><input type="checkbox" id="mc_aca_cliff"> ACA Cliff (62–64)</label>
+              <label class="mc-toggle" title="At ages 65–66 (Medicare Blast), expand conversions toward IRMAA Tier 1 ceiling (~$106k) instead of stopping at the 12% bracket."><input type="checkbox" id="mc_irmaa_blast"> IRMAA Blast (65–66)</label>
             </div>
 
             <div class="mc-section-title">Options</div>
@@ -1963,6 +1967,8 @@ async function runMC() {
     trad_balance:            parseFloat(document.getElementById('mc_trad').value)     || 0,
     target_bracket:          parseFloat(document.getElementById('mc_tgt_bkt').value)  || 0.12,
     state_tax_rate:          pct('mc_state_tx'),
+    use_aca_cliff:           document.getElementById('mc_aca_cliff').checked,
+    use_irmaa_blast:         document.getElementById('mc_irmaa_blast').checked,
     seq_shock_year:          parseInt(document.querySelector('input[name="mc_seq"]:checked')?.value || '0'),
     sim_size: simSize,
     return_model: returnModel,
@@ -1985,12 +1991,50 @@ async function runMC() {
     });
     const d = await r.json();
     if (d.error) { panel.innerHTML = `<span class="err">${d.error}</span>`; return; }
+    window._lastSimParams = params;
+    window._lastSimData   = d;
     renderMCResults(d);
   } catch(e) {
     panel.innerHTML = `<span class="err">Network error: ${e.message}</span>`;
   } finally {
     btn.disabled = false; btn.textContent = 'Run Simulation';
     spinner.style.display = 'none';
+  }
+}
+
+async function runHaircutTest() {
+  const btn = document.getElementById('haircutRunBtn');
+  const resultEl = document.getElementById('haircutResult');
+  if (!window._lastSimParams || !resultEl) return;
+  btn.disabled = true; btn.textContent = 'Running…';
+  try {
+    const hcParams = { ...window._lastSimParams, use_ss_haircut: true, ss_haircut_pct: 0.20 };
+    const r = await fetch('/api/monte-carlo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(hcParams) });
+    const hc = await r.json();
+    if (hc.error) { resultEl.innerHTML = `<span class="err">${hc.error}</span>`; resultEl.style.display=''; return; }
+    const base = window._lastSimData?.success_pct ?? 0;
+    const cut  = hc.success_pct;
+    const cls  = cut >= 80 ? 'clr-green' : cut >= 60 ? 'clr-amber' : 'clr-red';
+    const msg  = cut >= 80 ? 'Floor survives a 20% SS cut.' : cut >= 60 ? 'Marginal — consider moat expansion.' : 'Plan at risk under 20% SS cut.';
+    const baseTerm = window._lastSimData?.stats?.median_terminal ?? 0;
+    resultEl.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:4px;">
+        <div style="text-align:center;">
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:2px;">Base Plan</div>
+          <div style="font-size:1.3rem;font-weight:700;color:#cd853f;">${base}%</div>
+        </div>
+        <div style="font-size:1.3rem;color:var(--muted);padding-top:10px;">&rarr;</div>
+        <div style="text-align:center;">
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:2px;">20% SS Cut</div>
+          <div style="font-size:1.3rem;font-weight:700;" class="${cls}">${cut}%</div>
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);padding-top:12px;flex:1;min-width:140px;">${msg} Terminal wealth: ${fm(baseTerm)} &rarr; ${fm(hc.stats.median_terminal)}.</div>
+      </div>`;
+    resultEl.style.display = '';
+  } catch(e) {
+    resultEl.innerHTML = `<span class="err">Error: ${e.message}</span>`; resultEl.style.display='';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run Test';
   }
 }
 
@@ -2026,6 +2070,43 @@ function renderMCChart(d) {
       scales: {
         x: { ticks: { color: '#5a5040', font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } },
         y: { ticks: { color: '#5a5040', callback: v => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k', font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } }
+      }
+    }
+  });
+}
+
+function renderSpendChart(d) {
+  if (!d.spend_bands || !d.spend_bands.ages) return;
+  const ctx = document.getElementById('spendChart');
+  if (!ctx) return;
+  if (window._spendChart) window._spendChart.destroy();
+  const fmt = v => v == null ? null : (v >= 1000000 ? '$' + (v/1000000).toFixed(2) + 'M' : '$' + Math.round(v/1000) + 'k');
+  window._spendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d.spend_bands.ages,
+      datasets: [
+        { label: 'P75', data: d.spend_bands.p75, fill: '+1', borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.10)', tension: 0.35, pointRadius: 0, borderWidth: 0 },
+        { label: 'P25', data: d.spend_bands.p25, fill: '-1', borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.10)', tension: 0.35, pointRadius: 0, borderWidth: 0 },
+        { label: 'Median Spend', data: d.spend_bands.p50, fill: false, borderColor: '#cd853f', borderWidth: 2.5, tension: 0.35, pointRadius: 0 },
+        { label: 'Biological Floor', data: d.floor_line, fill: false, borderColor: '#ec4899', borderWidth: 1.5, borderDash: [6,3], tension: 0.3, pointRadius: 0, spanGaps: true },
+        { label: 'SS Coverage', data: d.ss_line, fill: false, borderColor: '#6b7280', borderWidth: 1.5, borderDash: [3,3], tension: 0.3, pointRadius: 0 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#a0a0a0', font: { size: 11 }, boxWidth: 18, padding: 12 } },
+        tooltip: {
+          backgroundColor: 'rgba(5,5,5,0.95)', borderColor: 'rgba(205,133,63,0.30)', borderWidth: 1,
+          titleColor: '#cd853f', bodyColor: '#c8b89a', padding: 10, cornerRadius: 6,
+          callbacks: { label: c => c.raw == null ? null : `  ${c.dataset.label}: ${fmt(c.parsed.y)}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#5a5040', font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } },
+        y: { min: 0, ticks: { color: '#5a5040', callback: v => '$' + Math.round(v/1000) + 'k', font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: 'rgba(205,133,63,0.06)' }, border: { color: 'rgba(205,133,63,0.12)' } }
       }
     }
   });
@@ -2070,7 +2151,9 @@ function renderMCResults(d) {
 
   const convStats = (s.conv_tax_paid > 0)
     ? `<div class="stat-card"><div class="sc-label">Conv. Tax Paid</div><div class="sc-value" style="font-size:1rem;">${fm(s.conv_tax_paid)}</div></div>
-       <div class="stat-card accent-emerald"><div class="sc-label">Tax Savings</div><div class="sc-value" style="font-size:1rem;color:var(--green)">${fm(Math.max(0,s.tax_savings))}</div></div>`
+       <div class="stat-card accent-emerald"><div class="sc-label">Tax Savings</div><div class="sc-value" style="font-size:1rem;color:var(--green)">${fm(Math.max(0,s.tax_savings))}</div></div>
+       ${s.aca_cliff_modulated_pct > 0 ? `<div class="stat-card"><div class="sc-label">ACA Cliff Restricted</div><div class="sc-value" style="font-size:1rem;">${s.aca_cliff_modulated_pct}%</div><div class="sc-sub">of trials, ages 62–64</div></div>` : ''}
+       ${s.irmaa_blast_pct > 0 ? `<div class="stat-card accent-emerald"><div class="sc-label">IRMAA Blast Used</div><div class="sc-value" style="font-size:1rem;">${s.irmaa_blast_pct}%</div><div class="sc-sub">of trials, ages 65–66</div></div>` : ''}`
     : '';
 
   // Initialize tab structure
@@ -2145,6 +2228,55 @@ function renderMCResults(d) {
 
   setTimeout(() => renderMCChart(d), 50);
 
+  // ── Spending Projection ──────────────────────────────────────────────────
+  if (d.spend_bands) {
+    document.getElementById('mc_t1').insertAdjacentHTML('beforeend', `
+      <div class="panel" style="margin-bottom:14px;padding:16px 18px;">
+        <h2>Annual Spending Projection</h2>
+        <p style="color:var(--muted);font-size:0.78rem;margin:2px 0 12px;line-height:1.5;">
+          <span style="color:#cd853f;font-weight:600;">Gold band</span> — what you actually spend each year (P25/P75 range, P50 line).
+          &nbsp;<span style="color:#ec4899;font-weight:600;">— — Floor</span> — biological minimum if you cut back all discretionary.
+          &nbsp;<span style="color:#6b7280;font-weight:600;">··· SS</span> — Social Security income alone.
+          The gap between SS and Floor is what the portfolio must cover each year.
+        </p>
+        <div style="position:relative;height:250px;"><canvas id="spendChart"></canvas></div>
+      </div>
+    `);
+    setTimeout(() => renderSpendChart(d), 80);
+  }
+
+  // ── Estate / Legacy ──────────────────────────────────────────────────────
+  const age95 = (d.milestones || []).find(m => m.age === 95);
+  if (age95 && age95.p50 > 0) {
+    const legacyNote = age95.p10 > 100000
+      ? '<span style="color:#4ade80;font-size:0.75rem;">&#10003; Even the bear case leaves a meaningful estate.</span>'
+      : age95.p10 <= 0
+      ? '<span style="color:#f87171;font-size:0.75rem;">&#9888; Bear case depletes — consider moat or later SS claim.</span>'
+      : '<span style="color:#fbbf24;font-size:0.75rem;">&#9888; Bear case is thin — the median and bull cases build estate.</span>';
+    document.getElementById('mc_t1').insertAdjacentHTML('beforeend', `
+      <div class="panel" style="margin-bottom:14px;padding:16px 18px;">
+        <h2>Your Financial Legacy</h2>
+        <p style="color:var(--muted);font-size:0.78rem;margin:2px 0 12px;">After covering every year of retirement, here&rsquo;s what remains at 95. At 67 your portfolio stops funding your life &mdash; it becomes estate.</p>
+        <div class="mc-stats-strip">
+          <div class="stat-card"><div class="sc-label">Bear Case (P10)</div><div class="sc-value" style="font-size:0.95rem;color:${age95.p10 > 0 ? '#cd853f' : '#f87171'}">${fm(age95.p10)}</div></div>
+          <div class="stat-card key-metric"><div class="sc-label">Median Estate (P50)</div><div class="sc-value" style="font-size:0.95rem;">${fm(age95.p50)}</div></div>
+          <div class="stat-card"><div class="sc-label">Bull Case (P90)</div><div class="sc-value" style="font-size:0.95rem;">${fm(age95.p90)}</div></div>
+        </div>
+        <div style="margin-top:8px;">${legacyNote}</div>
+      </div>
+    `);
+  }
+
+  // ── SS Haircut callout ───────────────────────────────────────────────────
+  if (window._lastSimParams && window._lastSimParams.use_ss_haircut) {
+    document.getElementById('mc_t1').insertAdjacentHTML('beforeend', `
+      <div class="panel panel-risk" style="margin-bottom:14px;padding:14px 18px;border-left:3px solid #ec4899;">
+        <h2 style="color:#ec4899;">&#9888; 20% SS Haircut Active</h2>
+        <p style="color:var(--muted);font-size:0.78rem;margin:4px 0 0;">These results already reflect a 20% reduction in Social Security benefits. Success rate of <strong>${d.success_pct}%</strong> is the haircut scenario. If this is &ge;80%, your floor survives a Congressional cut.</p>
+      </div>
+    `);
+  }
+
   // Animate success % counter
   const sbEl = document.getElementById('sbAnimVal');
   if (sbEl) {
@@ -2157,6 +2289,22 @@ function renderMCResults(d) {
       if (progress < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+
+  // ── SS Haircut Stress Test button (only when haircut not already active) ──
+  if (!(window._lastSimParams && window._lastSimParams.use_ss_haircut)) {
+    document.getElementById('mc_t1').insertAdjacentHTML('beforeend', `
+      <div class="panel" style="margin-bottom:14px;padding:14px 18px;" id="haircutTestPanel">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;font-size:0.88rem;color:var(--gold);">20% SS Cut Stress Test</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">Re-runs with Congress cutting Social Security 20%. Does your floor survive?</div>
+          </div>
+          <button class="btn btn-sm" id="haircutRunBtn" onclick="runHaircutTest()" style="white-space:nowrap;flex-shrink:0;">Run Test</button>
+        </div>
+        <div id="haircutResult" style="margin-top:10px;display:none;"></div>
+      </div>
+    `);
   }
 
   // AI Playbook — replaces canned renderPlaybook with Ollama-generated narrative

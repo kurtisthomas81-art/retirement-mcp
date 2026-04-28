@@ -173,11 +173,15 @@ def _init_arrays(n_trials):
         "ph_drawn_arr":   np.zeros(n_trials),
         "ph_refill_arr":  np.zeros(n_trials),
         "ph_funded_arr":  np.zeros(n_trials),
+        "aca_mod_arr":    np.zeros(n_trials, dtype=bool),
+        "irmaa_mod_arr":  np.zeros(n_trials, dtype=bool),
     }
 
 
 def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths, moat_paths,
-                        bridge_years, arrays, use_rat, use_ph, rng=None):
+                        bridge_years, arrays, use_rat, use_ph,
+                        spend_paths=None, ss_inc_paths=None,
+                        base_draw_ann=0.0, infl=0.03, rng=None):
     term_vals     = np.maximum(0.0, all_paths[:, end_age - current_age])
     gogo_arr      = arrays["gogo_arr"]
     slgo_arr      = arrays["slgo_arr"]
@@ -270,6 +274,20 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
             t3_cum.append(round(float(np.sum((arrays["rat_t3_age_arr"] > 0) & (arrays["rat_t3_age_arr"] <= a)) / n_trials * 100), 1))
         ratchet_paths = {"ages": ph3_ages, "t1": t1_cum, "t2": t2_cum, "t3": t3_cum}
 
+    # Per-year spending bands (floor + discretionary, per trial per age)
+    sp_bands = None
+    ss_line  = None
+    floor_line = None
+    if spend_paths is not None and np.any(spend_paths > 0):
+        sp_bands = {"ages": ages}
+        for p in [10, 25, 50, 75, 90]:
+            sp_bands[f"p{p}"] = [round(float(np.percentile(spend_paths[:, i], p))) for i in range(n_years)]
+        ss_line = [round(float(np.median(ss_inc_paths[:, i]))) for i in range(n_years)]
+        floor_line = [
+            round(base_draw_ann * (1 + infl) ** (a - current_age)) if a >= target_age else None
+            for a in ages
+        ]
+
     spend_scenarios = {
         "labels": ["Go-Go (62–75)", "Slow-Go (76–85)", "No-Go (86+)"],
         "p10": [round(float(np.percentile(a, 10))) for a in [gogo_arr, slgo_arr, nogo_arr]],
@@ -290,6 +308,9 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
         "ratchet_stats":       ratchet_stats,
         "ratchet_paths":       ratchet_paths,
         "spend_scenarios":     spend_scenarios,
+        "spend_bands":         sp_bands,
+        "ss_line":             ss_line,
+        "floor_line":          floor_line,
         "prime_harvest_stats": prime_harvest_stats,
         "stats": {
             "median_arrival":     round(float(np.median(arrays["arrival_arr"]))),
@@ -299,9 +320,11 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
             "median_terminal":    round(float(np.median(term_vals))),
             "median_gogo_spend":  round(float(np.median(gogo_arr))),
             "median_total_spend": round(float(np.median(total_spend_arr))),
-            "conv_tax_paid":      round(float(np.median(conv_tx_arr))),
-            "tax_savings":        round(float(np.median(sav))),
-            "median_drawdown":    round(float(np.median(dd_arr) * 100), 1),
+            "conv_tax_paid":          round(float(np.median(conv_tx_arr))),
+            "tax_savings":            round(float(np.median(sav))),
+            "median_drawdown":        round(float(np.median(dd_arr) * 100), 1),
+            "aca_cliff_modulated_pct": round(float(np.mean(arrays["aca_mod_arr"]) * 100), 1),
+            "irmaa_blast_pct":         round(float(np.mean(arrays["irmaa_mod_arr"]) * 100), 1),
         },
         "trial_count": n_trials,
         "runtime_ms":  round((time.time() - t0) * 1000, 1),
@@ -368,6 +391,10 @@ def run_monte_carlo(params, seed=None):
     tgt_bkt   = float(g("target_bracket", 0.12))
     cust_conv = float(g("custom_conv_amt", 0))
     state_tx  = float(g("state_tax_rate", 0.0399))
+    use_aca_cliff   = bool(g("use_aca_cliff", False))
+    aca_cliff_magi  = float(g("aca_cliff_magi", 60240))
+    use_irmaa_blast = bool(g("use_irmaa_blast", False))
+    irmaa_t1_magi   = float(g("irmaa_tier1_magi", 106000))
 
     use_mc  = bool(g("use_medicare_surcharge", False))
     mc_ann  = float(g("medicare_monthly", 500)) * 12
@@ -422,8 +449,10 @@ def run_monte_carlo(params, seed=None):
     rets_all = _generate_returns(rng, return_model, n_trials, n_years, mu, sigma, params)
     infl_all = rng.normal(infl, infl_vol, (n_trials, n_years)) if use_si else None
 
-    all_paths  = np.zeros((n_trials, n_years))
-    moat_paths = np.zeros((n_trials, n_years))
+    all_paths    = np.zeros((n_trials, n_years))
+    moat_paths   = np.zeros((n_trials, n_years))
+    spend_paths  = np.zeros((n_trials, n_years))
+    ss_inc_paths = np.zeros((n_trials, n_years))
     arrays     = _init_arrays(n_trials)
 
     eng      = np.full(n_trials, engine0)
@@ -582,6 +611,20 @@ def run_monte_carlo(params, seed=None):
                             cv_arr[ti] = min(cust_conv, trad[ti])
                         else:
                             cv_arr[ti] = compute_conversion_amount(trad[ti], 0, tgt_bkt, yo, infl, filing)
+                        draw_ti = float(draw[ti]) if hasattr(draw, '__len__') else float(draw)
+                        # ACA cliff: restrict conversions at ages 62–64 to stay below subsidy cliff
+                        if use_aca_cliff and age < 65:
+                            headroom = max(0.0, aca_cliff_magi * float(infl_acc[ti]) - draw_ti)
+                            if cv_arr[ti] > headroom:
+                                cv_arr[ti] = headroom
+                                arrays["aca_mod_arr"][ti] = True
+                        # Medicare Blast: at ages 65–66, expand conversions toward IRMAA Tier 1 ceiling
+                        elif use_irmaa_blast and 65 <= age <= 66:
+                            headroom = max(0.0, irmaa_t1_magi * float(infl_acc[ti]) - draw_ti)
+                            irmaa_target = min(float(trad[ti]), headroom)
+                            if irmaa_target > cv_arr[ti]:
+                                cv_arr[ti] = irmaa_target
+                                arrays["irmaa_mod_arr"][ti] = True
                     has_conv = conv_eligible & (cv_arr > 0)
                     if np.any(has_conv):
                         fed_arr = np.array([compute_federal_tax(cv_arr[ti], yo, infl, filing)
@@ -598,6 +641,7 @@ def run_monte_carlo(params, seed=None):
             max_dd = np.maximum(max_dd, dd)
             all_paths[:, ai]  = np.where(in_bridge, eng_new + br_moat_new, all_paths[:, ai])
             moat_paths[:, ai] = np.where(in_bridge, br_moat_new, moat_paths[:, ai])
+            spend_paths[:, ai] = np.where(in_bridge, draw, spend_paths[:, ai])
             eng    = np.where(in_bridge, eng_new, eng)
             br_moat = np.where(in_bridge, br_moat_new, br_moat)
             yp += 1
@@ -704,11 +748,13 @@ def run_monte_carlo(params, seed=None):
         tot_gg = np.where(age <= 75, tot_gg + skim, tot_gg)
         tot_sg = np.where((age > 75) & (age <= 85), tot_sg + skim, tot_sg)
         tot_ng = np.where(age > 85, tot_ng + skim, tot_ng)
+        spend_yr = floor_now + skim
 
         if use_gf and age <= 75:
             top = np.maximum(0.0, gogo_fl_ann * infl_acc - skim)
             a = np.minimum(top, np.maximum(0.0, eng))
             eng -= a; tot_gg += a
+            spend_yr = spend_yr + a
 
         cr   = np.where(age <= 75, cap_gg, np.where(age <= 85, cap_sg, cap_ng))
         nc   = p_cap * ((1 + cap_infl) ** (age - target_age))
@@ -720,6 +766,9 @@ def run_monte_carlo(params, seed=None):
         tot_gg = np.where(over_cap & (age <= 75), tot_gg + hc, tot_gg)
         tot_sg = np.where(over_cap & (age > 75) & (age <= 85), tot_sg + hc, tot_sg)
         tot_ng = np.where(over_cap & (age > 85), tot_ng + hc, tot_ng)
+        spend_yr = spend_yr + hc
+        spend_paths[:, ai]  = spend_yr
+        ss_inc_paths[:, ai] = ss_now
 
         yo = age - current_age
         if use_conv and age <= 74:
@@ -797,6 +846,8 @@ def run_monte_carlo(params, seed=None):
     return _aggregate_results(
         t0, n_trials, current_age, target_age, end_age,
         all_paths, moat_paths, bridge_years, arrays, use_rat, use_ph,
+        spend_paths=spend_paths, ss_inc_paths=ss_inc_paths,
+        base_draw_ann=base_draw_ann, infl=infl,
     )
 
 
