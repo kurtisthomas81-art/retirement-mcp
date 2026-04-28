@@ -77,10 +77,13 @@ def run_retirement_simulation(
     engine_balance: float = 0,
     sgov_balance: float = 0,
     checking_balance: float = 5000,
-    ss_benefit_67: float = 25620,
+    ss_benefit_67: float = 36697,
+    floor_annual: float = 17000,
     annual_contribution: float = 0,
 ) -> str:
-    """Runs a Monte Carlo retirement simulation (1,000 trials) using V4-equivalent parameters.
+    """Runs a Monte Carlo retirement simulation (1,000 trials).
+    ss_benefit_67: SS benefit in current dollars at full retirement age 67.
+    floor_annual: biological floor (survival spending) in current dollars — post-SS gap target.
     Returns success rate, wealth percentiles at key ages, and key simulation statistics."""
     params = {
         "current_age": current_age,
@@ -89,10 +92,12 @@ def run_retirement_simulation(
         "start_sgov":      sgov_balance,
         "start_checking":  checking_balance,
         "full_ss":         ss_benefit_67,
+        "biological_floor": floor_annual,
+        "bridge_draw_ann": 72000,
         "annual_contribution": annual_contribution,
         "trials": 1000,
-        "mean_return": 0.09, "volatility": 0.16, "sgov_yield": 0.04,
-        "inflation_rate": 0.03, "strict_moat_cost": 96000, "full_moat_cost": 96000,
+        "mean_return": 0.10, "volatility": 0.15, "sgov_yield": 0.04,
+        "inflation_rate": 0.03,
         "use_mortality_weighting": True,
         "gogo_e": 0.25, "gogo_n": 0.15, "slowgo_e": 0.20, "slowgo_n": 0.10,
         "nogo_e": 0.10, "nogo_n": 0.05, "gk_trigger": 0.20, "gk_cut_rate": 0.50,

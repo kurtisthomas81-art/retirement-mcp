@@ -181,7 +181,7 @@ def _init_arrays(n_trials):
 def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths, moat_paths,
                         bridge_years, arrays, use_rat, use_ph,
                         spend_paths=None, ss_inc_paths=None,
-                        base_draw_ann=0.0, infl=0.03, rng=None):
+                        survival_floor=0.0, infl=0.03, rng=None):
     term_vals     = np.maximum(0.0, all_paths[:, end_age - current_age])
     gogo_arr      = arrays["gogo_arr"]
     slgo_arr      = arrays["slgo_arr"]
@@ -284,7 +284,7 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
             sp_bands[f"p{p}"] = [round(float(np.percentile(spend_paths[:, i], p))) for i in range(n_years)]
         ss_line = [round(float(np.median(ss_inc_paths[:, i]))) for i in range(n_years)]
         floor_line = [
-            round(base_draw_ann * (1 + infl) ** (a - current_age)) if a >= target_age else None
+            round(survival_floor * (1 + infl) ** (a - current_age)) if a >= target_age else None
             for a in ages
         ]
 
@@ -346,17 +346,18 @@ def run_monte_carlo(params, seed=None):
     contrib  = float(g("annual_contribution", 0))
     wage_gr  = float(g("wage_growth", 0.02))
 
-    moat_target = float(g("moat_target", 360000))
-    strict_moat = float(g("strict_moat_cost", 54292))
-    full_moat   = moat_target
+    moat_target     = float(g("moat_target", 360000))
+    full_moat       = moat_target
+    bridge_draw_ann = float(g("bridge_draw_ann", float(g("strict_moat_cost", 72000))))
+    survival_floor  = float(g("biological_floor", 17000))
 
-    full_ss     = float(g("full_ss", 25620))
+    full_ss     = float(g("full_ss", 36697))
     ss_age_tgt  = int(g("ss_age", 67))
     use_haircut = bool(g("use_ss_haircut", False))
     haircut_pct = float(g("ss_haircut_pct", 0.21))
 
-    mu     = float(g("mean_return", 0.09))
-    sigma  = float(g("volatility", 0.16))
+    mu     = float(g("mean_return", 0.10))
+    sigma  = float(g("volatility", 0.15))
     syld   = float(g("sgov_yield", 0.04))
     divyld = float(g("dividend_yield", 0.015))
 
@@ -442,7 +443,6 @@ def run_monte_carlo(params, seed=None):
     seq_yr       = int(g("seq_shock_year", 0))
 
     bridge_years  = max(1, ss_age_tgt - target_age)
-    base_draw_ann = strict_moat
 
     rng = np.random.default_rng(seed)
 
@@ -460,8 +460,9 @@ def run_monte_carlo(params, seed=None):
     chk      = np.full(n_trials, chk0)
     trad     = np.full(n_trials, trad0)
     sh_trad  = np.full(n_trials, trad0)
-    ph3_moat = np.zeros(n_trials)
-    infl_acc = np.ones(n_trials)
+    ph3_moat      = np.zeros(n_trials)
+    infl_acc      = np.ones(n_trials)
+    infl_acc_at_ret = np.zeros(n_trials)  # infl_acc snapshot at retirement entry
     cum_dev  = np.zeros(n_trials)
     cdn      = np.zeros(n_trials, dtype=np.int32)
     ath      = np.full(n_trials, engine0)
@@ -566,7 +567,7 @@ def run_monte_carlo(params, seed=None):
             br_moat = np.where(entering, dy, br_moat)
             eng     = new_eng
             sg      = np.where(entering, 0.0, sg)
-            runway  = np.where(base_draw_ann > 0, dy / base_draw_ann, float(bridge_years))
+            runway  = np.where(bridge_draw_ann > 0, dy / bridge_draw_ann, float(bridge_years))
             rip     = runway < bridge_years
             ripcord = np.where(entering, rip, ripcord)
             new_cl  = np.where(rip,
@@ -580,6 +581,7 @@ def run_monte_carlo(params, seed=None):
             ss_ben = np.where(entering,
                               raw_ss * (1 - haircut_pct) if use_haircut else raw_ss,
                               ss_ben)
+            infl_acc_at_ret = np.where(entering, infl_acc, infl_acc_at_ret)
             ath = np.where(entering & (eng > ath), eng, ath)
 
         # ── Bridge phase ──────────────────────────────────────────────────────
@@ -587,13 +589,22 @@ def run_monte_carlo(params, seed=None):
         if np.any(in_bridge):
             eng_new = np.where(in_bridge, eng * (1 + ret), eng)
             ath = np.where(in_bridge & (eng_new > ath), eng_new, ath)
-            draw = base_draw_ann * infl_acc
+            # Bridge draw in retirement-day nominal dollars, growing from retirement date
+            bridge_infl = np.where(infl_acc_at_ret > 0,
+                                   infl_acc / infl_acc_at_ret,
+                                   np.ones(n_trials))
+            draw = bridge_draw_ann * bridge_infl
             if use_mc and age < 65:
                 draw = draw + mc_ann * ((1 + hc_infl) ** (age - target_age))
             if use_aca_shock and target_age <= age < min(target_age + 3, int(np.min(cl_ss)) + 1):
                 aca_hit = rng.random(n_trials) < aca_shock_prob
-                draw = np.where(in_bridge & aca_hit, draw + aca_shock_mag * infl_acc, draw)
-            br_moat_new = np.where(in_bridge, br_moat * (1 + syld) - draw, br_moat)
+                draw = np.where(in_bridge & aca_hit, draw + aca_shock_mag * bridge_infl, draw)
+            # 6-period SGOV model: pull 60 days of cash at a time (≈6 pulls/year)
+            # B_end = B·(1+r6)^6 − (draw/6)·[(1+r6)^6−1]/r6  where r6 = syld/6
+            r6        = syld / 6.0
+            compound6 = (1.0 + r6) ** 6
+            geo_sum   = (compound6 - 1.0) / r6 if r6 > 0.0 else 6.0
+            br_moat_new = np.where(in_bridge, br_moat * compound6 - (draw / 6.0) * geo_sum, br_moat)
             overflow = br_moat_new < 0
             eng_new = np.where(in_bridge & overflow, np.maximum(0.0, eng_new + br_moat_new), eng_new)
             br_moat_new = np.where(in_bridge & overflow, 0.0, br_moat_new)
@@ -688,7 +699,7 @@ def run_monte_carlo(params, seed=None):
             ph3_peak      = np.maximum(ph3_peak, ph3_moat)
 
         ss_now    = ss_ben * infl_acc
-        floor_now = base_draw_ann * infl_acc
+        floor_now = survival_floor * infl_acc
         if use_mc and age < 65:
             floor_now = floor_now + mc_ann * ((1 + hc_infl) ** (age - target_age))
         gap = np.maximum(0.0, floor_now - ss_now)
@@ -847,7 +858,7 @@ def run_monte_carlo(params, seed=None):
         t0, n_trials, current_age, target_age, end_age,
         all_paths, moat_paths, bridge_years, arrays, use_rat, use_ph,
         spend_paths=spend_paths, ss_inc_paths=ss_inc_paths,
-        base_draw_ann=base_draw_ann, infl=infl,
+        survival_floor=survival_floor, infl=infl,
     )
 
 

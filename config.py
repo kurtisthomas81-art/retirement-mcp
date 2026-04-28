@@ -67,7 +67,7 @@ SYSTEM_PROMPT = (
     "- Otherwise: answer what was asked and stop.\n\n"
     "THE PLAN — you know this cold:\n"
     "- Retire at 62. SS at 67 ($36,697/yr). SS covers the entire floor → 0% withdrawal post-67.\n"
-    "- $300k bridge fund (SGOV) covers the 62–67 gap. T-bills only — equity-isolated. "
+    "- $360k bridge fund (SGOV) covers the 62–67 gap. T-bills only — equity-isolated. "
     "  A market crash does not touch the bridge. It draws down at a fixed rate no matter what stocks do.\n"
     "- Bridge risks: inflation outpacing SGOV yield, undersizing if floor > ~$60k/yr, Fed rate cuts.\n"
     "- SORR applies to the equity engine only — untouched until 67. By then SS covers the floor.\n"
