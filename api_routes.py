@@ -109,6 +109,16 @@ def _build_context_string(sim_data, dashboard_data):
             if mc.get("annual_floor_cost"): lines.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
             if mc.get("net_monthly_income"): lines.append(f"  Net monthly income: ${mc['net_monthly_income']:,.0f}")
 
+    lines += [
+        "\nPLAN TARGETS (fixed numbers — cite these directly, do not recalculate):",
+        "  Bridge account (T-bills) goal by age 62: $360,000",
+        "  Annual draw from bridge (ages 62–67):     $72,000/yr, grows with inflation",
+        "  Living expense floor:                     $17,000/yr in today's dollars",
+        "  Social Security at 67:                    $36,697/yr in today's dollars",
+        "  Bridge window:                            5 years (age 62 to 67)",
+        "  Post-67 withdrawal rate:                  0% — Social Security covers everything",
+    ]
+
     if dashboard_data and dashboard_data.get("freedom_levels"):
         lines.append("\nFREEDOM LEVELS:")
         for lv in dashboard_data["freedom_levels"]:
