@@ -544,7 +544,8 @@
   .pd-warn { background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 6px; padding: 8px 12px; font-size: 0.72rem; color: #fca5a5; margin-bottom: 7px; }
   .pd-note { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.22); border-radius: 6px; padding: 8px 12px; font-size: 0.72rem; color: #fcd34d; margin-bottom: 7px; }
   .pd-good { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.22); border-radius: 6px; padding: 8px 12px; font-size: 0.72rem; color: #6ee7b7; margin-bottom: 7px; }
-  .pd-prose{ font-size: 0.73rem; color: var(--muted2); line-height: 1.65; }
+  .pd-prose{ font-size: 0.73rem; color: var(--text); line-height: 1.65; }
+  .finn-subtitle { font-size: 0.58rem; color: var(--muted2); letter-spacing: 0.04em; margin-top: 2px; }
 
   /* ── Tax Loss Tab ── */
   .tl-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -582,6 +583,7 @@
   .pb-block-hdr.emerald { color: #10b981; }
   .pb-block-hdr.amber   { color: #f59e0b; }
   .pb-block-hdr.teal    { color: #14b8a6; }
+  .pb-block-hdr.sky     { color: #38bdf8; }
   .ai-thinking { display: flex; align-items: center; gap: 8px; color: var(--muted2); font-size: 0.72rem; padding: 8px 0; }
   .ai-thinking-dots { display: inline-flex; gap: 3px; }
   .ai-thinking-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--pink); animation: aiDot 1.2s infinite; }
@@ -1221,6 +1223,22 @@ function renderPlaybookBlocks(text) {
     { key: 'WHAT WORKS',    cls: 'emerald' },
     { key: 'A SECOND LOOK', cls: 'amber'   },
     { key: 'FINN SUGGESTS', cls: 'teal'    },
+  ];
+  let html = '';
+  for (let i = 0; i < sections.length; i++) {
+    const { key, cls } = sections[i];
+    const nextKey = sections[i + 1] ? sections[i + 1].key : null;
+    const re = new RegExp(key + '[:\\s]*([\\s\\S]*?)' + (nextKey ? `(?=${nextKey})` : '$'), 'i');
+    const m = text.match(re);
+    if (m) html += `<div class="pb-block"><div class="pb-block-hdr ${cls}">${key}</div><div class="pb-block-body">${mdLite(m[1].trim())}</div></div>`;
+  }
+  return html || `<div class="pb-block-body">${mdLite(text)}</div>`;
+}
+function renderPlanNarrative(text) {
+  const sections = [
+    { key: 'YOUR BRIDGE',    cls: 'sky'     },
+    { key: 'AFTER 67',       cls: 'emerald' },
+    { key: 'KEEP AN EYE ON', cls: 'amber'   },
   ];
   let html = '';
   for (let i = 0; i < sections.length; i++) {
@@ -2506,8 +2524,11 @@ function renderMCResults(d) {
     </div>
     <div class="pd-section">
       <div class="ai-playbook-hdr" style="margin-bottom:10px;">
-        <h3 style="margin-bottom:0;">Plan Narrative</h3>
-        <span class="ai-badge">AI</span>
+        <div>
+          <h3 style="margin-bottom:0;">Plan Narrative</h3>
+          <div class="finn-subtitle">Financial Independence Network Navigator</div>
+        </div>
+        <span class="ai-badge">FINN</span>
       </div>
       <p class="pd-prose" id="aiPlanNarrativeBody">
         <span class="ai-thinking">
@@ -2530,7 +2551,7 @@ function renderMCResults(d) {
       });
       const sd = await r.json();
       const el = document.getElementById('aiPlanNarrativeBody');
-      if (el) el.innerHTML = sd.error ? `\u26a0 ${sd.error}` : mdLite(sd.summary);
+      if (el) el.innerHTML = sd.error ? `\u26a0 ${sd.error}` : renderPlanNarrative(sd.summary);
     } catch(_) {
       const el = document.getElementById('aiPlanNarrativeBody');
       if (el) el.innerHTML = '\u26a0 AI unavailable \u2014 check Ollama connection.';

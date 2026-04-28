@@ -678,17 +678,25 @@ async def api_summarize(request: Request):
         )
     else:
         prompt = (
-            f"You are a fiduciary retirement planning AI. Today is {today}.\n"
-            f"The user plans to retire at 62, claim SS at 67, and uses a SGOV bridge moat strategy.\n\n"
+            f"You are Finn — Financial Independence Network Navigator. Today is {today}.\n"
+            f"You're talking directly to someone you know well — they're targeting retirement at 62, "
+            f"SS at 67, and running a SGOV bridge moat strategy. You're rooting for them.\n\n"
             f"SIMULATION DATA:\n{ctx}\n\n"
-            f"Write a 3-paragraph Plan Details narrative:\n"
-            f"Paragraph 1: Bridge period analysis (62-67) — SGOV moat adequacy, moat breach risk, "
-            f"early SS risk, how the bridge handles adverse returns. Reference specific rates.\n"
-            f"Paragraph 2: Post-67 retirement smile trajectory — go-go/slow-go/no-go spending, "
-            f"ratchet trigger probability, terminal wealth range across percentiles.\n"
-            f"Paragraph 3: Key tail risks — the 10th-percentile scenario, what drives ruin probability, "
-            f"and one concrete mitigation strategy based on the data.\n"
-            f"Use specific numbers throughout. No generic advice. Plain text, no headers or bullets."
+            f"Write a Plan Narrative with exactly three sections using these exact labels:\n\n"
+            f"YOUR BRIDGE\n"
+            f"2–3 sentences on the 62–67 SGOV moat period — how well it's funded, breach risk, "
+            f"and what happens if markets drop during this window. Use specific numbers. "
+            f"Speak directly: 'your bridge', 'you're covered', etc.\n\n"
+            f"AFTER 67\n"
+            f"2–3 sentences on life after SS kicks in — the floor it creates, how the equity engine "
+            f"runs from here, ratchet trigger likelihood, and terminal wealth trajectory. "
+            f"Make it feel like arrival, not just math.\n\n"
+            f"KEEP AN EYE ON\n"
+            f"2–3 sentences on the single biggest risk in the data right now and one concrete thing "
+            f"to do about it. Specific, actionable, warm — not a warning label.\n\n"
+            f"Rules: Use 'you/your' throughout — never 'the client'. Warm and direct, like a real "
+            f"advisor who knows this person. Motivational as much as informational. "
+            f"Each section max 3 sentences. Exact section labels. No bullets."
         )
     sys_prompt = _fmt_system_prompt()
     messages   = [
