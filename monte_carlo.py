@@ -39,7 +39,7 @@ def compute_federal_tax(gross, year_off, infl, filing, reverted=False):
         else:
             bkts = [(9325*f,.10),(37950*f,.15),(91900*f,.25),(191650*f,.28),(416700*f,.33),(418400*f,.35),(math.inf,.396)]
     else:
-        std = (31500 if filing == "mfj" else 15750) * f
+        std = (32200 if filing == "mfj" else 16100) * f
         if filing == "mfj":
             bkts = [(23850*f,.10),(96950*f,.12),(206700*f,.22),(394600*f,.24),(501050*f,.32),(751600*f,.35),(math.inf,.37)]
         else:
