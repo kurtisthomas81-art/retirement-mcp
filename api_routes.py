@@ -133,11 +133,13 @@ def _build_context_string(sim_data, dashboard_data):
             lines.append(f"  {k}: {v:.1f}%")
 
     if dashboard_data and dashboard_data.get("spending") and dashboard_data.get("spending_months"):
-        months = dashboard_data["spending_months"]
-        lines.append(f"\nSPENDING (most recent: {months[0] if months else 'N/A'}):")
+        sp_months = dashboard_data["spending_months"]
+        period = f"{sp_months[0]}–{sp_months[-1]}" if len(sp_months) > 1 else (sp_months[0] if sp_months else "N/A")
+        lines.append(f"\nSPENDING (monthly avg, {period}):")
         for cat, vals in dashboard_data["spending"].items():
-            if vals and isinstance(vals[0], (int, float)):
-                lines.append(f"  {cat}: ${vals[0]:,.0f}")
+            nums = [v for v in vals if isinstance(v, (int, float))]
+            if nums:
+                lines.append(f"  {cat}: ${sum(nums)/len(nums):,.0f}/mo avg")
 
     r = config.RULES_2026
     lines += [

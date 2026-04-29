@@ -1347,12 +1347,12 @@ async function loadHome() {
     // ── Monthly cash flow from latest spending month ──
     const spend  = d.spending || {};
     const months = d.spending_months || [];
-    const latestIdx = 0;  // months are newest-first
-    const income  = latestIdx >= 0 ? (spend['INCOME']     || [])[latestIdx] || 0 : 0;
-    const expense = latestIdx >= 0 ? (spend['EXPENSE']    || [])[latestIdx] || 0 : 0;
-    const invest  = latestIdx >= 0 ? (spend['INVESTMENT'] || [])[latestIdx] || 0 : 0;
+    const spendAvg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const income  = spendAvg(spend['INCOME']      || []);
+    const expense = spendAvg(spend['EXPENSE']     || []);
+    const invest  = spendAvg(spend['INVESTMENT']  || []);
     const srVals  = spend['SAVINGS RATE'] || [];
-    const sr      = srVals.length ? srVals[0] : null;
+    const sr      = srVals.length ? spendAvg(srVals) : null;
     const maxFlow = Math.max(Math.abs(income), Math.abs(expense), Math.abs(invest), 1);
     const barW    = v => Math.round(Math.abs(v) / maxFlow * 100);
 
@@ -1371,7 +1371,9 @@ async function loadHome() {
 
     // ── Gap to target ──
     const gap      = Math.max(0, target - lnw);
-    const monthStr = months[latestIdx] || '';
+    const monthStr = months.length > 1
+      ? `${months[0]}–${months[months.length-1]} Avg`
+      : (months[0] || '');
 
     el.innerHTML = `
       <div class="panel" style="padding:20px 18px 16px;border-color:rgba(236,72,153,0.25);">
