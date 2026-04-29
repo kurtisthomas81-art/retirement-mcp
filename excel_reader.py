@@ -127,7 +127,11 @@ def read_dashboard_data():
                 months = [str(m) for m in row[1:] if m is not None]
             continue
         if row[0] and any(v is not None for v in row[1:]):
-            spending[row[0]] = [v for v in row[1:] if v is not None]
+            n = len(months)
+            spending[str(row[0]).strip().upper()] = [
+                float(v) if isinstance(v, (int, float)) else 0
+                for v in row[1:n + 1]
+            ]
 
     nw = {
         "ss_monthly_62": 0.0, "ss_monthly_67": 0.0, "ss_monthly_70": 0.0,

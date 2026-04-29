@@ -1347,12 +1347,12 @@ async function loadHome() {
     // ── Monthly cash flow from latest spending month ──
     const spend  = d.spending || {};
     const months = d.spending_months || [];
-    const latestIdx = months.length - 1;
-    const income  = latestIdx >= 0 ? (spend['Income']   || [])[latestIdx] || 0 : 0;
-    const expense = latestIdx >= 0 ? (spend['Expense']  || [])[latestIdx] || 0 : 0;
-    const invest  = latestIdx >= 0 ? (spend['Investment']|| [])[latestIdx]|| 0 : 0;
+    const latestIdx = 0;  // months are newest-first
+    const income  = latestIdx >= 0 ? (spend['INCOME']     || [])[latestIdx] || 0 : 0;
+    const expense = latestIdx >= 0 ? (spend['EXPENSE']    || [])[latestIdx] || 0 : 0;
+    const invest  = latestIdx >= 0 ? (spend['INVESTMENT'] || [])[latestIdx] || 0 : 0;
     const srVals  = spend['SAVINGS RATE'] || [];
-    const sr      = srVals.length ? srVals[srVals.length-1] : null;
+    const sr      = srVals.length ? srVals[0] : null;
     const maxFlow = Math.max(Math.abs(income), Math.abs(expense), Math.abs(invest), 1);
     const barW    = v => Math.round(Math.abs(v) / maxFlow * 100);
 
