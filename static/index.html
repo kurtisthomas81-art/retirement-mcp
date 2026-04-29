@@ -1344,17 +1344,25 @@ async function loadHome() {
     const R = 68; const C = 2 * Math.PI * R;
     const fill = C - (pct / 100) * C;
 
-    // ── Monthly cash flow from latest spending month ──
-    const spend  = d.spending || {};
-    const months = d.spending_months || [];
-    const spendAvg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-    const income  = spendAvg(spend['INCOME']      || []);
-    const expense = spendAvg(spend['EXPENSE']     || []);
-    const invest  = spendAvg(spend['INVESTMENT']  || []);
+    // ── Monthly cash flow — from DASHBOARD "CASH FLOW" section ──
+    const cf = d.cashflow || {};
+    const cfFind = (...keys) => {
+      for (const k of Object.keys(cf)) {
+        const ku = k.toUpperCase();
+        if (keys.some(q => ku.includes(q.toUpperCase()))) return Math.abs(cf[k]);
+      }
+      return 0;
+    };
+    const income  = cfFind('INCOME', 'SALARY', 'EARN');
+    const expense = cfFind('EXPENSE', 'SPEND', 'COST');
+    const invest  = cfFind('INVEST', 'SAVING', 'CONTRIBUTION');
+    const cfSr    = cfFind('SAVINGS RATE', 'SAVE RATE', 'SR');
+    const spend   = d.spending || {};
+    const spendAvg = arr => { const nz = (arr||[]).filter(v=>v); return nz.length ? nz.reduce((a,b)=>a+b,0)/nz.length : 0; };
     const srVals  = spend['SAVINGS RATE'] || [];
-    const sr      = srVals.length ? spendAvg(srVals) : null;
-    const maxFlow = Math.max(Math.abs(income), Math.abs(expense), Math.abs(invest), 1);
-    const barW    = v => Math.round(Math.abs(v) / maxFlow * 100);
+    const sr      = cfSr > 0 ? cfSr : (srVals.length ? spendAvg(srVals) : null);
+    const maxFlow = Math.max(income, expense, invest, 1);
+    const barW    = v => Math.round(v / maxFlow * 100);
 
     // ── Recent transactions ──
     const txTypeColor = t => ({Income:'#10b981',Investment:'#38bdf8',Expense:'#f43f5e',Fun:'#f59e0b'}[t]||'#8899b8');
@@ -1371,9 +1379,9 @@ async function loadHome() {
 
     // ── Gap to target ──
     const gap      = Math.max(0, target - lnw);
-    const monthStr = months.length > 1
-      ? `${months[0]}–${months[months.length-1]} Avg`
-      : (months[0] || '');
+    const hasCf    = income > 0 || expense > 0 || invest > 0;
+    const months   = d.spending_months || [];
+    const monthStr = hasCf ? 'Monthly Cash Flow' : '';
 
     el.innerHTML = `
       <div class="panel" style="padding:20px 18px 16px;border-color:rgba(236,72,153,0.25);">
