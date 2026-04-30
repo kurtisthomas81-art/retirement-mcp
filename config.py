@@ -5,6 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
+
+def validate():
+    warnings = []
+    if not os.environ.get("CLIENT_DOB"):
+        warnings.append("CLIENT_DOB not set — using default 1981-01-29")
+    if not os.environ.get("CLIENT_NAME"):
+        warnings.append("CLIENT_NAME not set")
+    if not os.environ.get("LEDGER_PATH") and not Path(__file__).parent.joinpath("data", "ledger.xlsx").exists():
+        warnings.append("LEDGER_PATH not set and data/ledger.xlsx not found — upload a ledger via the Portfolio tab")
+    if not os.environ.get("OLLAMA_URL"):
+        warnings.append("OLLAMA_URL not set — using default http://172.17.0.1:11434")
+    for w in warnings:
+        print(f"[config] WARNING: {w}")
+    return warnings
+
 # ── Client identity (loaded from .env — never hard-code PII in source) ─────────
 
 CLIENT_DOB       = date.fromisoformat(os.environ.get("CLIENT_DOB", "1981-01-29"))

@@ -6,6 +6,8 @@ import excel_reader
 import monte_carlo
 from api_routes import build_app
 
+config.validate()
+
 mcp = FastMCP("RetirementAuditor", host="0.0.0.0", port=8000)
 
 # ── MCP resources ─────────────────────────────────────────────────────────────
@@ -45,10 +47,18 @@ def get_2026_rules() -> str:
 def get_stock_price(ticker: str, api_key: str) -> str:
     """Gets the current price for any stock ticker."""
     import requests
-    url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={api_key}"
-    r    = requests.get(url, timeout=10)
-    data = r.json()
-    return f"Current price for {ticker}: ${data['Global Quote']['05. price']}"
+    from urllib.parse import quote as urlquote
+    try:
+        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(ticker)}&apikey={api_key}"
+        r    = requests.get(url, timeout=10)
+        data = r.json()
+        price = data.get("Global Quote", {}).get("05. price")
+        if not price:
+            note = data.get("Note") or data.get("Information") or "No data returned"
+            return f"Error fetching {ticker}: {note}"
+        return f"Current price for {ticker}: ${price}"
+    except Exception as e:
+        return f"Error fetching {ticker}: {e}"
 
 
 @mcp.tool()

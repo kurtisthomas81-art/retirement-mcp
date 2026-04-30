@@ -276,7 +276,7 @@ async def api_portfolio_refresh(request: Request):
                     h["gain_loss"] = None; h["gain_loss_pct"] = None
             except Exception as ex:
                 h["live_price"] = None; h["error"] = str(ex)
-            time.sleep(0.3)
+            time.sleep(0.3)  # inside sync thread — asyncio.sleep not available here
         total_value     = sum(h.get("live_value") or 0 for h in holdings)
         total_cost      = sum((h.get("avg_cost") or 0) * h["shares"] for h in holdings)
         total_gain_loss = total_value - total_cost
@@ -310,7 +310,8 @@ async def api_stock_price(request: Request):
     if not ticker or not api_key:
         return JSONResponse({"error": "ticker and api_key are required"}, status_code=400)
     try:
-        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={api_key}"
+        from urllib.parse import quote as urlquote
+        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(ticker)}&apikey={api_key}"
         r    = requests.get(url, timeout=10)
         data = r.json()
         quote      = data.get("Global Quote", {})
@@ -758,6 +759,9 @@ async def oauth_token(request: Request):
 
 # ── Starlette app factory ─────────────────────────────────────────────────────
 
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
 async def api_upload_ledger(request: Request):
     try:
         form = await request.form()
@@ -766,13 +770,31 @@ async def api_upload_ledger(request: Request):
             return JSONResponse({"error": "no file provided"}, status_code=400)
         if not upload.filename.lower().endswith(".xlsx"):
             return JSONResponse({"error": "file must be .xlsx"}, status_code=400)
+        content = await upload.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": f"File too large ({len(content)//1024}KB). Max 20MB."}, status_code=413)
         dest = Path(config.LEDGER_PATH)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        content = await upload.read()
         dest.write_bytes(content)
         return JSONResponse({"ok": True, "saved_to": str(dest), "bytes": len(content)})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_health(request: Request):
+    ledger_ok = Path(config.LEDGER_PATH).exists()
+    ollama_ok = False
+    try:
+        r = requests.get(f"{config.OLLAMA_URL}/api/tags", timeout=3)
+        ollama_ok = r.status_code == 200
+    except Exception:
+        pass
+    return JSONResponse({
+        "ledger": "ok" if ledger_ok else "missing",
+        "ollama": "ok" if ollama_ok else "unreachable",
+        "ledger_path": config.LEDGER_PATH,
+        "ollama_url":  config.OLLAMA_URL,
+    })
 
 
 def build_app(mcp_app):
@@ -803,6 +825,7 @@ def build_app(mcp_app):
         Route("/api/chat/stream",           api_chat_stream,           methods=["POST"]),
         Route("/api/summarize",             api_summarize,             methods=["POST"]),
         Route("/api/upload-ledger",         api_upload_ledger,         methods=["POST"]),
+        Route("/api/health",                api_health),
         Route("/.well-known/oauth-authorization-server", oauth_metadata),
         Route("/oauth/token",               oauth_token,               methods=["GET", "POST"]),
         Mount("/static",                    StaticFiles(directory=str(STATIC_DIR)), name="static"),
