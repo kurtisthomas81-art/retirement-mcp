@@ -723,6 +723,17 @@
     button, input, select, textarea, .preset-pill, .home-nav-tile { touch-action: manipulation; }
     .mc-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
     .preset-pill { width: 100%; text-align: center; padding: 10px 8px; }
+    /* ── Portfolio mobile ── */
+    .port-account { overflow-x: auto; overflow-y: visible; }
+    .port-htable td { padding: 7px 8px; font-size: 0.67rem; }
+    .port-htable td:nth-child(3),
+    .port-htable td:nth-child(4) { display: none; }   /* hide shares + cost basis */
+    .port-htable .h-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .port-acct-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .port-acct-total { font-size: 0.80rem; }
+    .port-refresh-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .port-refresh-bar .field { min-width: 0 !important; }
+    .port-refresh-bar button { width: 100%; justify-content: center; }
   }
 
   /* ── Extra-small screens (≤430px) ── */
