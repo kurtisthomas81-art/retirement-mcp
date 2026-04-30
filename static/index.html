@@ -1355,12 +1355,10 @@ async function loadHome() {
     };
     const income  = cfFind('INCOME', 'SALARY', 'EARN');
     const expense = cfFind('EXPENSE', 'SPEND', 'COST');
-    const invest  = cfFind('INVEST', 'SAVING', 'CONTRIBUTION');
-    const cfSr    = cfFind('SAVINGS RATE', 'SAVE RATE', 'SR');
-    const spend   = d.spending || {};
-    const spendAvg = arr => { const nz = (arr||[]).filter(v=>v); return nz.length ? nz.reduce((a,b)=>a+b,0)/nz.length : 0; };
-    const srVals  = spend['SAVINGS RATE'] || [];
-    const sr      = cfSr > 0 ? cfSr : (srVals.length ? spendAvg(srVals) : null);
+    const invest  = cfFind('SURPLUS', 'INVEST', 'CONTRIBUTION');
+    // savings rate: look for a key with RATE that has a value < 1 (decimal fraction)
+    const srEntry = Object.entries(cf).find(([k,v]) => k.toUpperCase().includes('RATE') && Math.abs(v) <= 1);
+    const sr      = srEntry ? Math.abs(srEntry[1]) : null;
     const maxFlow = Math.max(income, expense, invest, 1);
     const barW    = v => Math.round(v / maxFlow * 100);
 
