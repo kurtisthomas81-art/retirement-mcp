@@ -53,7 +53,8 @@
     --radius:      12px;
     --radius-sm:   8px;
     --radius-pill: 9999px;
-    --bottom-nav-h:64px;
+    --bottom-nav-h: 56px;
+    --header-h:     58px;
   }
   body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.9rem; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
@@ -119,23 +120,33 @@
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border2); z-index: 200;
       padding: 0 4px; padding-bottom: env(safe-area-inset-bottom,0px);
-      overflow-x: auto; overflow-y: hidden;
+      overflow: hidden;
       scrollbar-width: none; -ms-overflow-style: none;
     }
     .bottom-nav::-webkit-scrollbar { display: none; }
     .bn-item {
-      flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       background: none; border: none; color: var(--muted2);
-      font-family: var(--font-ui); font-size: 0.55rem; font-weight: 600;
+      font-family: var(--font-ui); font-size: 0.62rem; font-weight: 600;
       letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
-      padding: 6px 2px; min-height: 44px; transition: color 0.15s;
-      -webkit-tap-highlight-color: transparent; border-radius: 0; box-shadow: none;
+      padding: 4px 2px; min-height: 44px; transition: color 0.15s;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      border-radius: 0; box-shadow: none; position: relative;
+    }
+    .bn-item::before {
+      content: ''; position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+      width: 18px; height: 2px; border-radius: 1px;
+      background: var(--pink); opacity: 0; transition: opacity 0.15s;
     }
     .bn-item:hover { color: var(--muted); border-color: transparent; background: none; transform: none; }
     .bn-item svg { transition: transform 0.15s, filter 0.15s; }
     .bn-item.active { color: var(--pink); }
+    .bn-item.active::before { opacity: 1; }
     .bn-item.active svg { filter: drop-shadow(0 0 5px rgba(236,72,153,0.7)); transform: translateY(-1px); }
     .bn-item:active { opacity: 0.7; }
+    /* Restore chat FAB/overlay above bottom nav on mobile */
+    .chat-fab   { bottom: calc(var(--bottom-nav-h) + 16px); }
+    .chat-overlay { bottom: calc(var(--bottom-nav-h) + 76px); }
   }
 
   /* ── Tab content ── */
@@ -592,10 +603,9 @@
   @keyframes aiDot { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
 
   /* ── Chat FAB + Overlay ── */
-  .chat-fab { position: fixed; bottom: calc(var(--bottom-nav-h) + 16px); right: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--pink); z-index: 200; font-size: 1.3rem; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(236,72,153,0.45); transition: transform 0.15s; }
+  .chat-fab { position: fixed; bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--pink); z-index: 200; font-size: 1.3rem; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(236,72,153,0.45); transition: transform 0.15s; touch-action: manipulation; }
   .chat-fab:hover { transform: scale(1.08); }
-  .chat-overlay { position: fixed; bottom: calc(var(--bottom-nav-h) + 76px); right: 16px; width: 320px; max-height: 460px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); z-index: 199; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.55); }
-  @media (max-width: 430px) { .chat-overlay { width: calc(100vw - 32px); right: 16px; } }
+  .chat-overlay { position: fixed; bottom: 76px; right: 16px; width: 320px; max-height: 460px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); z-index: 199; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.55); }
   .chat-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border2); font-size: 0.72rem; font-weight: 700; color: var(--text); }
   .chat-hdr span { flex: 1; }
   .chat-hdr select { background: var(--surface3); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-size: 0.65rem; padding: 3px 5px; }
@@ -623,6 +633,19 @@
   @media (max-width: 768px) { .rl-layout { grid-template-columns: 1fr; } }
   .rl-inputs { display: flex; flex-direction: column; gap: 10px; }
   .rl-result-hint { color: var(--muted2); font-size: 0.78rem; text-align: center; padding: 60px 0; }
+
+  /* ── Finn tab layout ── */
+  .finn-main {
+    max-width: 760px; margin: 0 auto; display: flex; flex-direction: column;
+    height: calc(100vh - var(--header-h) - 48px - 48px);
+    padding: 16px 16px 8px;
+  }
+  @media (max-width: 768px) {
+    .finn-main {
+      height: calc(100vh - var(--header-h) - var(--bottom-nav-h) - 48px - env(safe-area-inset-bottom, 0px));
+      padding: 12px 12px 8px;
+    }
+  }
 
   /* ── Home / Landing ── */
   .home-hero {
@@ -683,16 +706,31 @@
   .sk-card { height: 88px; border-radius: var(--radius); }
   .sk-chart { height: 200px; border-radius: var(--radius); }
 
-  /* ── Mobile overrides ── */
+  /* ── Mobile overrides (≤768px) ── */
   @media (max-width: 768px) {
-    main { max-width: 100%; padding: 16px 14px; padding-bottom: calc(var(--bottom-nav-h) + 16px + env(safe-area-inset-bottom,0px)); gap: 14px; }
+    :root { --header-h: 48px; }
+    header { padding: 0 14px; height: 48px; }
+    header h1 { display: none; }
+    .header-tab-name { display: block; font-size: 0.80rem; font-weight: 700; color: var(--text); letter-spacing: 0.03em; }
+    .export-pdf-btn { display: none; }
+    main { max-width: 100%; padding: 14px 12px; padding-bottom: calc(var(--bottom-nav-h) + 14px + env(safe-area-inset-bottom,0px)); gap: 12px; }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
-    .panel, .glass { padding: 16px; }
+    .panel, .glass { padding: 14px; }
     .success-badge .sbval { font-size: 2.6rem; }
     .mc-stats-strip { grid-template-columns: repeat(2, 1fr); }
-    header { padding: 0 14px; }
     .spending-table { font-size: 0.66rem; }
     .spending-table td, .spending-table th { padding: 5px 4px; }
+    button, input, select, textarea, .preset-pill, .home-nav-tile { touch-action: manipulation; }
+    .mc-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .preset-pill { width: 100%; text-align: center; padding: 10px 8px; }
+  }
+
+  /* ── Extra-small screens (≤430px) ── */
+  @media (max-width: 430px) {
+    main { gap: 10px; }
+    .panel, .glass { padding: 12px; }
+    .stat-grid { gap: 8px; }
+    .chat-overlay { width: calc(100vw - 32px); right: 16px; }
   }
 
   /* ── Budget vs Actual ── */
@@ -749,6 +787,20 @@
   .spending-table td, .spending-table th { padding: 10px 12px; }
   .tl-table td, .tl-table th { padding: 10px 12px; }
 
+  /* ── Large desktop (≥1200px) ── */
+  @media (min-width: 1200px) {
+    main { max-width: 1200px; }
+    .mc-layout { grid-template-columns: 380px 1fr; }
+    .rl-layout  { grid-template-columns: 320px 1fr; }
+  }
+
+  /* ── Extra-large desktop (≥1440px) ── */
+  @media (min-width: 1440px) {
+    main { max-width: 1440px; padding: 32px 40px; }
+    header { padding: 0 40px; }
+    .tab-btn { font-size: 0.80rem; padding: 16px 20px 14px; }
+  }
+
   /* ── Print ── */
   @media print {
     .tab-nav, .bottom-nav, .mc-inputs, .port-refresh-bar, #budgetEditForm,
@@ -776,9 +828,10 @@
       </svg>
     </div>
     <h1>Road To <span>FI</span></h1>
+    <span class="header-tab-name" id="hdrTabName" style="display:none;">Overview</span>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <button class="btn-sm" onclick="window.print()" style="font-size:0.62rem;padding:4px 10px;">Export PDF</button>
+  <div class="header-actions" style="display:flex;align-items:center;gap:10px;">
+    <button id="exportPdfBtn" class="btn-sm export-pdf-btn" onclick="window.print()" style="font-size:0.62rem;padding:4px 10px;">Export PDF</button>
     <span class="refresh-ts" id="refreshTs"></span>
   </div>
 </header>
@@ -1279,6 +1332,9 @@ function switchTab(name, btn) {
   const pane = document.getElementById('tab-' + name);
   if (pane) pane.classList.add('active');
   document.querySelectorAll('[data-tab="' + name + '"]').forEach(b => b.classList.add('active'));
+  const _TAB_LABELS = {home:'Overview',portfolio:'Portfolio',montecarlo:'Simulate',roadmap:'Plan',transactions:'Transactions',chat:'Finn'};
+  const _hdrName = document.getElementById('hdrTabName');
+  if (_hdrName) _hdrName.textContent = _TAB_LABELS[name] || name;
   if (name === 'home') { if (!homeLoaded) loadHome(); if (!ledgerLoaded) { ledgerLoaded = true; loadLedger(); } }
   if (name === 'montecarlo'   && !mcPrefilled)        prefillMC();
   if (name === 'portfolio'    && !portfolioLoaded)    loadPortfolio();
@@ -3768,7 +3824,7 @@ loadHome();
 
 <!-- ══ FINN TAB ══════════════════════════════════════════���════════════════════ -->
 <div id="tab-chat" class="tab-pane">
-<main style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;height:calc(100vh - var(--bottom-nav-h) - 48px);padding:16px 16px 8px;">
+<main class="finn-main">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
     <span style="font-size:1.4rem;">&#129302;</span>
     <h2 style="margin:0;font-size:1.1rem;color:var(--gold);">Finn</h2>
