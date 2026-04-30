@@ -73,7 +73,7 @@ def compute_conversion_amount(trad, ss, rate, year_off, infl, filing):
     if trad <= 0:
         return 0.0
     f = (1 + infl) ** year_off
-    std = (31500 if filing == "mfj" else 15750) * f
+    std = (32200 if filing == "mfj" else 16100) * f
     if filing == "mfj":
         bkts = [(23850*f,.10),(96950*f,.12),(206700*f,.22),(394600*f,.24),(501050*f,.32),(751600*f,.35)]
     else:
