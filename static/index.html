@@ -1482,13 +1482,6 @@ async function loadHome() {
           </div>
         </div>
 
-        <!-- Key stats row -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:16px;">
-          <div class="stat-card accent-indigo"><div class="sc-label">Total NW</div><div class="sc-value" style="font-size:0.95rem;">${fm(tnw)}</div></div>
-          <div class="stat-card accent-sky"><div class="sc-label">Runway</div><div class="sc-value" style="font-size:0.95rem;">${runway}</div></div>
-          ${sr !== null ? `<div class="stat-card accent-emerald"><div class="sc-label">Savings Rate</div><div class="sc-value" style="font-size:0.95rem;">${(sr*100).toFixed(1)}%</div></div>` : ''}
-        </div>
-
         <!-- Monthly cash flow -->
         ${monthStr ? `
         <div style="margin-bottom:16px;">
@@ -1648,16 +1641,9 @@ async function loadLedger() {
         <div class="stat-card key-metric"><div class="sc-label">FI Target (Age 62)</div><div class="sc-value">${fm(target)}</div><div class="sc-sub">The Goal</div></div>
         ${latestSR !== null ? `<div class="stat-card"><div class="sc-label">Savings Rate</div><div class="sc-value">${(latestSR*100).toFixed(1)}%</div><div class="sc-sub">latest month</div></div>` : ''}
       </div>
-      <div class="fi-progress-wrap">
-        <div class="fi-label"><span>Road to FI</span><span class="pct">${pct}%</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${barW}%"></div></div>
-      </div>
       ${sectionToggle('Freedom Levels', 'sec-levels', `<div class="levels-grid">${levelRows}</div>`, true)}
-      ${sectionToggle('Allocation &amp; Cash Flow', 'sec-alloc', `
-        <div class="two-col">
-          <div class="sub-panel"><h3>Asset Allocation</h3>${allocRows}</div>
-          <div class="sub-panel"><h3>Monthly Cash Flow</h3>${cfRows}</div>
-        </div>
+      ${sectionToggle('Asset Allocation', 'sec-alloc', `
+        <div><div class="sub-panel"><h3>Asset Allocation</h3>${allocRows}</div></div>
         <div id="allocChartWrap2" style="margin-top:14px;">
           <div class="donut-wrap">
             <canvas id="allocChart2" width="180" height="180" style="max-width:180px;"></canvas>
