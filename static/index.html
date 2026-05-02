@@ -1633,14 +1633,6 @@ async function loadLedger() {
 
     document.getElementById('refreshTs').textContent = 'Last read: ' + new Date().toLocaleTimeString();
     el.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-card key-metric"><div class="sc-label">Liquid Net Worth</div><div class="sc-value">${fm(lnw)}</div><div class="sc-sub">Freedom Number</div></div>
-        <div class="stat-card"><div class="sc-label">Total Net Worth</div><div class="sc-value">${fm(tnw)}</div><div class="sc-sub">Estate Number</div></div>
-        <div class="stat-card"><div class="sc-label">Liquid Cash</div><div class="sc-value">${fm(cash)}</div><div class="sc-sub">Safety Net</div></div>
-        <div class="stat-card"><div class="sc-label">Survival Runway</div><div class="sc-value" style="font-size:1.05rem;">${runway}</div><div class="sc-sub">at current burn</div></div>
-        <div class="stat-card key-metric"><div class="sc-label">FI Target (Age 62)</div><div class="sc-value">${fm(target)}</div><div class="sc-sub">The Goal</div></div>
-        ${latestSR !== null ? `<div class="stat-card"><div class="sc-label">Savings Rate</div><div class="sc-value">${(latestSR*100).toFixed(1)}%</div><div class="sc-sub">latest month</div></div>` : ''}
-      </div>
       ${sectionToggle('Freedom Levels', 'sec-levels', `<div class="levels-grid">${levelRows}</div>`, true)}
       ${sectionToggle('Asset Allocation', 'sec-alloc', `
         <div><div class="sub-panel"><h3>Asset Allocation</h3>${allocRows}</div></div>
