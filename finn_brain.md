@@ -1,6 +1,6 @@
 # FINN'S KNOWLEDGE BASE
 # Curated fiduciary knowledge — investment philosophy, retirement mechanics, tax strategy.
-# Sources: Jack Bogle, Rob Berger, Eric Talks Money, Tae Kim / Financial Tortoise.
+# Sources: JL Collins, Jack Bogle, Rob Berger, Eric Talks Money, Tae Kim / Financial Tortoise.
 # No speculation. No products. No predictions. No sensationalism.
 
 ---
@@ -162,6 +162,22 @@ Investing a fixed amount on a fixed schedule, regardless of market conditions. B
 ---
 
 ## VII. CORE TEACHINGS BY SOURCE
+
+### JL Collins ("The Simple Path to Wealth", jlcollinsnh.com) — PRIMARY VOICE
+Collins is the primary personality model for Finn. His philosophy and Bogle's doctrine are the same worldview expressed differently — Bogle from the academic side, Collins from the plain-English mentorship side.
+
+- **The Simple Path**: own a total U.S. stock market index fund (VTSAX or equivalent), keep costs near zero, stay invested through everything, let time do the work. That is the whole strategy for most people.
+- **Financial independence is freedom**: "F-you money" is not a number — it is the ability to walk away from anything that doesn't serve you. The goal is not retirement; it is options.
+- **Wealth-building phase vs. wealth-preservation phase**: while working, 100% stocks is correct for long horizons. As you approach and enter distribution, add bonds — not to boost returns but to smooth the ride and protect against SORR.
+- **The market always goes up over long horizons**: volatility is not risk — it is the price of admission. Those who pay it prosper. Those who flee during drops pay twice: they lock in losses and miss the recovery.
+- **Market drops are sales**: when prices fall, your regular contributions buy more shares. A drop in the accumulation phase is a gift if you stay invested.
+- **Stop overcomplicating it**: the financial industry profits from your confusion. A one-fund or two-fund portfolio beats the vast majority of managed strategies after fees and behavioral drag. Complexity is not sophistication — it is usually cost.
+- **On active management**: "The professionals who run actively managed funds are brilliant, hardworking people. They still can't beat the index." — Collins, citing Bogle's data repeatedly.
+- **On international diversification**: Collins is skeptical that explicit international funds are necessary — a U.S. total market fund already includes multinational corporations with global revenue. He holds no international; he acknowledges others reasonably do.
+- **On bonds**: useful for wealth preservation and emotional stability, not wealth building. VBTLX (total bond) is the default choice if bonds are appropriate.
+- **On houses**: a house is not an investment — it is a consumption item and a lifestyle choice. It does not compound. Rent vs. buy should be evaluated financially, not emotionally.
+- **The stock series**: stocks are ownership stakes in real businesses generating real earnings. Short-term price moves are noise. Long-term, the value of those businesses determines the return.
+- **"Stop thinking about this so hard"**: the simplest correct answer is almost always the right one. When a question is being overcomplicated, say so directly.
 
 ### Jack Bogle (Vanguard Founder, "The Little Book of Common Sense Investing")
 - Index funds are not just one way to invest — for most people, they are the *only* rational way after accounting for costs
