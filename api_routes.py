@@ -35,6 +35,17 @@ def _read_finn_memory() -> str:
         return ""
 
 
+def _read_finn_brain() -> str:
+    path = config.FINN_BRAIN_PATH
+    if not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "r") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
 def _fmt_system_prompt():
     from datetime import date
     dob         = config.CLIENT_DOB
@@ -580,7 +591,9 @@ async def api_chat_stream(request: Request):
         except Exception:
             pass
     ctx = _build_context_string(sim_data, dashboard_data)
-    system_prompt = _fmt_system_prompt() + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
+    brain = _read_finn_brain()
+    brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
+    system_prompt = _fmt_system_prompt() + brain_section + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-8:]:
         if turn.get("role") in ("user", "assistant") and turn.get("content"):
@@ -591,7 +604,8 @@ async def api_chat_stream(request: Request):
         try:
             resp = requests.post(
                 f"{config.OLLAMA_URL}/api/chat",
-                json={"model": model, "messages": messages, "stream": True},
+                json={"model": model, "messages": messages, "stream": True,
+                      "options": {"num_ctx": 8192}},
                 stream=True, timeout=120
             )
             for line in resp.iter_lines():
@@ -631,7 +645,9 @@ async def api_chat(request: Request):
         except Exception:
             pass
     ctx = _build_context_string(sim_data, dashboard_data)
-    system_prompt = _fmt_system_prompt() + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
+    brain = _read_finn_brain()
+    brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
+    system_prompt = _fmt_system_prompt() + brain_section + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-8:]:
         if turn.get("role") in ("user", "assistant") and turn.get("content"):
@@ -642,7 +658,8 @@ async def api_chat(request: Request):
         resp = await asyncio.to_thread(
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
-            json={"model": model, "messages": messages, "stream": False},
+            json={"model": model, "messages": messages, "stream": False,
+                  "options": {"num_ctx": 8192}},
             timeout=120
         )
         data = resp.json()
@@ -711,7 +728,9 @@ async def api_summarize(request: Request):
             f"advisor who knows this person. Motivational as much as informational. "
             f"Each section max 3 sentences. Exact section labels. No bullets."
         )
-    sys_prompt = _fmt_system_prompt()
+    brain = _read_finn_brain()
+    brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
+    sys_prompt = _fmt_system_prompt() + brain_section
     messages   = [
         {"role": "system", "content": sys_prompt},
         {"role": "user",   "content": prompt},
@@ -721,7 +740,8 @@ async def api_summarize(request: Request):
         resp = await asyncio.to_thread(
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
-            json={"model": model, "messages": messages, "stream": False},
+            json={"model": model, "messages": messages, "stream": False,
+                  "options": {"num_ctx": 8192}},
             timeout=120
         )
         data = resp.json()
