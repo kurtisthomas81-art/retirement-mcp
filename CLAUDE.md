@@ -131,3 +131,32 @@ What it does: runs `pytest tests/` (all 21 tests must pass), verifies `.dockerig
 ### Pushing a Docker release to Unraid
 1. **`deployment-gatekeeper`** — runs `pytest tests/`, checks `.dockerignore`, verifies `requirements.txt`, produces checklist
 2. Execute checklist: `docker stop` → `docker build` → `docker rm` → `sh start.sh`
+
+---
+
+## UI Backlog — `static/index.html`
+
+All changes are frontend-only unless noted. No Python/API changes required for Tier 1–2.
+
+### Overview Tab — completed
+- Removed 3-card key stats row (Total NW / Runway / Savings Rate) from FI Ring panel — duplicated Financial Picture
+- Removed linear progress bar from Financial Picture — duplicated FI Ring %
+- Removed Monthly Cash Flow sub-panel from Allocation collapsible — duplicated bar chart above; renamed section to "Asset Allocation"
+- Removed stat card grid (LNW / Total NW / Liquid Cash / Runway / FI Target / Savings Rate) from Financial Picture — covered by FI Ring hero
+
+### Tier 1 — High impact, data already available
+1. **Years-to-FI countdown** — compute from LNW, FI target, and monthly contribution rate in ledger; render below FI Ring hero (e.g. "~6 yrs 4 mo at current pace")
+2. **Ahead/behind pace indicator** — actual LNW growth this month vs. required monthly delta to hit target at 62; show "+$X ahead" or "-$X behind" in green/red near FI Ring
+3. **Freedom Level next milestone callout** — surface the next unachieved level + gap amount directly on overview (not buried in collapsible); data in `d.freedom_levels` array from `/api/ledger/dashboard`
+4. **Savings rate sparkline** — replace single "latest month" stat card with a 6-month Chart.js mini-line using `spending_months` + `SAVINGS RATE` row already returned by `/api/ledger/dashboard`
+
+### Tier 2 — Medium impact, moderate build
+5. **Spending velocity / daily burn** — current month expenses ÷ days elapsed; "Burning $X/day this month"; derivable from transactions ledger
+6. **Category drilldown** — click any Spending Table row → filter Transactions tab to that category + month; pure frontend routing, no backend change
+7. **NW sparklines in stat cards** — inline trend from localStorage `retAdv_nwHistory` (90-day history already stored) rendered inside each NW stat card
+8. **Milestone toast** — on page load, check if LNW crossed a $50k/$100k threshold since last visit; show brief toast; uses localStorage history
+
+### Tier 3 — Bigger lifts
+9. **Scenario compare mode** — run two Monte Carlo configs side-by-side (e.g. retire 60 vs 62); requires second input set + diff-style results display
+10. **SWR live display** — "If you retired today, SWR = X%"; annual expenses ÷ LNW; stat card that turns green at ≤4%
+11. **30/60/90 day projected cash position** — extend FORECAST_V3 data into a runway trend line on overview
