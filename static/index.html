@@ -790,8 +790,7 @@
   .rm-stat-label { font-size:0.60rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted2); margin-bottom:4px; }
   .rm-stat-val   { font-size:1.05rem; font-weight:800; font-family:var(--font-mono); color:var(--text); }
   .rm-stat-sub   { font-size:0.62rem; color:var(--muted2); margin-top:2px; }
-  .rm-chart-wrap { margin-bottom:20px; overflow:hidden; }
-  .rm-chart-wrap canvas { display:block; width:100% !important; height:260px !important; }
+  .rm-chart-wrap { position:relative; height:260px; margin-bottom:20px; }
   .rm-milestones { display:flex; flex-direction:column; gap:8px; }
   .rm-ms-row { display:flex; align-items:center; gap:10px; padding:9px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--radius); font-size:0.72rem; }
   .rm-ms-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
@@ -3871,7 +3870,7 @@ async function loadRoadmap() {
           ]
         },
         options: {
-          responsive: false,
+          responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
