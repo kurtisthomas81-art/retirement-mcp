@@ -486,12 +486,105 @@ async def api_ss_sensitivity(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _compute_roadmap(dashboard_data, all_investment_txns):
+    from datetime import date, timedelta
+    dob         = config.CLIENT_DOB
+    today       = date.today()
+    current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    retire_age  = config.CLIENT_RETIRE_AGE
+    retire_year = dob.year + retire_age
+    current_year = today.year
+
+    mc   = dashboard_data.get("mc_prefill", {})
+    metrics = dashboard_data.get("metrics", {})
+
+    RETURN_RATE   = 0.10
+    SGOV_YIELD    = 0.04
+    BRIDGE_DRAW   = 72_000
+    BRIDGE_TARGET = 360_000
+    SS_AGE        = 67
+
+    engine = float(mc.get("engine_balance", 0) or 0)
+    sgov   = float(mc.get("sgov_balance",   0) or 0)
+    ss_annual = float(mc.get("full_ss_annual", 36_697) or 36_697)
+    fi_target = float(metrics.get("FI TARGET (Age 62)", 0) or 0)
+
+    # 90-day contribution averages from Investment transactions
+    cutoff = today - timedelta(days=90)
+    inv_90 = [t for t in all_investment_txns if t.get("date", "") >= cutoff.isoformat()]
+    sgov_sum = 0.0; engine_sum = 0.0
+    for t in inv_90:
+        acct = (t.get("account") or "").lower()
+        memo = (t.get("memo")    or "").lower()
+        cat  = (t.get("category") or "").lower()
+        amt  = abs(float(t.get("signed", 0) or 0))
+        if "sgov" in acct or "sgov" in memo or "sgov" in cat:
+            sgov_sum += amt
+        else:
+            engine_sum += amt
+    days_sampled  = len(inv_90) and 90  # always report 90-day window
+    sgov_annual   = sgov_sum   / 90 * 365 if sgov_sum   else 0.0
+    engine_annual = engine_sum / 90 * 365 if engine_sum else 0.0
+
+    rows = []
+    moat_funded_year = fi_target_year = None
+    e, s = engine, sgov
+
+    for y_off in range(SS_AGE - current_age + 2):
+        age  = current_age + y_off
+        year = current_year + y_off
+
+        if age < retire_age:
+            e = e * (1 + RETURN_RATE) + engine_annual
+            s = s * (1 + SGOV_YIELD)  + sgov_annual
+            phase = "Accumulate"
+        elif age < SS_AGE:
+            e = e * (1 + RETURN_RATE)
+            s = max(0.0, s - BRIDGE_DRAW)
+            phase = "Bridge"
+        else:
+            e = e * (1 + RETURN_RATE)
+            phase = "Freedom"
+
+        lnw = e + s
+        if moat_funded_year is None and s >= BRIDGE_TARGET:
+            moat_funded_year = year
+        if fi_target_year is None and fi_target > 0 and lnw >= fi_target:
+            fi_target_year = year
+
+        rows.append({"year": year, "age": age, "phase": phase,
+                     "engine": round(e), "sgov": round(s), "liquid_nw": round(lnw)})
+
+    ss_year = retire_year + (SS_AGE - retire_age)
+    return {
+        "balances":      {"engine": round(engine), "sgov": round(sgov)},
+        "contributions": {"weekly_engine": round(engine_annual / 52),
+                          "weekly_sgov":   round(sgov_annual   / 52),
+                          "annual_total":  round(engine_annual + sgov_annual),
+                          "days_sampled":  90},
+        "plan":          {"retire_age": retire_age, "retire_year": retire_year,
+                          "ss_age": SS_AGE, "ss_annual": round(ss_annual),
+                          "bridge_draw": BRIDGE_DRAW, "bridge_target": BRIDGE_TARGET,
+                          "fi_target": round(fi_target), "return_rate": RETURN_RATE},
+        "milestones":    {"moat_funded_year": moat_funded_year,
+                          "fi_target_year":   fi_target_year,
+                          "retire_year":      retire_year,
+                          "ss_year":          ss_year},
+        "rows": rows,
+    }
+
+
 async def api_roadmap(request: Request):
     try:
-        data = await asyncio.to_thread(excel_reader.read_roadmap_data)
-        if "error" in data:
-            return JSONResponse(data, status_code=503)
-        return JSONResponse(data)
+        dashboard = await asyncio.to_thread(excel_reader.read_dashboard_data)
+        if "error" in dashboard:
+            return JSONResponse(dashboard, status_code=503)
+        inv_data = await asyncio.to_thread(
+            excel_reader.read_transactions_data, 1, 1000, None, "Investment"
+        )
+        txns = inv_data.get("rows", []) if isinstance(inv_data, dict) else []
+        result = _compute_roadmap(dashboard, txns)
+        return JSONResponse(result)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

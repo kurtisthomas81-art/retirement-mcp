@@ -784,6 +784,25 @@
   .digest-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; margin-bottom:10px; }
   .digest-note { font-size:0.65rem; color:var(--muted2); margin-top:6px; }
 
+  /* ── Roadmap GPS ── */
+  .rm-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-bottom:18px; }
+  .rm-stat { background:rgba(255,255,255,0.025); border:1px solid var(--border2); border-radius:var(--radius); padding:10px 12px; }
+  .rm-stat-label { font-size:0.60rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted2); margin-bottom:4px; }
+  .rm-stat-val   { font-size:1.05rem; font-weight:800; font-family:var(--font-mono); color:var(--text); }
+  .rm-stat-sub   { font-size:0.62rem; color:var(--muted2); margin-top:2px; }
+  .rm-chart-wrap { position:relative; margin-bottom:20px; }
+  .rm-milestones { display:flex; flex-direction:column; gap:8px; }
+  .rm-ms-row { display:flex; align-items:center; gap:10px; padding:9px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--radius); font-size:0.72rem; }
+  .rm-ms-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .rm-ms-year { font-family:var(--font-mono); font-weight:700; color:var(--text); white-space:nowrap; min-width:54px; }
+  .rm-ms-name { flex:1; color:var(--muted); }
+  .rm-ms-val  { font-family:var(--font-mono); color:var(--text); white-space:nowrap; }
+  .rm-ms-badge { font-size:0.60rem; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:var(--radius-pill); white-space:nowrap; flex-shrink:0; }
+  .rm-badge-done   { background:rgba(16,185,129,0.12); color:var(--green); border:1px solid rgba(16,185,129,0.25); }
+  .rm-badge-future { background:rgba(205,133,63,0.10); color:var(--gold); border:1px solid rgba(205,133,63,0.25); }
+  .rm-badge-retire { background:rgba(236,72,153,0.10); color:var(--pink); border:1px solid rgba(236,72,153,0.25); }
+  .rm-badge-ss     { background:rgba(99,102,241,0.10); color:#818cf8; border:1px solid rgba(99,102,241,0.25); }
+
   /* ── Plan sub-nav ── */
   .plan-subnav {
     display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--border);
@@ -3704,50 +3723,197 @@ document.addEventListener('DOMContentLoaded', () => renderSavedScenarios());
 async function loadRoadmap() {
   roadmapLoaded = true;
   const el = document.getElementById('roadmapContent');
-  el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Loading&hellip;</div>';
+  el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Loading GPS&hellip;</div>';
   try {
     const r = await fetch('/api/roadmap');
     const d = await r.json();
     if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
-    const cfg = d.config || {};
-    const configRows = Object.entries(cfg).map(([k, v]) => {
-      const fv = typeof v === 'number' && v < 1 && v > -1 ? (v*100).toFixed(1)+'%' : typeof v === 'number' ? fm(v) : v;
-      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.72rem;">
-        <span style="color:var(--muted)">${k}</span><span style="font-family:var(--font-mono);color:var(--text)">${fv}</span></div>`;
-    }).join('');
-    const phaseColor = p => p === 'Sprint' ? 'var(--pink)' : p === 'Coast' ? 'var(--amber)' : 'var(--green)';
-    const rows = (d.rows || []).map(row => `<tr>
-      <td style="font-family:var(--font-mono)">${row.year}</td>
-      <td>${row.age}</td>
-      <td style="color:${phaseColor(row.phase)};font-weight:600">${row.phase}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${fm(row.liquid_nw)}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${fm(row.total_nw)}</td>
-      <td style="font-family:var(--font-mono);text-align:right;color:var(--muted2)">${fm(row.sgov)}</td>
-      <td style="font-family:var(--font-mono);text-align:right;color:var(--muted2)">${fm(row.schwab)}</td>
-      <td style="font-family:var(--font-mono);text-align:right;color:var(--muted2)">${fm(row.roth)}</td>
-      <td style="font-family:var(--font-mono);text-align:right;color:var(--muted2)">${fm(row.k401)}</td>
-    </tr>`).join('');
-    el.innerHTML = `
-      <div style="margin-bottom:14px;">
-        <div style="font-size:0.68rem;font-weight:700;color:var(--muted2);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px;">Control Panel</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 20px;">${configRows}</div>
-      </div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.72rem;">
-          <thead><tr style="border-bottom:1px solid var(--border2);">
-            <th style="text-align:left;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Year</th>
-            <th style="text-align:left;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Age</th>
-            <th style="text-align:left;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Phase</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Liquid NW</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Total NW</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">SGOV</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Schwab</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">Roth</th>
-            <th style="text-align:right;padding:6px 8px;color:var(--muted2);font-size:0.63rem;text-transform:uppercase;">401k</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+
+    const rows  = d.rows  || [];
+    const plan  = d.plan  || {};
+    const bal   = d.balances || {};
+    const contri= d.contributions || {};
+    const ms    = d.milestones || {};
+    const today = new Date();
+    const currentYear = today.getFullYear();
+
+    // ── Stat cards ──
+    const moatPct = plan.bridge_target > 0 ? Math.min(100, bal.sgov / plan.bridge_target * 100).toFixed(1) : 0;
+    const fiPct   = plan.fi_target > 0 ? Math.min(100, (bal.engine + bal.sgov) / plan.fi_target * 100).toFixed(1) : 0;
+    const moYrs   = plan.retire_year ? plan.retire_year - currentYear : null;
+    const timeStr = moYrs !== null ? (moYrs > 0 ? `${moYrs}y away` : 'Now') : '—';
+    const wkTotal = (contri.weekly_engine || 0) + (contri.weekly_sgov || 0);
+    const wkStr   = wkTotal > 0 ? `${fm(wkTotal)}/wk` : 'No data';
+    const wkSub   = wkTotal > 0 ? `${fm(contri.weekly_engine)}/wk engine · ${fm(contri.weekly_sgov)}/wk moat` : 'Enter in Financial Picture';
+
+    // ── Chart data ──
+    const labels     = rows.map(r => r.year);
+    const lnwData    = rows.map(r => r.liquid_nw);
+    const sgovData   = rows.map(r => r.sgov);
+
+    // Point highlight colors for LNW line
+    const retireIdx  = rows.findIndex(r => r.year === plan.retire_year);
+    const ssIdx      = rows.findIndex(r => r.year === ms.ss_year);
+    const moatIdx    = rows.findIndex(r => r.year === ms.moat_funded_year);
+    const fiIdx      = rows.findIndex(r => r.year === ms.fi_target_year);
+    const ptColors   = rows.map((_, i) => {
+      if (i === retireIdx) return '#cd853f';
+      if (i === ssIdx)     return '#818cf8';
+      if (i === moatIdx)   return '#10b981';
+      if (i === fiIdx)     return '#10b981';
+      return 'transparent';
+    });
+    const ptRadius   = rows.map((_, i) =>
+      [retireIdx, ssIdx, moatIdx, fiIdx].includes(i) ? 6 : 0
+    );
+
+    // ── Milestone rows HTML ──
+    const msYr = (yr, cls, badge, name, val) => {
+      const dot = cls === 'rm-badge-done' ? '#10b981' : cls === 'rm-badge-retire' ? '#ec4899' : cls === 'rm-badge-ss' ? '#818cf8' : '#cd853f';
+      const ageActual = yr && plan.retire_year ? plan.retire_age - (plan.retire_year - yr) : '—';
+      return `<div class="rm-ms-row">
+        <span class="rm-ms-dot" style="background:${dot}"></span>
+        <span class="rm-ms-year">${yr || '—'} <span style="color:var(--muted2);font-weight:400;font-size:0.65rem;">age ${ageActual}</span></span>
+        <span class="rm-ms-name">${name}</span>
+        <span class="rm-ms-val">${val}</span>
+        <span class="rm-ms-badge ${cls}">${badge}</span>
       </div>`;
+    };
+
+    const nowYear = currentYear;
+    const msMoat = ms.moat_funded_year;
+    const msFI   = ms.fi_target_year;
+    const msRet  = ms.retire_year;
+    const msSS   = ms.ss_year;
+
+    const milestoneHtml = [
+      msYr(msMoat, msMoat && msMoat <= nowYear ? 'rm-badge-done' : 'rm-badge-future',
+           msMoat && msMoat <= nowYear ? '✓ Done' : msMoat || 'TBD',
+           'Moat funded — $360k in T-bills', fm(plan.bridge_target)),
+      msYr(msFI,   msFI   && msFI   <= nowYear ? 'rm-badge-done' : 'rm-badge-future',
+           msFI   && msFI   <= nowYear ? '✓ Done' : msFI   || 'TBD',
+           'FI target hit — liquidNW ≥ target', fm(plan.fi_target)),
+      msYr(msRet,  'rm-badge-retire', 'Retire', 'Age 62 — bridge begins, engine untouched', `${fm(plan.bridge_draw)}/yr draw`),
+      msYr(msSS,   'rm-badge-ss',    'SS', `Age ${plan.ss_age} — Social Security kicks in`, `${fm(plan.ss_annual)}/yr`),
+    ].join('');
+
+    el.innerHTML = `
+      <!-- Stat cards -->
+      <div class="rm-stat-grid">
+        <div class="rm-stat" style="border-color:rgba(236,72,153,0.25);">
+          <div class="rm-stat-label">Engine (VTI)</div>
+          <div class="rm-stat-val" style="color:var(--pink)">${fm(bal.engine)}</div>
+          <div class="rm-stat-sub">stocks, growing at 10%/yr</div>
+        </div>
+        <div class="rm-stat" style="border-color:rgba(205,133,63,0.25);">
+          <div class="rm-stat-label">Moat (SGOV)</div>
+          <div class="rm-stat-val" style="color:var(--gold)">${fm(bal.sgov)}</div>
+          <div class="rm-stat-sub">${moatPct}% of $360k bridge target</div>
+        </div>
+        <div class="rm-stat" style="border-color:rgba(16,185,129,0.25);">
+          <div class="rm-stat-label">Avg Invest (90d)</div>
+          <div class="rm-stat-val" style="color:var(--green)">${wkStr}</div>
+          <div class="rm-stat-sub" style="font-size:0.58rem;">${wkSub}</div>
+        </div>
+        <div class="rm-stat" style="border-color:rgba(99,102,241,0.25);">
+          <div class="rm-stat-label">FI Progress</div>
+          <div class="rm-stat-val" style="color:#818cf8">${fiPct}%</div>
+          <div class="rm-stat-sub">to ${fm(plan.fi_target)} target</div>
+        </div>
+        <div class="rm-stat" style="border-color:rgba(56,189,248,0.25);">
+          <div class="rm-stat-label">Retire (Age 62)</div>
+          <div class="rm-stat-val" style="color:var(--sky,#38bdf8)">${plan.retire_year || '—'}</div>
+          <div class="rm-stat-sub">${timeStr}</div>
+        </div>
+        <div class="rm-stat">
+          <div class="rm-stat-label">Return Assumption</div>
+          <div class="rm-stat-val">10%</div>
+          <div class="rm-stat-sub">nominal · 4% SGOV yield</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="rm-chart-wrap">
+        <canvas id="rmChart" height="220"></canvas>
+      </div>
+
+      <!-- Milestones -->
+      <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:8px;">Key Milestones</div>
+      <div class="rm-milestones">${milestoneHtml}</div>
+    `;
+
+    // ── Render chart ──
+    setTimeout(() => {
+      const canvas = document.getElementById('rmChart');
+      if (!canvas) return;
+      if (window._rmChart) window._rmChart.destroy();
+      window._rmChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Liquid NW',
+              data: lnwData,
+              borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.07)',
+              fill: true, tension: 0.35,
+              pointBackgroundColor: ptColors, pointRadius: ptRadius, pointBorderColor: 'transparent',
+              borderWidth: 2,
+            },
+            {
+              label: 'Moat (SGOV)',
+              data: sgovData,
+              borderColor: '#cd853f', backgroundColor: 'rgba(205,133,63,0.05)',
+              fill: true, tension: 0.35,
+              pointRadius: 0, borderWidth: 1.5, borderDash: [3, 3],
+            },
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8899b8', font: { size: 11 }, usePointStyle: true } },
+            tooltip: {
+              backgroundColor: 'rgba(9,13,26,0.95)', titleColor: '#8899b8', bodyColor: '#f0f4ff',
+              padding: 10, cornerRadius: 8,
+              callbacks: {
+                title: items => `${items[0].label}  ·  Age ${rows[items[0].dataIndex]?.age ?? ''}`,
+                label: ctx => `  ${ctx.dataset.label}: ${fm(ctx.raw)}`,
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#526070', font: { size: 10 }, maxTicksLimit: 10 },
+                 grid: { color: 'rgba(205,133,63,0.05)' } },
+            y: { ticks: { color: '#526070', font: { size: 10 },
+                           callback: v => v >= 1e6 ? '$' + (v/1e6).toFixed(1)+'M' : '$'+(v/1000).toFixed(0)+'k' },
+                 grid: { color: 'rgba(255,255,255,0.04)' }, min: 0 }
+          }
+        },
+        plugins: [{
+          id: 'rmVlines',
+          afterDraw(chart) {
+            const {ctx, scales: {x, y}} = chart;
+            const vlines = [
+              { idx: retireIdx, color: 'rgba(205,133,63,0.7)',  label: 'Retire ' + plan.retire_year },
+              { idx: ssIdx,     color: 'rgba(129,140,248,0.7)', label: 'SS ' + ms.ss_year },
+            ];
+            vlines.forEach(({idx, color, label}) => {
+              if (idx < 0) return;
+              const px = x.getPixelForValue(idx);
+              ctx.save();
+              ctx.strokeStyle = color; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+              ctx.beginPath(); ctx.moveTo(px, y.top); ctx.lineTo(px, y.bottom); ctx.stroke();
+              ctx.fillStyle = color; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+              ctx.fillText(label, px, y.top - 4);
+              ctx.restore();
+            });
+          }
+        }]
+      });
+    }, 80);
+
   } catch(e) { el.innerHTML = `<span class="err">${e.message}</span>`; }
 }
 
