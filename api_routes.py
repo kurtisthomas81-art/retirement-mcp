@@ -193,7 +193,12 @@ async def icon_svg(request: Request):
 # ── REST API handlers ─────────────────────────────────────────────────────────
 
 async def api_rules(request: Request):
-    return JSONResponse(config.RULES_2026)
+    from datetime import date
+    dob = config.CLIENT_DOB
+    today_d = date.today()
+    age = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
+    retire_year = dob.year + config.CLIENT_RETIRE_AGE
+    return JSONResponse({**config.RULES_2026, "retire_year": retire_year, "current_age": age})
 
 
 async def api_finn_memory_get(request: Request):
