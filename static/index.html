@@ -673,6 +673,11 @@
   .hnl-name  { font-weight:600; color:var(--text); flex:1; }
   .hnl-gap   { color:var(--amber); font-family:var(--font-mono); white-space:nowrap; }
 
+  .daily-burn-badge { font-size:0.78rem; color:var(--amber); text-align:right; margin-bottom:6px; }
+  .tx-drilldown-badge { display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--amber); margin-bottom:10px; padding:6px 10px; background:rgba(205,133,63,0.08); border-radius:6px; border:1px solid rgba(205,133,63,0.25); }
+  .tx-drilldown-badge button { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:0 4px; line-height:1; }
+  .home-sparkline-row { display:flex; align-items:center; gap:8px; opacity:0.6; margin-top:6px; font-size:0.68rem; color:var(--muted); }
+
   .home-month-bars { display: flex; gap: 10px; margin-top: 4px; }
   .hmb-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
   .hmb-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
@@ -1409,6 +1414,32 @@ function switchPlanTab(name, btn) {
   }
 }
 
+// ── Utilities ──────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success', duration = 4000) {
+  const colors = {
+    success:   { bg: '#1a3a1a', text: '#4ade80', border: '#4ade80' },
+    info:      { bg: '#1a2a3a', text: '#7dd3fc', border: '#7dd3fc' },
+    milestone: { bg: '#2a1f0e', text: '#cd853f', border: '#cd853f' },
+    warning:   { bg: '#2a1a0a', text: '#fb923c', border: '#fb923c' },
+  };
+  const c = colors[type] || colors.success;
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:80px;right:24px;background:${c.bg};color:${c.text};padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;border:1px solid ${c.border};max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,0.4);`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+function svgSparkline(data, color = '#ec4899', w = 120, h = 24) {
+  if (!data || data.length < 2) return '';
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) =>
+    `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 2) - 1}`
+  ).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible;flex-shrink:0"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
 // ── Home / Landing ─────────────────────────────────────────────────────────
 async function loadHome() {
   homeLoaded = true;
@@ -1542,6 +1573,7 @@ async function loadHome() {
             <span class="sep">|</span>
             <span style="color:var(--amber)">Gap ${fm(gap)}</span>
           </div>
+          ${(() => { const _h = JSON.parse(localStorage.getItem('retAdv_nwHistory')||'[]'); const _d = _h.map(x=>x.lnw).filter(Boolean); return _d.length >= 2 ? `<div class="home-sparkline-row"><span>LNW trend</span>${svgSparkline(_d,'#ec4899',120,22)}</div>` : ''; })()}
           ${tfiStr || paceBadgeHtml ? `
           <div class="home-tfi-row">
             ${tfiStr ? `<span>FI in <b style="color:var(--text)">${tfiStr}</b></span>` : ''}
@@ -1702,8 +1734,18 @@ async function loadLedger() {
         if (typeof v === 'number' && Math.abs(v) < 2) return `<td class="val-neu">${(v*100).toFixed(1)}%</td>`;
         return `<td class="${cls}">${fm(v)}</td>`;
       }).join('');
-      return `<tr><td>${k}</td>${cells}</tr>`;
+      return `<tr data-category="${k}" style="cursor:pointer" title="Click to drill into ${k} transactions"><td>${k}</td>${cells}</tr>`;
     }).join('');
+
+    // ── Daily burn (current month expenses ÷ days elapsed) ──
+    const expenseTotal = Object.entries(spend)
+      .filter(([k]) => k !== 'Income' && k !== 'TRUE SAVING RATE' && k !== 'SAVINGS RATE')
+      .reduce((sum, [, vals]) => {
+        const v = vals[0];
+        if (typeof v !== 'number') return sum;
+        return sum + (v < 0 ? Math.abs(v) : (v > 100 ? v : 0));
+      }, 0);
+    const dailyBurn = expenseTotal > 0 ? expenseTotal / new Date().getDate() : 0;
     const monthHeaders = months.map(m => `<th>${m}</th>`).join('');
 
     document.getElementById('refreshTs').textContent = 'Last read: ' + new Date().toLocaleTimeString();
@@ -1718,10 +1760,26 @@ async function loadLedger() {
           </div>
         </div>
       `, false)}
-      ${spendRows ? sectionToggle('Spending Table', 'sec-spend', `<table class="spending-table"><thead><tr><th>Category</th>${monthHeaders}</tr></thead><tbody>${spendRows}</tbody></table>`, false) : ''}
+      ${spendRows ? sectionToggle('Spending Table', 'sec-spend', `${dailyBurn > 0 ? `<div class="daily-burn-badge">Burning <strong>${fm(dailyBurn)}</strong>/day this month &mdash; ${new Date().getDate()} days in</div>` : ''}<table class="spending-table"><thead><tr><th>Category</th>${monthHeaders}</tr></thead><tbody>${spendRows}</tbody></table>`, false) : ''}
     `;
     // Render allocation donut after DOM settles
     setTimeout(() => renderAllocChart(alloc, 'allocChart2', 'allocLegend2'), 80);
+
+    // ── Category drilldown — spending row click ──
+    const spendTbl = document.querySelector('#sec-spend table');
+    if (spendTbl) {
+      spendTbl.addEventListener('click', e => {
+        const row = e.target.closest('tr[data-category]');
+        if (!row) return;
+        const category = row.dataset.category;
+        const colIdx = e.target.cellIndex;
+        const monthShort = colIdx > 0 ? (months[colIdx - 1] || months[0]) : months[0];
+        const fullMonth = monthShort ? `${monthShort} ${new Date().getFullYear()}` : '';
+        window._txDrilldown = { category, month: fullMonth };
+        switchTab('transactions');
+        if (transactionsLoaded) loadTransactions(1);
+      });
+    }
 
     // ── Savings rate sparkline ──
     if (srVals.length >= 2) {
@@ -1775,6 +1833,19 @@ async function loadLedger() {
         localStorage.setItem('retAdv_nwHistory', JSON.stringify(hist));
       }
       renderNWHistoryChart(hist);
+    }
+
+    // ── Milestone toast ──
+    if (lnwNum > 0) {
+      const MILESTONES = [50000,100000,150000,200000,250000,300000,350000,400000,500000,600000,750000,1000000];
+      const lastCelebrated = parseInt(localStorage.getItem('retAdv_lastMilestone') || '0');
+      const newHits = MILESTONES.filter(m => m > lastCelebrated && lnwNum >= m);
+      if (newHits.length) {
+        const highest = Math.max(...newHits);
+        const label = highest >= 1000000 ? '$1M' : `$${(highest/1000).toFixed(0)}k`;
+        showToast(`LNW crossed ${label} — keep stacking.`, 'milestone', 6000);
+        localStorage.setItem('retAdv_lastMilestone', highest);
+      }
     }
 
     // ── Contribution Inputs + Time-to-FI ──
@@ -3919,8 +3990,24 @@ async function loadRoadmap() {
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────
+function clearTxDrilldown() {
+  window._txCategoryFilter = null;
+  document.getElementById('txDrilldownBadge')?.remove();
+  loadTransactions(1);
+}
+
 async function loadTransactions(page) {
   transactionsLoaded = true;
+  // Handle category drilldown: set month filter first, then re-enter to apply category filter
+  if (window._txDrilldown) {
+    const { category, month: drillMonth } = window._txDrilldown;
+    window._txDrilldown = null;
+    window._txCategoryFilter = category;
+    const mf = document.getElementById('txMonthFilter');
+    if (mf && drillMonth) {
+      [...mf.options].forEach(o => { o.selected = (o.value === drillMonth || o.text === drillMonth); });
+    }
+  }
   const el = document.getElementById('txContent');
   const pagerEl = document.getElementById('txPager');
   const month = document.getElementById('txMonthFilter')?.value || '';
@@ -3966,6 +4053,21 @@ async function loadTransactions(page) {
       <span>Page ${d.page} of ${d.pages} &mdash; ${d.total} transactions</span>
       <button class="btn-sm" onclick="loadTransactions(${d.page+1})" ${d.page>=d.pages?'disabled':''} style="padding:4px 10px;">Next &#8250;</button>
     ` : `<span>${d.total} transactions</span>`;
+
+    // Apply category drilldown filter if set
+    if (window._txCategoryFilter) {
+      const cat = window._txCategoryFilter;
+      window._txCategoryFilter = null;
+      document.getElementById('txDrilldownBadge')?.remove();
+      const badge = document.createElement('div');
+      badge.id = 'txDrilldownBadge';
+      badge.className = 'tx-drilldown-badge';
+      badge.innerHTML = `<span>Filtered: <strong>${cat}</strong></span><button onclick="clearTxDrilldown()" title="Clear filter">&#215; Clear</button>`;
+      el.before(badge);
+      el.querySelectorAll('tbody tr').forEach(tr => {
+        tr.style.display = (tr.cells[2]?.textContent?.trim() === cat) ? '' : 'none';
+      });
+    }
   } catch(e) { el.innerHTML = `<span class="err">${e.message}</span>`; }
 }
 
@@ -4149,11 +4251,7 @@ async function saveFinnCorrection(userMsg, finnReply) {
     });
     const d = await r.json();
     if (d.ok) {
-      const toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#1a3a1a;color:#4ade80;padding:10px 16px;border-radius:8px;font-size:0.85rem;z-index:9999;border:1px solid #4ade80;';
-      toast.textContent = '📌 Saved to Finn memory';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      showToast('Saved to Finn memory', 'success', 3000);
     }
   } catch(e) { alert('Could not save memory: ' + e); }
 }
