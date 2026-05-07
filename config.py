@@ -33,7 +33,8 @@ LEDGER_PATH = os.environ.get(
     "LEDGER_PATH",
     str(Path(__file__).parent / "data" / "ledger.xlsx")
 )
-OLLAMA_URL  = os.environ.get("OLLAMA_URL", "http://172.17.0.1:11434")
+OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://172.17.0.1:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:9b")
 
 FINN_MEMORY_PATH = str(Path(__file__).parent / "finn_memory.md")
 FINN_BRAIN_PATH  = str(Path(__file__).parent / "finn_brain.md")

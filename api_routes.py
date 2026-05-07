@@ -677,7 +677,7 @@ async def api_chat_stream(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
     message        = str(body.get("message", "")).strip()[:4096]
     context_type   = body.get("context_type", "all")
-    model          = body.get("model", "llama3.1:8b")
+    model          = config.OLLAMA_MODEL
     history        = body.get("history", [])
     sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
@@ -703,7 +703,7 @@ async def api_chat_stream(request: Request):
             resp = requests.post(
                 f"{config.OLLAMA_URL}/api/chat",
                 json={"model": model, "messages": messages, "stream": True,
-                      "options": {"num_ctx": 8192}},
+                      "options": {"num_ctx": 32768}},
                 stream=True, timeout=120
             )
             for line in resp.iter_lines():
@@ -731,7 +731,7 @@ async def api_chat(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
     message        = str(body.get("message", "")).strip()[:4096]
     context_type   = body.get("context_type", "all")
-    model          = body.get("model", "llama3.1:8b")
+    model          = config.OLLAMA_MODEL
     history        = body.get("history", [])
     sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
@@ -757,7 +757,7 @@ async def api_chat(request: Request):
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "options": {"num_ctx": 8192}},
+                  "options": {"num_ctx": 32768}},
             timeout=120
         )
         data = resp.json()
@@ -776,7 +776,7 @@ async def api_summarize(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    model        = body.get("model", "llama3.1:8b")
+    model        = config.OLLAMA_MODEL
     summary_type = body.get("summary_type", "playbook")
     sim_data     = body.get("sim_data")
     dash_data    = body.get("dashboard_data")
@@ -839,7 +839,7 @@ async def api_summarize(request: Request):
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "options": {"num_ctx": 8192}},
+                  "options": {"num_ctx": 32768}},
             timeout=120
         )
         data = resp.json()

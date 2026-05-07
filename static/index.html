@@ -1141,7 +1141,7 @@
             <div class="mc-section-title">AI Model</div>
             <div class="field" style="margin-bottom:4px;">
               <label>Ollama Model</label>
-              <input type="text" id="aiModel" value="llama3.1:8b" placeholder="llama3.1:8b" style="font-family:var(--font-mono);font-size:0.72rem;">
+              <input type="text" id="aiModel" value="qwen3.5:9b" placeholder="qwen3.5:9b" style="font-family:var(--font-mono);font-size:0.72rem;">
             </div>
             <div style="font-size:0.61rem;color:var(--muted2);margin-bottom:4px;">Used for AI Playbook and chat. Set OLLAMA_URL env var if not on host network.</div>
 
@@ -2562,7 +2562,7 @@ function renderMCResults(d) {
     </div>`);
   // Fire summarize async — non-blocking
   (async () => {
-    const model = document.getElementById('aiModel')?.value || 'llama3.1:8b';
+    const model = document.getElementById('aiModel')?.value || 'qwen3.5:9b';
     try {
       const r = await fetch('/api/summarize', {
         method: 'POST',
@@ -2929,7 +2929,7 @@ function renderMCResults(d) {
   `;
   // Async AI Plan Details narrative
   (async () => {
-    const model = document.getElementById('aiModel')?.value || 'llama3.1:8b';
+    const model = document.getElementById('aiModel')?.value || 'qwen3.5:9b';
     try {
       const r = await fetch('/api/summarize', {
         method: 'POST',
@@ -4188,6 +4188,7 @@ loadHome();
       <option value="dashboard">Dashboard</option>
     </select>
     <select id="chatModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-family:var(--font-mono);">
+      <option value="qwen3.5:9b" selected>qwen3.5:9b</option>
       <option value="llama3.1:8b">llama3.1:8b</option>
       <option value="llama3.2:3b">llama3.2:3b</option>
       <option value="mistral">mistral</option>
@@ -4288,7 +4289,7 @@ async function sendChat() {
   chatMessages.push({role: 'user', content: msg});
 
   const ctx   = document.getElementById('chatCtx')?.value || 'all';
-  const model = document.getElementById('chatModel')?.value || document.getElementById('aiModel')?.value || 'llama3.1:8b';
+  const model = document.getElementById('chatModel')?.value || document.getElementById('aiModel')?.value || 'qwen3.5:9b';
   const payload = {
     message:        msg,
     context_type:   ctx,
