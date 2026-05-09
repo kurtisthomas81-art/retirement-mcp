@@ -150,7 +150,12 @@ def _build_context_string(sim_data, dashboard_data):
         for cat, vals in dashboard_data["spending"].items():
             nums = [v for v in vals if isinstance(v, (int, float))]
             if nums:
-                lines.append(f"  {cat}: ${sum(nums)/len(nums):,.0f}/mo avg")
+                avg = sum(nums) / len(nums)
+                if "SAVINGS RATE" in cat.upper():
+                    # Sheet stores savings rate as a decimal (e.g. 0.35 = 35%)
+                    lines.append(f"  {cat}: {avg * 100:.1f}% avg")
+                else:
+                    lines.append(f"  {cat}: ${avg:,.0f}/mo avg")
 
     r = config.RULES_2026
     lines += [
@@ -677,7 +682,7 @@ async def api_chat_stream(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
     message        = str(body.get("message", "")).strip()[:4096]
     context_type   = body.get("context_type", "all")
-    model          = config.OLLAMA_MODEL
+    model          = body.get("model") or config.OLLAMA_MODEL
     history        = body.get("history", [])
     sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
@@ -696,14 +701,15 @@ async def api_chat_stream(request: Request):
     for turn in history[-8:]:
         if turn.get("role") in ("user", "assistant") and turn.get("content"):
             messages.append({"role": turn["role"], "content": turn["content"]})
-    messages.append({"role": "user", "content": message})
+    user_content = f"/no_think\n{message}" if model.startswith("qwen3") else message
+    messages.append({"role": "user", "content": user_content})
 
     def generate():
         try:
             resp = requests.post(
                 f"{config.OLLAMA_URL}/api/chat",
                 json={"model": model, "messages": messages, "stream": True,
-                      "options": {"num_ctx": 32768}},
+                      "think": False, "options": {"num_ctx": 32768}},
                 stream=True, timeout=120
             )
             for line in resp.iter_lines():
@@ -731,7 +737,7 @@ async def api_chat(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
     message        = str(body.get("message", "")).strip()[:4096]
     context_type   = body.get("context_type", "all")
-    model          = config.OLLAMA_MODEL
+    model          = body.get("model") or config.OLLAMA_MODEL
     history        = body.get("history", [])
     sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
@@ -750,14 +756,15 @@ async def api_chat(request: Request):
     for turn in history[-8:]:
         if turn.get("role") in ("user", "assistant") and turn.get("content"):
             messages.append({"role": turn["role"], "content": turn["content"]})
-    messages.append({"role": "user", "content": message})
+    user_content = f"/no_think\n{message}" if model.startswith("qwen3") else message
+    messages.append({"role": "user", "content": user_content})
     t0 = time.time()
     try:
         resp = await asyncio.to_thread(
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "options": {"num_ctx": 32768}},
+                  "think": False, "options": {"num_ctx": 32768}},
             timeout=120
         )
         data = resp.json()
@@ -776,7 +783,7 @@ async def api_summarize(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    model        = config.OLLAMA_MODEL
+    model        = body.get("model") or config.OLLAMA_MODEL
     summary_type = body.get("summary_type", "playbook")
     sim_data     = body.get("sim_data")
     dash_data    = body.get("dashboard_data")
@@ -829,9 +836,10 @@ async def api_summarize(request: Request):
     brain = _read_finn_brain()
     brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
     sys_prompt = _fmt_system_prompt() + brain_section
+    user_content = f"/no_think\n{prompt}" if model.startswith("qwen3") else prompt
     messages   = [
         {"role": "system", "content": sys_prompt},
-        {"role": "user",   "content": prompt},
+        {"role": "user",   "content": user_content},
     ]
     t0 = time.time()
     try:
@@ -839,7 +847,7 @@ async def api_summarize(request: Request):
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "options": {"num_ctx": 32768}},
+                  "think": False, "options": {"num_ctx": 32768}},
             timeout=120
         )
         data = resp.json()

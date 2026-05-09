@@ -1787,11 +1787,12 @@ async function loadLedger() {
       if (srVals.length >= 2) {
         const srLabels  = [...months];
         const srData    = [...srVals];
-        const latestPct = (srVals[srVals.length - 1] * 100).toFixed(1) + '%';
+        const avgPct = (srVals.reduce((a, b) => a + b, 0) / srVals.length * 100).toFixed(1) + '%';
+        const curPct = (srVals[srVals.length - 1] * 100).toFixed(1) + '%';
         srEl.innerHTML = `
           <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:8px;">
-            <div style="font-size:32px;font-weight:600;letter-spacing:-0.02em;">${latestPct}</div>
-            <div style="color:var(--muted);font-size:12px;">avg this period</div>
+            <div style="font-size:32px;font-weight:600;letter-spacing:-0.02em;">${avgPct}</div>
+            <div style="color:var(--muted);font-size:12px;">avg · ${curPct} this month</div>
           </div>
           <canvas id="srSparkline" height="70"></canvas>
         `;
