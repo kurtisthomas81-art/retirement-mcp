@@ -166,33 +166,48 @@
   .tab-pane { display: none; }
   .tab-pane.active { display: block; animation: tabFadeIn 0.22s ease forwards; }
   @keyframes tabFadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-  main { max-width: 980px; margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 20px; }
+  main { max-width: 1480px; margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 20px; }
 
-  /* ── Glass panels ── */
+  /* ── Flat panels ── */
   .panel, .glass {
-    background: linear-gradient(135deg, var(--surface2) 0%, var(--surface) 100%);
+    background: var(--surface);
     border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px;
     position: relative;
   }
   details.panel { overflow: visible; }
   .stat-card.key-metric { border-left: 3px solid var(--gold); }
-  .panel::before, .glass::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--border2) 30%, var(--border2) 70%, transparent 100%);
-    pointer-events: none;
-  }
-  .panel::after, .glass::after {
-    content: ''; position: absolute; top: -60px; left: -60px;
-    width: 200px; height: 200px;
-    background: var(--panel-glow, transparent);
-    border-radius: 50%; pointer-events: none; opacity: 0.6;
-  }
   .panel h2, .glass h2 {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 1rem; font-weight: 600;
-    letter-spacing: 0.02em; color: var(--muted);
-    margin-bottom: 18px; position: relative; z-index: 1;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--muted);
+    margin: 0 0 14px; display: flex; align-items: center; gap: 10px; position: relative; z-index: 1;
   }
+  .panel-sub { color: var(--muted2); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; }
   .panel-risk { border-left: 3px solid var(--warn); }
+
+  /* ── Overview layout ── */
+  .ov-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .ov-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+  .ov-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .ov-grid-2 { grid-template-columns: 1fr; } }
+  .ov-right-col { display: flex; flex-direction: column; gap: 16px; }
+  .ov-stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .ov-stat-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; }
+  .ov-stat-value { font-size: 22px; font-weight: 600; margin-top: 6px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .ov-stat-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .ov-stat-meta.up { color: var(--accent); }
+  .ov-stat-meta.down { color: var(--warn); }
+  .ov-firing-row { display: grid; grid-template-columns: 280px 1fr; gap: 28px; align-items: center; }
+  @media (max-width: 700px) { .ov-firing-row { grid-template-columns: 1fr; } }
+  .ov-ring-svg { width: 220px; height: 220px; margin: 0 auto; display: block; }
+  .ov-firing-meta { display: grid; gap: 0; }
+  .ov-meta-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .ov-meta-row:last-child { border-bottom: none; }
+  .ov-meta-row .k { color: var(--muted); font-size: 12px; }
+  .ov-meta-row .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ov-meta-row .v.green { color: var(--accent); }
+  .ov-meta-row .v.gold { color: var(--gold); }
+  .ov-pace-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(74,222,128,0.1); color: var(--accent); border: 1px solid rgba(74,222,128,0.25); padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .ov-pace-chip.behind { background: rgba(248,113,113,0.1); color: var(--warn); border-color: rgba(248,113,113,0.25); }
 
   /* ── Accent system (ambient glow replaces border-left) ── */
   .accent-green   { --panel-glow: radial-gradient(circle,rgba(74,222,128,0.10) 0%,transparent 70%); }
@@ -976,29 +991,83 @@
 <!-- ══ HOME TAB ════════════════════════════════════════════════════════════ -->
 <div id="tab-home" class="tab-pane active">
 <main>
-  <!-- Home hero / quick stats loaded by loadHome() -->
-  <div id="homeContent">
-    <div class="skeleton-wrap">
-      <div class="skeleton sk-chart" style="height:180px;border-radius:var(--radius);"></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+
+  <!-- Row 1: 4 stat cards -->
+  <div class="ov-grid-4">
+    <div class="ov-stat">
+      <div class="ov-stat-label">Liquid Net Worth</div>
+      <div class="ov-stat-value" id="ov-lnw-val">—</div>
+      <div class="ov-stat-meta" id="ov-lnw-meta"></div>
+    </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Engine (stocks)</div>
+      <div class="ov-stat-value" id="ov-engine-val">—</div>
+      <div class="ov-stat-meta">Untouched 62→67</div>
+    </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Bridge (SGOV)</div>
+      <div class="ov-stat-value" id="ov-bridge-val">—</div>
+      <div class="ov-stat-meta" id="ov-bridge-meta"></div>
+    </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Checking</div>
+      <div class="ov-stat-value" id="ov-checking-val">—</div>
+      <div class="ov-stat-meta" id="ov-checking-meta"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: FI Ring panel -->
+  <div class="panel">
+    <h2>Financial Independence <span class="panel-sub">Bridge $360k by 62 · SS-floor at 67 · 0% withdraw post-67</span></h2>
+    <div class="ov-firing-row">
+      <div>
+        <svg class="ov-ring-svg" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="82" fill="none" stroke="#20242d" stroke-width="14"/>
+          <circle cx="100" cy="100" r="82" fill="none" stroke="#4ade80" stroke-width="14"
+            stroke-linecap="round" stroke-dasharray="515.2" stroke-dashoffset="515.2"
+            transform="rotate(-90 100 100)" id="ov-ring-fill"/>
+          <text x="100" y="96" text-anchor="middle" font-size="34" font-weight="600" fill="#e8eaed" font-family="ui-sans-serif,system-ui,sans-serif" letter-spacing="-1" id="ov-ring-pct-txt">0%</text>
+          <text x="100" y="118" text-anchor="middle" font-size="11" fill="#9aa3b2" font-family="ui-sans-serif,system-ui">to FI target</text>
+        </svg>
+        <div style="text-align:center;margin-top:8px;"><span class="ov-pace-chip" id="ov-pace-chip"></span></div>
+      </div>
+      <div class="ov-firing-meta">
+        <div class="ov-meta-row"><span class="k">Liquid Net Worth</span><span class="v" id="om-lnw">—</span></div>
+        <div class="ov-meta-row"><span class="k">FI target (age 62, infl. adj.)</span><span class="v" id="om-target">—</span></div>
+        <div class="ov-meta-row"><span class="k">On pace</span><span class="v green" id="om-pace">—</span></div>
+        <div class="ov-meta-row"><span class="k">Bridge gap to $360k</span><span class="v gold" id="om-bridge-gap">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Freedom Levels + Right column -->
+  <div class="ov-grid-2">
+    <div class="panel">
+      <h2>Freedom Levels <span class="panel-sub">JL Collins ladder</span></h2>
+      <div class="levels-grid" id="ov-levels-list">
         <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
       </div>
     </div>
-  </div>
-
-  <!-- Ledger detail (merged into Overview) -->
-  <div class="panel" style="margin-top:0;">
-    <h2>Your Financial Picture <button class="btn-sm" onclick="loadLedger()">Refresh</button></h2>
-    <div id="ledgerContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading ledger&hellip;</div></div>
-    <div id="allocChartWrap" style="display:none;">
-      <div class="donut-wrap">
-        <canvas id="allocChart" width="180" height="180" style="max-width:180px;"></canvas>
-        <div class="donut-legend" id="allocLegend"></div>
+    <div class="ov-right-col">
+      <div class="panel">
+        <h2>Savings Rate <span class="panel-sub">last 6 months</span></h2>
+        <div id="ov-sr-content"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
+      </div>
+      <div class="panel">
+        <h2>Asset Allocation</h2>
+        <div class="donut-wrap">
+          <canvas id="allocChart2" width="180" height="180" style="max-width:180px;"></canvas>
+          <div class="donut-legend" id="allocLegend2"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Spending Velocity</h2>
+        <div id="ov-sv-content"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
       </div>
     </div>
   </div>
 
-  <!-- Net Worth Over Time -->
+  <!-- Net Worth Over Time (hidden until data available) -->
   <div id="nwhPanel" style="display:none;">
     <div class="panel">
       <h2>Net Worth Over Time <button class="btn-sm" onclick="clearNWHistory()">Clear</button></h2>
@@ -1015,6 +1084,9 @@
     </div>
     <div id="budgetTable"><div style="color:var(--muted2);font-size:0.75rem;">Budgets auto-populate once Ledger loads.</div></div>
   </div>
+
+  <!-- Contribution inputs -->
+  <div class="panel" id="ov-contrib-wrap"></div>
 
   <!-- Email Digest (collapsed by default) -->
   <details class="panel digest-panel">
@@ -1500,55 +1572,96 @@ function svgSparkline(data, color = '#4ade80', w = 120, h = 24) {
 // ── Home / Landing ─────────────────────────────────────────────────────────
 async function loadHome() {
   homeLoaded = true;
-  const el = document.getElementById('homeContent');
-  if (!el) return;
   try {
-    const [dashRes, txRes, rulesRes] = await Promise.all([
+    const [dashRes, rulesRes] = await Promise.all([
       fetch('/api/ledger/dashboard'),
-      fetch('/api/transactions?limit=5'),
       window._rules ? Promise.resolve({ json: () => Promise.resolve(window._rules) }) : fetch('/api/rules'),
     ]);
     const d     = await dashRes.json();
-    const tx    = await txRes.json();
     const rules = await rulesRes.json();
     window._rules = rules;
-    if (d.error) { el.innerHTML = `<div style="color:#f87171;padding:16px;font-size:0.9rem;word-break:break-all"><b>API ERROR:</b><br>${d.error}</div>`; return; }
-    window._lastDashboard = d;  // make available for AI chat context
+    if (d.error) {
+      document.getElementById('ov-lnw-val').textContent = 'Error';
+      return;
+    }
+    window._lastDashboard = d;
 
-    const m       = d.metrics || {};
-    const lnw     = m['LIQUID NET WORTH']   || 0;
-    const tnw     = m['TOTAL NET WORTH']    || 0;
-    const target  = m['FI TARGET (Age 62)'] || 0;
-    const progress= m['PROGRESS TO FI']     || 0;
-    const runway  = m['SURVIVAL RUNWAY']    || '—';
-    const pct     = Math.min(progress * 100, 100);
+    const m        = d.metrics || {};
+    const lnw      = m['LIQUID NET WORTH']   || 0;
+    const target   = m['FI TARGET (Age 62)'] || 0;
+    const progress = m['PROGRESS TO FI']     || 0;
+    const pct      = Math.min(progress * 100, 100);
 
-    // ── FI ring (SVG arc) ──
-    const R = 68; const C = 2 * Math.PI * R;
-    const fill = C - (pct / 100) * C;
+    // ── 4 Stat cards ──
+    const alloc     = d.allocation || {};
+    const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || alloc['SGOV'] || 0;
+    const cashVal   = m['LIQUID CASH'] || m['CASH'] || 0;
+    // Engine = allocation sum minus cash/bond/SGOV buckets
+    const engineVal = Object.entries(alloc)
+      .filter(([k]) => !/(sgov|bond|cash|money|treasury)/i.test(k))
+      .reduce((s, [, v]) => s + (v || 0), 0);
 
-    // ── Monthly cash flow — from DASHBOARD "CASH FLOW" section ──
-    const cf = d.cashflow || {};
-    const cfFind = (...keys) => {
-      for (const k of Object.keys(cf)) {
-        const ku = k.toUpperCase();
-        if (keys.some(q => ku.includes(q.toUpperCase()))) return Math.abs(cf[k]);
+    const setEl  = (id, v)   => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const setHtml= (id, v)   => { const el = document.getElementById(id); if (el) el.innerHTML   = v; };
+
+    setEl('ov-lnw-val',      fm(lnw));
+    setEl('ov-engine-val',   engineVal ? fm(engineVal) : '—');
+    setEl('ov-bridge-val',   bridgeVal ? fm(bridgeVal) : '—');
+    setEl('ov-checking-val', cashVal   ? fm(cashVal)   : '—');
+
+    // LNW monthly delta
+    const nwHist = JSON.parse(localStorage.getItem('retAdv_nwHistory') || '[]');
+    const monthlyDelta = nwHist.length >= 2 ? nwHist[nwHist.length-1].lnw - nwHist[nwHist.length-2].lnw : null;
+    if (monthlyDelta !== null) {
+      const metaEl = document.getElementById('ov-lnw-meta');
+      if (metaEl) {
+        metaEl.textContent = `${monthlyDelta >= 0 ? '+' : ''}${fm(monthlyDelta)} this month`;
+        metaEl.className   = 'ov-stat-meta ' + (monthlyDelta >= 0 ? 'up' : 'down');
       }
-      return 0;
-    };
-    const income  = cfFind('INCOME', 'SALARY', 'EARN');
-    const expense = cfFind('EXPENSE', 'SPEND', 'COST');
-    const invest  = cfFind('SURPLUS', 'INVEST', 'CONTRIBUTION');
-    // savings rate: look for a key with RATE that has a value < 1 (decimal fraction)
-    const srEntry = Object.entries(cf).find(([k,v]) => k.toUpperCase().includes('RATE') && Math.abs(v) <= 1);
-    const sr      = srEntry ? Math.abs(srEntry[1]) : null;
-    const maxFlow = Math.max(income, expense, invest, 1);
-    const barW    = v => Math.round(v / maxFlow * 100);
+    }
+    if (bridgeVal > 0) setEl('ov-bridge-meta', `${Math.round(bridgeVal / 360000 * 100)}% of $360k goal`);
+    const runway = m['SURVIVAL RUNWAY'];
+    if (runway) setEl('ov-checking-meta', `${runway} runway`);
 
-    // ── Gap to target ──
-    const gap = Math.max(0, target - lnw);
+    // ── FI Ring SVG animation ──
+    const R2 = 82; const C2 = 2 * Math.PI * R2;
+    const ringFill = document.getElementById('ov-ring-fill');
+    const ringTxt  = document.getElementById('ov-ring-pct-txt');
+    if (ringFill) {
+      const dur = 1400, t0 = performance.now();
+      const tick = now => {
+        const prog  = Math.min((now - t0) / dur, 1);
+        const eased = 1 - Math.pow(1 - prog, 3);
+        ringFill.setAttribute('stroke-dashoffset', (C2 - eased * pct / 100 * C2).toFixed(1));
+        if (ringTxt) ringTxt.textContent = (eased * pct).toFixed(1) + '%';
+        if (prog < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
 
-    // ── Years-to-FI countdown ──
+    // ── Pace chip ──
+    const retireYear      = rules.retire_year || 2043;
+    const now_            = new Date();
+    const monthsToRetire  = Math.max(1, (retireYear - now_.getFullYear()) * 12 - now_.getMonth());
+    const gap             = Math.max(0, target - lnw);
+    const requiredMonthly = gap / monthsToRetire;
+    const actualMonthly   = nwHist.length >= 2 ? nwHist[nwHist.length-1].lnw - nwHist[nwHist.length-2].lnw : null;
+    const paceChip = document.getElementById('ov-pace-chip');
+    if (paceChip) {
+      if (actualMonthly !== null) {
+        const delta = actualMonthly - requiredMonthly;
+        paceChip.textContent = `${delta >= 0 ? '▲ +' : '▼ '}${fm(Math.abs(delta))}/mo vs. pace`;
+        paceChip.className   = 'ov-pace-chip' + (delta < 0 ? ' behind' : '');
+      } else if (requiredMonthly > 0) {
+        paceChip.textContent = `Need ${fm(requiredMonthly)}/mo`;
+        paceChip.className   = 'ov-pace-chip';
+      }
+    }
+
+    // ── Firing meta rows ──
+    const cf = d.cashflow || {};
+    const invest = Object.entries(cf).reduce((s, [k, v]) =>
+      /(SURPLUS|INVEST|CONTRIBUTION)/i.test(k) ? Math.abs(v) : s, 0);
     const savedContrib = JSON.parse(localStorage.getItem('retAdv_contrib') || '{}');
     const annualContrib = (savedContrib.weeklyTaxable || savedContrib.weeklyIRA || savedContrib.emp401kPct)
       ? ((savedContrib.weeklyTaxable || 0) * 52
@@ -1556,210 +1669,24 @@ async function loadHome() {
          + Math.min((savedContrib.annualGross || 0) * (savedContrib.emp401kPct || 0) / 100, rules.contrib_401k || 24500))
       : invest * 12;
     const tfiMonths = calcTimeToFI(lnw, target, annualContrib, 0.09);
-    const tfiStr = tfiMonths ? `~${Math.floor(tfiMonths / 12)}y ${tfiMonths % 12}mo` : null;
+    const tfiStr    = tfiMonths ? `~${Math.floor(tfiMonths / 12)}y ${tfiMonths % 12}mo` : '—';
 
-    // ── Ahead/behind pace indicator ──
-    const retireYear = rules.retire_year || 2043;
-    const now = new Date();
-    const monthsToRetire = Math.max(1, (retireYear - now.getFullYear()) * 12 - now.getMonth());
-    const requiredMonthly = gap / monthsToRetire;
-    const nwHist = JSON.parse(localStorage.getItem('retAdv_nwHistory') || '[]');
-    const actualMonthly = nwHist.length >= 2 ? nwHist[nwHist.length - 1].lnw - nwHist[nwHist.length - 2].lnw : null;
-    const paceDelta = actualMonthly !== null ? actualMonthly - requiredMonthly : null;
+    setEl('om-lnw',        fm(lnw));
+    setEl('om-target',     fm(target));
+    setEl('om-pace',       tfiStr);
+    setEl('om-bridge-gap', fm(Math.max(0, 360000 - bridgeVal)));
 
-    // ── Next freedom level ──
-    const nextLevel = (d.freedom_levels || []).find(lv => lv.status !== 'ACHIEVED');
-    const nextLevelGap = nextLevel?.goal ? Math.max(0, nextLevel.goal - lnw) : null;
+    // ── Header age pill ──
+    setEl('hdrAge', rules.client_age || '45');
+    setEl('hdrYrs', Math.max(0, (rules.retire_year || 2043) - new Date().getFullYear()));
 
-    // ── Recent transactions ──
-    const txTypeColor = t => ({Income:'#10b981',Investment:'#38bdf8',Expense:'#f43f5e',Fun:'#f59e0b'}[t]||'#8899b8');
-    const txRows = (tx.rows||[]).slice(0,5).map(r => `
-      <div class="home-tx-row">
-        <div class="home-tx-dot" style="background:${txTypeColor(r.type)}"></div>
-        <div class="home-tx-info">
-          <div class="home-tx-cat">${r.category}</div>
-          <div class="home-tx-memo">${r.memo}</div>
-        </div>
-        <div class="home-tx-amt" style="color:${r.signed>=0?'var(--green)':'var(--red)'}">${r.signed>=0?'+':''}${fm(r.signed)}</div>
-        <div class="home-tx-date">${r.date.slice(5)}</div>
-      </div>`).join('');
-
-    const hasCf    = income > 0 || expense > 0 || invest > 0;
-    const months   = d.spending_months || [];
-    const monthStr = hasCf ? 'Monthly Cash Flow' : '';
-
-    // build pace badge HTML
-    const paceBadgeHtml = (() => {
-      if (paceDelta !== null) {
-        const sign = paceDelta >= 0 ? '+' : '';
-        const cls  = paceDelta >= 0 ? 'pace-ahead' : 'pace-behind';
-        return `<span class="${cls}">${sign}${fm(paceDelta)}/mo vs. required</span>`;
-      }
-      return requiredMonthly > 0 ? `<span style="color:var(--muted2)">Need ${fm(requiredMonthly)}/mo</span>` : '';
-    })();
-
-    el.innerHTML = `
-      <div class="panel" style="padding:20px 18px 16px;border-color:rgba(74,222,128,0.20);">
-
-        <!-- FI Ring + LNW hero -->
-        <div class="home-hero">
-          <div class="fi-ring-wrap">
-            <svg width="164" height="164" viewBox="0 0 164 164">
-              <defs>
-                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#4ade80"/>
-                  <stop offset="100%" stop-color="#34d399"/>
-                </linearGradient>
-              </defs>
-              <circle class="fi-ring-track" cx="82" cy="82" r="${R}" stroke-width="10"/>
-              <circle class="fi-ring-fill" cx="82" cy="82" r="${R}" stroke-width="10"
-                stroke-dasharray="${C.toFixed(1)}"
-                stroke-dashoffset="${fill.toFixed(1)}"
-                id="fiRingFill"/>
-            </svg>
-            <div class="fi-ring-label">
-              <span class="fi-ring-pct" id="fiRingPct">0%</span>
-              <span class="fi-ring-sub">to FI</span>
-            </div>
-          </div>
-          <div class="home-lnw">${fm(lnw)}</div>
-          <div class="home-lnw-sub">
-            <span>Liquid NW</span>
-            <span class="sep">|</span>
-            <span style="color:var(--accent)">Target ${fm(target)}</span>
-            <span class="sep">|</span>
-            <span style="color:var(--gold)">Gap ${fm(gap)}</span>
-          </div>
-          ${(() => { const _h = JSON.parse(localStorage.getItem('retAdv_nwHistory')||'[]'); const _d = _h.map(x=>x.lnw).filter(Boolean); return _d.length >= 2 ? `<div class="home-sparkline-row"><span>LNW trend</span>${svgSparkline(_d,'#4ade80',120,22)}</div>` : ''; })()}
-          ${tfiStr || paceBadgeHtml ? `
-          <div class="home-tfi-row">
-            ${tfiStr ? `<span>FI in <b style="color:var(--text)">${tfiStr}</b></span>` : ''}
-            ${paceBadgeHtml}
-          </div>` : ''}
-        </div>
-
-        <!-- Next freedom level callout -->
-        ${nextLevel ? `
-        <div class="home-next-level">
-          <span class="hnl-label">Next Level</span>
-          <span class="hnl-name">${nextLevel.name}</span>
-          ${nextLevelGap !== null ? `<span class="hnl-gap">${fm(nextLevelGap)} to go</span>` : ''}
-        </div>` : ''}
-
-        <!-- Monthly cash flow -->
-        ${monthStr ? `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:10px;">${monthStr} Cash Flow</div>
-          <div class="home-month-bars">
-            <div class="hmb-item">
-              <span class="hmb-label inc">Income</span>
-              <div class="hmb-bar-track"><div class="hmb-bar-fill hmb-fill-inc" style="width:${barW(income)}%"></div></div>
-              <span class="hmb-val" style="color:var(--green)">${fm(income)}</span>
-            </div>
-            <div class="hmb-item">
-              <span class="hmb-label exp">Expenses</span>
-              <div class="hmb-bar-track"><div class="hmb-bar-fill hmb-fill-exp" style="width:${barW(expense)}%"></div></div>
-              <span class="hmb-val" style="color:var(--red)">${fm(expense)}</span>
-            </div>
-            <div class="hmb-item">
-              <span class="hmb-label inv">Invested</span>
-              <div class="hmb-bar-track"><div class="hmb-bar-fill hmb-fill-inv" style="width:${barW(invest)}%"></div></div>
-              <span class="hmb-val" style="color:var(--amber)">${fm(invest)}</span>
-            </div>
-          </div>
-        </div>` : ''}
-
-        <!-- Quick nav grid -->
-        <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:8px;">Quick Access</div>
-        <div class="home-nav-grid" style="margin-bottom:16px;">
-          <button class="home-nav-tile" onclick="switchTab('portfolio')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Portfolio
-          </button>
-          <button class="home-nav-tile" onclick="switchTab('montecarlo')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-            Simulate
-          </button>
-          <button class="home-nav-tile" onclick="switchTab('roadmap')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-            Plan
-          </button>
-          <button class="home-nav-tile" onclick="switchTab('transactions')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-            Transactions
-          </button>
-          <button class="home-nav-tile" onclick="switchTab('forecast')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            Forecast
-          </button>
-          <button class="home-nav-tile" onclick="switchTab('chat')">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-            Finn
-          </button>
-        </div>
-
-        <!-- Recent transactions -->
-        ${txRows ? `
-        <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:4px;">
-          Recent Transactions
-          <button class="btn-sm" onclick="switchTab('transactions')" style="float:right;font-size:0.58rem;padding:2px 8px;">View All</button>
-        </div>
-        <div>${txRows}</div>` : ''}
-      </div>
-    `;
-
-    // Animate ring counter
-    const pctEl = document.getElementById('fiRingPct');
-    if (pctEl) {
-      const dur = 1200, t0 = performance.now();
-      const tick = now => {
-        const prog = Math.min((now-t0)/dur, 1);
-        const eased = 1 - Math.pow(1-prog, 3);
-        pctEl.textContent = (eased * pct).toFixed(1) + '%';
-        if (prog < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }
-  } catch(e) {
-    el.innerHTML = `<div style="color:#f87171;padding:16px;font-size:0.9rem;word-break:break-all"><b>JS ERROR:</b><br>${e.message}<br><pre style="font-size:0.75rem;margin-top:8px">${e.stack||''}</pre></div>`;
-  }
-}
-
-// ── Ledger Dashboard ───────────────────────────────────────────────────────
-async function loadLedger() {
-  const el = document.getElementById('ledgerContent');
-  el.innerHTML = `<div class="skeleton-wrap">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;">
-      <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
-      <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
-      <div class="skeleton sk-card"></div>
-    </div>
-    <div class="skeleton sk-line wide" style="margin-top:8px;height:20px;border-radius:6px;"></div>
-    <div class="skeleton sk-line med" style="height:14px;"></div>
-    <div class="skeleton sk-chart" style="margin-top:4px;"></div>
-  </div>`;
-  try {
-    const r = await fetch('/api/ledger/dashboard');
-    const d = await r.json();
-    if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
-
-    const m        = d.metrics;
-    const lnw      = m['LIQUID NET WORTH']   || 0;
-    const tnw      = m['TOTAL NET WORTH']    || 0;
-    const cash     = m['LIQUID CASH']        || 0;
-    const runway   = m['SURVIVAL RUNWAY']    || '—';
-    const target   = m['FI TARGET (Age 62)'] || 0;
-    const progress = m['PROGRESS TO FI']     || 0;
-    const pct  = (progress * 100).toFixed(2);
-    const barW = Math.min(progress * 100, 100).toFixed(1);
-
-    const levels = d.freedom_levels || [];
+    // ── Freedom Levels ──
+    const levels    = d.freedom_levels || [];
     const nextLvIdx = levels.findIndex(lv => lv.status !== 'ACHIEVED');
     const levelRows = levels.map((lv, idx) => {
       const isDone = lv.status === 'ACHIEVED';
       const isNext = idx === nextLvIdx;
       const cardCls = isDone ? 'done' : isNext ? 'next' : '';
-      const numCls  = isDone ? 'done' : isNext ? 'next' : '';
       const amtStr  = lv.goal ? fm(lv.goal) : (lv.goal_text || '—');
       let statusStr, progressBar = '';
       if (isDone) {
@@ -1781,159 +1708,11 @@ async function loadLedger() {
         <div class="level-status">${statusStr}</div>
       </div>`;
     }).join('');
+    setHtml('ov-levels-list', levelRows || '<div style="color:var(--muted2)">No levels data</div>');
 
-    const alloc = d.allocation || {};
-    const allocRows = Object.entries(alloc).map(([k,v]) =>
-      `<div class="alloc-row"><span class="aname">${k}</span><span>${fm(v)}</span></div>`
-    ).join('');
-
-    const cf = d.cashflow || {};
-    const cfRows = Object.entries(cf).map(([k,v]) => {
-      const cls = k.includes('Surplus') ? 'neu' : v >= 0 ? 'pos' : 'neg';
-      return `<div class="cashflow-row"><span class="cname">${k}</span><span class="cval ${cls}">${k.includes('Rate') ? fp(v) : fm(v)}</span></div>`;
-    }).join('');
-
-    const months    = d.spending_months || [];
-    const spend     = d.spending || {};
-    const srVals    = spend['SAVINGS RATE'] || [];
-    const latestSR  = srVals.length ? srVals[srVals.length - 1] : null;
-    const spendRows = Object.entries(spend).filter(([k]) => k !== 'SAVINGS RATE').map(([k, vals]) => {
-      const cls = k === 'Income' ? 'val-pos' : (k === 'TRUE SAVING RATE') ? 'val-neu' : 'val-neg';
-      const cells = vals.map(v => {
-        if (v === null || v === undefined) return '<td>—</td>';
-        if (typeof v === 'number' && Math.abs(v) < 2) return `<td class="val-neu">${(v*100).toFixed(1)}%</td>`;
-        return `<td class="${cls}">${fm(v)}</td>`;
-      }).join('');
-      return `<tr data-category="${k}" style="cursor:pointer" title="Click to drill into ${k} transactions"><td>${k}</td>${cells}</tr>`;
-    }).join('');
-
-    // ── Daily burn (current month expenses ÷ days elapsed) ──
-    const expenseTotal = Object.entries(spend)
-      .filter(([k]) => k !== 'Income' && k !== 'TRUE SAVING RATE' && k !== 'SAVINGS RATE')
-      .reduce((sum, [, vals]) => {
-        const v = vals[0];
-        if (typeof v !== 'number') return sum;
-        return sum + (v < 0 ? Math.abs(v) : (v > 100 ? v : 0));
-      }, 0);
-    const dailyBurn = expenseTotal > 0 ? expenseTotal / new Date().getDate() : 0;
-    const monthHeaders = months.map(m => `<th>${m}</th>`).join('');
-
-    document.getElementById('refreshTs').textContent = 'Last read: ' + new Date().toLocaleTimeString();
-
-    // ── Spending Velocity (monthly burn / daily avg / vs floor) ──
-    const floorMonthly = 1417;
-    const burnVsFloor = expenseTotal > 0 ? (expenseTotal / floorMonthly).toFixed(1) + '×' : '—';
-
-    // ── Populate Finn sidebar live context ──
-    const pctNum = (progress * 100);
-    const _el = id => document.getElementById(id);
-    const retireYr = new Date().getFullYear() + Math.round((target - lnw) / Math.max(expenseTotal || 1, 1));
-    if (_el('fc-age'))        _el('fc-age').textContent = rules.client_age || '45';
-    if (_el('fc-retire-yr'))  _el('fc-retire-yr').textContent = rules.retire_year || '2043';
-    if (_el('fc-lnw'))        _el('fc-lnw').textContent = fm(lnw);
-    if (_el('fc-fi-pct'))     _el('fc-fi-pct').textContent = pctNum.toFixed(1) + '%';
-    if (_el('fc-bridge'))     _el('fc-bridge').textContent = fm(m['SGOV BRIDGE'] || m['BRIDGE'] || 0);
-    if (_el('fc-bridge-gap')) _el('fc-bridge-gap').textContent = fm(Math.max(0, 360000 - (m['SGOV BRIDGE'] || m['BRIDGE'] || 0)));
-    // ── Populate header age pill ──
-    if (_el('hdrAge')) _el('hdrAge').textContent = rules.client_age || '45';
-    if (_el('hdrYrs')) _el('hdrYrs').textContent = Math.max(0, (rules.retire_year || 2043) - new Date().getFullYear());
-
-    el.innerHTML = `
-      ${sectionToggle('Freedom Levels', 'sec-levels', `<div class="levels-grid">${levelRows}</div>`, true)}
-      ${sectionToggle('Asset Allocation', 'sec-alloc', `
-        <div><div class="sub-panel"><h3>Asset Allocation</h3>${allocRows}</div></div>
-        <div id="allocChartWrap2" style="margin-top:14px;">
-          <div class="donut-wrap">
-            <canvas id="allocChart2" width="180" height="180" style="max-width:180px;"></canvas>
-            <div class="donut-legend" id="allocLegend2"></div>
-          </div>
-        </div>
-      `, false)}
-      ${spendRows ? sectionToggle('Spending Table', 'sec-spend', `${dailyBurn > 0 ? `<div class="daily-burn-badge">Burning <strong>${fm(dailyBurn)}</strong>/day this month &mdash; ${new Date().getDate()} days in</div>` : ''}<table class="spending-table"><thead><tr><th>Category</th>${monthHeaders}</tr></thead><tbody>${spendRows}</tbody></table>`, false) : ''}
-    `;
-    // Render allocation donut after DOM settles
-    setTimeout(() => renderAllocChart(alloc, 'allocChart2', 'allocLegend2'), 80);
-
-    // ── Category drilldown — spending row click ──
-    const spendTbl = document.querySelector('#sec-spend table');
-    if (spendTbl) {
-      spendTbl.addEventListener('click', e => {
-        const row = e.target.closest('tr[data-category]');
-        if (!row) return;
-        const category = row.dataset.category;
-        const colIdx = e.target.cellIndex;
-        const monthShort = colIdx > 0 ? (months[colIdx - 1] || months[0]) : months[0];
-        const fullMonth = monthShort ? `${monthShort} ${new Date().getFullYear()}` : '';
-        window._txDrilldown = { category, month: fullMonth };
-        switchTab('transactions');
-        if (transactionsLoaded) loadTransactions(1);
-      });
-    }
-
-    // ── Savings rate sparkline ──
-    if (srVals.length >= 2) {
-      const srLabels  = [...months].reverse();
-      const srData    = [...srVals].reverse();
-      const latestPct = (srVals[0] * 100).toFixed(1) + '%';
-      el.insertAdjacentHTML('afterbegin', `
-        <div class="panel" style="margin-bottom:14px;padding:14px 16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);">Savings Rate — 6 Month Trend</div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--accent);font-family:var(--font-mono);">${latestPct}</div>
-          </div>
-          <canvas id="srSparkline" height="60"></canvas>
-        </div>
-        ${expenseTotal > 0 ? `
-        <div class="panel" style="margin-bottom:14px;padding:14px 16px;">
-          <h2 style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:12px;">Spending Velocity</h2>
-          <div class="sv-row">
-            <div class="sv-item">
-              <span class="sv-label">Burn this month</span>
-              <span class="sv-value">${fm(expenseTotal)}</span>
-            </div>
-            <div class="sv-item">
-              <span class="sv-label">Daily avg</span>
-              <span class="sv-value">${dailyBurn > 0 ? fm(dailyBurn) : '—'}</span>
-            </div>
-            <div class="sv-item">
-              <span class="sv-label">vs floor ($1,417/mo)</span>
-              <span class="sv-value" style="color:var(--accent)">${burnVsFloor}</span>
-            </div>
-          </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">
-            Floor is the bare-minimum living expense — Social Security at 67 covers it 2.2×.
-          </div>
-        </div>` : ''}
-      `);
-      setTimeout(() => {
-        const ctx = document.getElementById('srSparkline');
-        if (!ctx) return;
-        if (window._srChart) window._srChart.destroy();
-        window._srChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: srLabels,
-            datasets: [{ data: srData.map(v => +(v * 100).toFixed(1)),
-              borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)',
-              fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4ade80' }]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false },
-              tooltip: { callbacks: { label: ctx => ctx.raw + '%' } } },
-            scales: {
-              x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { display: false } },
-              y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v + '%' },
-                   grid: { color: 'rgba(255,255,255,0.04)' }, min: 0 }
-            }
-          }
-        });
-      }, 80);
-    }
-
-    // ── Net Worth History ──
+    // ── NW History storage ──
     const lnwNum = parseFloat(lnw) || 0;
-    const tnwNum = parseFloat(tnw) || 0;
+    const tnwNum = parseFloat(m['TOTAL NET WORTH'] || 0);
     if (lnwNum || tnwNum) {
       let hist = JSON.parse(localStorage.getItem('retAdv_nwHistory') || '[]');
       const today = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'});
@@ -1952,20 +1731,144 @@ async function loadLedger() {
       const newHits = MILESTONES.filter(m => m > lastCelebrated && lnwNum >= m);
       if (newHits.length) {
         const highest = Math.max(...newHits);
-        const label = highest >= 1000000 ? '$1M' : `$${(highest/1000).toFixed(0)}k`;
-        showToast(`LNW crossed ${label} — keep stacking.`, 'milestone', 6000);
+        showToast(`LNW crossed ${highest >= 1000000 ? '$1M' : '$' + (highest/1000).toFixed(0) + 'k'} — keep stacking.`, 'milestone', 6000);
         localStorage.setItem('retAdv_lastMilestone', highest);
       }
     }
 
-    // ── Contribution Inputs + Time-to-FI ──
+  } catch(e) {
+    console.error('loadHome error:', e);
+    const el = document.getElementById('ov-lnw-val');
+    if (el) el.textContent = 'Error';
+  }
+}
+
+// ── Ledger Dashboard ───────────────────────────────────────────────────────
+async function loadLedger() {
+  try {
+    const r = await fetch('/api/ledger/dashboard');
+    const d = await r.json();
+    if (d.error) { console.error('loadLedger:', d.error); return; }
+
+    const m        = d.metrics || {};
+    const lnw      = m['LIQUID NET WORTH']   || 0;
+    const target   = m['FI TARGET (Age 62)'] || 0;
+    const progress = m['PROGRESS TO FI']     || 0;
+    const alloc    = d.allocation || {};
+    const months   = d.spending_months || [];
+    const spend    = d.spending || {};
+    const srVals   = spend['SAVINGS RATE'] || [];
+
+    const spendRows = Object.entries(spend).filter(([k]) => k !== 'SAVINGS RATE').map(([k, vals]) => {
+      const cls = k === 'Income' ? 'val-pos' : 'val-neg';
+      const cells = vals.map(v => {
+        if (v === null || v === undefined) return '<td>—</td>';
+        if (typeof v === 'number' && Math.abs(v) < 2) return `<td class="val-neu">${(v*100).toFixed(1)}%</td>`;
+        return `<td class="${cls}">${fm(v)}</td>`;
+      }).join('');
+      return `<tr data-category="${k}" style="cursor:pointer" title="Click to drill into ${k} transactions"><td>${k}</td>${cells}</tr>`;
+    }).join('');
+
+    // ── Daily burn ──
+    const expenseTotal = Object.entries(spend)
+      .filter(([k]) => k !== 'Income' && k !== 'TRUE SAVING RATE' && k !== 'SAVINGS RATE')
+      .reduce((sum, [, vals]) => {
+        const v = vals[0];
+        if (typeof v !== 'number') return sum;
+        return sum + (v < 0 ? Math.abs(v) : (v > 100 ? v : 0));
+      }, 0);
+    const dailyBurn    = expenseTotal > 0 ? expenseTotal / new Date().getDate() : 0;
+    const floorMonthly = 1417;
+    const burnVsFloor  = expenseTotal > 0 ? (expenseTotal / floorMonthly).toFixed(1) + '×' : '—';
+
+    // ── Savings rate sparkline ──
+    const srEl = document.getElementById('ov-sr-content');
+    if (srEl) {
+      if (srVals.length >= 2) {
+        const srLabels  = [...months].reverse();
+        const srData    = [...srVals].reverse();
+        const latestPct = (srVals[0] * 100).toFixed(1) + '%';
+        srEl.innerHTML = `
+          <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:8px;">
+            <div style="font-size:32px;font-weight:600;letter-spacing:-0.02em;">${latestPct}</div>
+            <div style="color:var(--muted);font-size:12px;">avg this period</div>
+          </div>
+          <canvas id="srSparkline" height="70"></canvas>
+        `;
+        setTimeout(() => {
+          const ctx = document.getElementById('srSparkline');
+          if (!ctx) return;
+          if (window._srChart) window._srChart.destroy();
+          window._srChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: srLabels, datasets: [{ data: srData.map(v => +(v*100).toFixed(1)),
+              borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)',
+              fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4ade80' }] },
+            options: { responsive: true,
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + '%' } } },
+              scales: {
+                x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { display: false } },
+                y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v + '%' },
+                     grid: { color: 'rgba(255,255,255,0.04)' }, min: 0 }
+              }
+            }
+          });
+        }, 80);
+      } else {
+        srEl.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">No savings rate data</div>';
+      }
+    }
+
+    // ── Asset Allocation donut ──
+    setTimeout(() => renderAllocChart(alloc, 'allocChart2', 'allocLegend2'), 80);
+
+    // ── Spending Velocity ──
+    const svEl = document.getElementById('ov-sv-content');
+    if (svEl) {
+      if (expenseTotal > 0) {
+        svEl.innerHTML = `
+          <div class="sv-row">
+            <div class="sv-item"><span class="sv-label">Burn this month</span><span class="sv-value">${fm(expenseTotal)}</span></div>
+            <div class="sv-item"><span class="sv-label">Daily avg</span><span class="sv-value">${dailyBurn > 0 ? fm(dailyBurn) : '—'}</span></div>
+            <div class="sv-item"><span class="sv-label">vs floor ($1,417/mo)</span><span class="sv-value" style="color:var(--accent)">${burnVsFloor}</span></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">
+            Floor is the bare-minimum living expense — Social Security at 67 covers it 2.2×.
+          </div>
+        `;
+      } else {
+        svEl.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">No expense data this month</div>';
+      }
+    }
+
+    // ── Budget vs Actual ──
+    renderBudgetTable(d.spending, d.spending_months);
+
+    // ── Finn sidebar live context ──
+    const pctNum = (progress * 100);
+    const rules  = window._rules || {};
+    const _el    = id => document.getElementById(id);
+    if (_el('fc-age'))        _el('fc-age').textContent       = rules.client_age || '45';
+    if (_el('fc-retire-yr'))  _el('fc-retire-yr').textContent = rules.retire_year || '2043';
+    if (_el('fc-lnw'))        _el('fc-lnw').textContent       = fm(lnw);
+    if (_el('fc-fi-pct'))     _el('fc-fi-pct').textContent    = pctNum.toFixed(1) + '%';
+    if (_el('fc-bridge'))     _el('fc-bridge').textContent    = fm(m['SGOV BRIDGE'] || m['BRIDGE'] || 0);
+    if (_el('fc-bridge-gap')) _el('fc-bridge-gap').textContent = fm(Math.max(0, 360000 - (m['SGOV BRIDGE'] || m['BRIDGE'] || 0)));
+
+    // ── Refresh timestamp ──
+    const tsEl = document.getElementById('refreshTs');
+    if (tsEl) tsEl.textContent = 'Last read: ' + new Date().toLocaleTimeString();
+
+    // ── Contribution Inputs ──
+    const lnwNum    = parseFloat(lnw)    || 0;
     const targetNum = parseFloat(target) || 0;
-    window._tfiCtx = { lnwNum, targetNum };
+    window._tfiCtx  = { lnwNum, targetNum };
     const rulesData = window._rules || await fetch('/api/rules').then(r=>r.json()).catch(()=>({}));
-    window._rules = rulesData;
+    window._rules   = rulesData;
     const sv = JSON.parse(localStorage.getItem('retAdv_contrib') || '{}');
-    el.insertAdjacentHTML('beforeend', `
-      <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.025);border:1px solid var(--border2);border-radius:var(--radius);">
+    const contribEl = document.getElementById('ov-contrib-wrap');
+    if (contribEl) {
+      contribEl.innerHTML = `
         <div style="font-size:0.68rem;font-weight:700;color:var(--gold);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:10px;">Contribution Inputs</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
           <label>Weekly Taxable ($)<input id="ci_taxable" type="number" step="0.01" min="0" value="${sv.weeklyTaxable||''}"></label>
@@ -1974,22 +1877,20 @@ async function loadLedger() {
           <label>Employer Match (%)<input id="ci_match_pct" type="number" step="0.1" min="0" max="100" value="${sv.matchPct||''}"></label>
           <label>Annual Gross ($)<input id="ci_gross" type="number" step="1" min="0" value="${sv.annualGross||''}"></label>
         </div>
-      </div>
-      <div id="tfiCardWrap"></div>
-    `);
-    ['ci_taxable','ci_ira','ci_401k_pct','ci_match_pct','ci_gross'].forEach(id => {
-      document.getElementById(id)?.addEventListener('input', () =>
-        calcContribTFI(window._tfiCtx.lnwNum, window._tfiCtx.targetNum, window._rules || {})
-      );
-    });
-    calcContribTFI(lnwNum, targetNum, rulesData);
+        <div id="tfiCardWrap"></div>
+      `;
+      ['ci_taxable','ci_ira','ci_401k_pct','ci_match_pct','ci_gross'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () =>
+          calcContribTFI(window._tfiCtx.lnwNum, window._tfiCtx.targetNum, window._rules || {})
+        );
+      });
+      calcContribTFI(lnwNum, targetNum, rulesData);
+    }
 
-    // ── Budget vs Actual ──
-    renderBudgetTable(d.spending, d.spending_months);
     loadDigestCreds();
 
   } catch(e) {
-    el.innerHTML = `<span class="err">Error: ${e.message}</span>`;
+    console.error('loadLedger error:', e.message);
   }
 }
 
