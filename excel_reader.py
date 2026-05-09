@@ -121,7 +121,7 @@ def read_dashboard_data():
     ws_spend = wb["SPENDING"]
     months = []
     spending = {}
-    for row in ws_spend.iter_rows(min_row=1, max_row=10, values_only=True):
+    for row in ws_spend.iter_rows(min_row=1, values_only=True):
         if row[0] in ("TYPE", None):
             if row[0] == "TYPE":
                 months = [str(m) for m in row[1:] if m is not None]
