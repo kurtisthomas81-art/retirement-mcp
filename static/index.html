@@ -18,30 +18,35 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg:          #080d1a;
-    --surface:     #0f1829;
-    --surface2:    #131e30;
-    --surface3:    #1a2540;
-    --border:      rgba(255,255,255,0.06);
-    --border2:     rgba(255,255,255,0.11);
-    --border-hi:   rgba(236,72,153,0.40);
-    --text:        #f0f4ff;
-    --muted:       #8899b8;
-    --muted2:      #526070;
+    --bg:          #0c0e12;
+    --surface:     #14171d;
+    --surface2:    #1a1e26;
+    --surface3:    #20242d;
+    --border:      #232932;
+    --border2:     #2c333e;
+    --border-hi:   rgba(74,222,128,0.40);
+    --text:        #e8eaed;
+    --muted:       #9aa3b2;
+    --muted2:      #6b7280;
     --green:       #10b981;
     --green-glow:  rgba(16,185,129,0.25);
-    --red:         #f43f5e;
-    --red-glow:    rgba(244,63,94,0.25);
+    --accent:      #4ade80;
+    --accent2:     #34d399;
+    --accent-glow: rgba(74,222,128,0.25);
+    --accent-glow2:rgba(74,222,128,0.12);
+    --accent-glass:rgba(74,222,128,0.07);
+    --warn:        #f87171;
+    --warn-glow:   rgba(248,113,113,0.25);
+    --red:         #f87171;
+    --red-glow:    rgba(248,113,113,0.25);
     --amber:       #f59e0b;
-    --pink:        #ec4899;
-    --pink-dim:    #9d174d;
-    --pink-glow:   rgba(236,72,153,0.30);
-    --pink-glow2:  rgba(236,72,153,0.12);
-    --pink-glass:  rgba(236,72,153,0.07);
-    --gold:        #cd853f;
-    --gold-dim:    #a0622a;
-    --grad-card:   linear-gradient(135deg,#131e30 0%,#0f1829 100%);
-    --grad-pink:   linear-gradient(135deg,#ec4899 0%,#be185d 100%);
+    --gold:        #fbbf24;
+    --gold-dim:    #d97706;
+    --info:        #60a5fa;
+    --purple:      #a78bfa;
+    --orange:      #fb923c;
+    --grad-card:   linear-gradient(135deg,#1a1e26 0%,#14171d 100%);
+    --grad-accent: linear-gradient(135deg,#4ade80 0%,#16a34a 100%);
     --grad-success:linear-gradient(135deg,#10b981 0%,#059669 100%);
     --grad-amber:  linear-gradient(135deg,#f59e0b 0%,#d97706 100%);
     --grad-teal:   linear-gradient(135deg,#14b8a6 0%,#0d9488 100%);
@@ -68,14 +73,22 @@
     border-bottom: 1px solid var(--border2);
   }
   .header-brand { display: flex; align-items: center; gap: 10px; }
-  .header-logo {
-    width: 30px; height: 30px;
-    background: var(--grad-pink);
-    border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 14px var(--pink-glow); flex-shrink: 0;
+  .brand-mark {
+    height: 26px; padding: 0 8px; border-radius: 7px;
+    background: var(--grad-accent);
+    display: inline-flex; align-items: center; color: #052e12;
+    font-weight: 800; font-size: 12px; letter-spacing: -0.02em; flex-shrink: 0;
   }
-  header h1 { color: var(--text); font-size: 0.88rem; letter-spacing: 0.02em; font-weight: 700; }
-  header h1 span { color: var(--pink); }
+  .brand-mark sup { font-size: 9px; font-weight: 800; vertical-align: super; line-height: 0; }
+  .brand-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .brand-sub  { color: var(--muted); font-size: 11px; font-weight: 400; margin-left: 2px; }
+  .age-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 999px; padding: 5px 12px; font-size: 11px; color: var(--muted);
+  }
+  .age-pill b { color: var(--text); font-weight: 600; }
+  .age-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
   .refresh-ts {
     display: flex; align-items: center; gap: 5px;
     color: var(--muted2); font-size: 0.60rem; font-family: var(--font-mono);
@@ -102,11 +115,11 @@
   }
   .tab-btn::after {
     content: ''; position: absolute; bottom: -1px; left: 16px; right: 16px;
-    height: 2px; background: var(--grad-pink); border-radius: 2px 2px 0 0;
+    height: 2px; background: var(--accent); border-radius: 2px 2px 0 0;
     transform: scaleX(0); transition: transform 0.2s ease;
   }
   .tab-btn:hover { color: var(--text); border-color: transparent; background: none; }
-  .tab-btn.active { color: var(--pink); border-bottom-color: transparent; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: transparent; }
   .tab-btn.active::after { transform: scaleX(1); }
   @media (max-width: 768px) { .tab-nav { display: none; } }
 
@@ -136,13 +149,13 @@
     .bn-item::before {
       content: ''; position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
       width: 18px; height: 2px; border-radius: 1px;
-      background: var(--pink); opacity: 0; transition: opacity 0.15s;
+      background: var(--accent); opacity: 0; transition: opacity 0.15s;
     }
     .bn-item:hover { color: var(--muted); border-color: transparent; background: none; transform: none; }
     .bn-item svg { transition: transform 0.15s, filter 0.15s; }
-    .bn-item.active { color: var(--pink); }
+    .bn-item.active { color: var(--accent); }
     .bn-item.active::before { opacity: 1; }
-    .bn-item.active svg { filter: drop-shadow(0 0 5px rgba(236,72,153,0.7)); transform: translateY(-1px); }
+    .bn-item.active svg { filter: drop-shadow(0 0 5px rgba(74,222,128,0.7)); transform: translateY(-1px); }
     .bn-item:active { opacity: 0.7; }
     /* Restore chat FAB/overlay above bottom nav on mobile */
     .chat-fab   { bottom: calc(var(--bottom-nav-h) + 16px); }
@@ -179,10 +192,10 @@
     letter-spacing: 0.02em; color: var(--muted);
     margin-bottom: 18px; position: relative; z-index: 1;
   }
-  .panel-risk { border-left: 3px solid var(--red); }
+  .panel-risk { border-left: 3px solid var(--warn); }
 
   /* ── Accent system (ambient glow replaces border-left) ── */
-  .accent-pink    { --panel-glow: radial-gradient(circle,rgba(236,72,153,0.10) 0%,transparent 70%); }
+  .accent-green   { --panel-glow: radial-gradient(circle,rgba(74,222,128,0.10) 0%,transparent 70%); }
   .accent-emerald { --panel-glow: radial-gradient(circle,rgba(16,185,129,0.10) 0%,transparent 70%); }
   .accent-indigo  { --panel-glow: radial-gradient(circle,rgba(99,102,241,0.10) 0%,transparent 70%); }
   .accent-amber   { --panel-glow: radial-gradient(circle,rgba(245,158,11,0.10) 0%,transparent 70%); }
@@ -200,14 +213,14 @@
   }
   .stat-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: var(--card-accent, var(--grad-pink));
+    background: var(--card-accent, var(--grad-accent));
   }
   .stat-card::after {
     content: ''; position: absolute; top: -24px; left: -24px;
-    width: 80px; height: 80px; background: var(--card-glow, var(--pink-glass)); border-radius: 50%; pointer-events: none;
+    width: 80px; height: 80px; background: var(--card-glow, var(--accent-glass)); border-radius: 50%; pointer-events: none;
   }
   .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.45); border-color: var(--border2); }
-  .stat-card.accent-pink    { --card-accent: var(--grad-pink);    --card-glow: var(--pink-glass); }
+  .stat-card.accent-green   { --card-accent: var(--grad-accent);   --card-glow: var(--accent-glass); }
   .stat-card.accent-emerald { --card-accent: var(--grad-success);  --card-glow: rgba(16,185,129,0.07); }
   .stat-card.accent-indigo  { --card-accent: var(--grad-indigo);   --card-glow: rgba(99,102,241,0.07); }
   .stat-card.accent-amber   { --card-accent: var(--grad-amber);    --card-glow: rgba(245,158,11,0.07); }
@@ -220,29 +233,47 @@
   .stat-card .sc-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; line-height: 1;
     color: var(--text); letter-spacing: -0.02em; position: relative; z-index: 1; }
   .stat-card .sc-sub   { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.7rem; color: var(--muted2); margin-top: 5px; position: relative; z-index: 1; }
-  .stat-card.gl-pos .sc-value { color: var(--green); }
-  .stat-card.gl-neg .sc-value { color: var(--red); }
+  .stat-card.gl-pos .sc-value { color: var(--accent); }
+  .stat-card.gl-neg .sc-value { color: var(--warn); }
 
   /* ── Progress bar ── */
   .fi-progress-wrap { margin-bottom: 20px; }
   .fi-label { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); margin-bottom: 6px; }
-  .fi-label .pct { color: var(--pink); font-weight: 700; font-family: var(--font-mono); }
+  .fi-label .pct { color: var(--accent); font-weight: 700; font-family: var(--font-mono); }
   .progress-bar { background: rgba(255,255,255,0.06); border-radius: 6px; height: 8px; overflow: hidden; }
-  .progress-fill { background: var(--grad-pink); height: 100%; border-radius: 6px;
-    transition: width 0.8s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 8px var(--pink-glow); }
+  .progress-fill { background: var(--grad-accent); height: 100%; border-radius: 6px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 8px var(--accent-glow); }
 
   /* ── Freedom levels ── */
-  .levels-grid { display: flex; flex-direction: column; gap: 6px; }
-  .level-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px;
-    background: var(--grad-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 14px;
-    transition: border-color 0.2s, transform 0.2s; }
-  .level-row:hover { border-color: var(--border2); transform: translateX(2px); }
-  .level-row .lname  { font-size: 0.75rem; font-weight: 500; }
-  .level-row .lgoal  { font-size: 0.72rem; color: var(--muted2); text-align: right; font-family: var(--font-mono); }
-  .level-row .lbadge { font-size: 0.60rem; font-weight: 700; letter-spacing: 0.06em;
-    padding: 3px 9px; border-radius: var(--radius-pill); white-space: nowrap; }
-  .badge-achieved { background: rgba(16,185,129,0.10); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
-  .badge-progress { background: var(--pink-glass); color: var(--pink); border: 1px solid rgba(236,72,153,0.25); }
+  .levels-grid { display: flex; flex-direction: column; gap: 8px; }
+  .level-card {
+    display: grid; grid-template-columns: 28px 1fr 110px 80px; align-items: center; gap: 12px;
+    padding: 12px 14px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    transition: border-color 0.2s;
+  }
+  .level-card.done { border-color: rgba(74,222,128,0.3); }
+  .level-card.next { border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.04); }
+  .level-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--surface3); color: var(--muted2);
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .level-card.done .level-num { background: rgba(74,222,128,0.15); color: var(--accent); }
+  .level-card.next .level-num { background: rgba(251,191,36,0.15); color: var(--gold); }
+  .level-info .level-name { font-weight: 600; font-size: 13px; }
+  .level-info .level-desc { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .level-progbar { height: 4px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  .level-progbar > div { height: 100%; background: var(--accent); border-radius: 999px; }
+  .level-amt { text-align: right; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text); }
+  .level-status { text-align: right; font-size: 11px; color: var(--muted); }
+  .level-card.done .level-status { color: var(--accent); }
+  .level-card.next .level-status { color: var(--gold); }
+  @media (max-width: 600px) {
+    .level-card { grid-template-columns: 28px 1fr auto; }
+    .level-amt { display: none; }
+  }
 
   /* ── Two-column ── */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
@@ -255,9 +286,9 @@
   .alloc-row span:last-child { font-family: var(--font-mono); }
   .cashflow-row { display: flex; justify-content: space-between; font-size: 0.75rem; padding: 5px 0; }
   .cashflow-row .cname { color: var(--muted); }
-  .cval.pos { color: var(--green); font-family: var(--font-mono); }
-  .cval.neg { color: var(--red); font-family: var(--font-mono); }
-  .cval.neu { color: var(--pink); font-family: var(--font-mono); }
+  .cval.pos { color: var(--accent); font-family: var(--font-mono); }
+  .cval.neg { color: var(--warn); font-family: var(--font-mono); }
+  .cval.neu { color: var(--gold); font-family: var(--font-mono); }
 
   /* ── Spending table ── */
   .spending-table { width: 100%; border-collapse: collapse; font-size: 0.73rem; margin-top: 18px; overflow-x: auto; display: block; }
@@ -267,8 +298,8 @@
   .spending-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); font-family: var(--font-mono); }
   .spending-table td:first-child { text-align: left; color: var(--muted); font-family: var(--font-ui); white-space: nowrap; }
   .spending-table tr:last-child td { border-bottom: none; }
-  .spending-table tr:hover td { background: rgba(236,72,153,0.04); }
-  .val-pos { color: var(--green); } .val-neg { color: var(--red); } .val-neu { color: var(--pink); }
+  .spending-table tr:hover td { background: rgba(74,222,128,0.04); }
+  .val-pos { color: var(--accent); } .val-neg { color: var(--warn); } .val-neu { color: var(--gold); }
 
   /* ── Inputs & buttons ── */
   input[type="number"], input[type="text"], input[type="password"], select {
@@ -277,7 +308,7 @@
     border-radius: 8px; outline: none; width: 100%;
     transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; min-height: 44px;
   }
-  input:focus, select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--pink-glow2); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow2); }
   label { font-family: var(--font-ui); font-size: 0.68rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: block; margin-bottom: 5px; }
   button {
@@ -287,6 +318,20 @@
     cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s; white-space: nowrap; min-height: 44px;
   }
   button:hover { background: var(--surface2); border-color: var(--border-hi); color: var(--text); }
+  /* Finn sidebar layout */
+  .finn-layout { display: grid; grid-template-columns: 1fr 260px; gap: 18px; height: calc(100vh - var(--header-h) - 48px - 48px); }
+  .finn-side { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; overflow-y: auto; }
+  .finn-side h3 { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted2); margin: 14px 0 8px; }
+  .finn-side h3:first-child { margin-top: 0; }
+  .finn-ctx-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px dashed var(--border); }
+  .finn-ctx-row:last-child { border-bottom: none; }
+  .finn-ctx-row .k { color: var(--muted); }
+  .finn-ctx-row .v { font-variant-numeric: tabular-nums; font-weight: 500; }
+  /* Spending velocity */
+  .sv-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .sv-item { display: flex; flex-direction: column; gap: 3px; }
+  .sv-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; }
+  .sv-value { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
   button:disabled { opacity: 0.35; cursor: not-allowed; }
   button.btn-primary {
     background: var(--gold); color: #111; border: none; font-weight: 700; letter-spacing: 0.06em;
@@ -306,7 +351,7 @@
     cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s, color 0.15s; white-space: nowrap; min-height: 44px; }
   .btn:hover { background: var(--surface2); border-color: var(--border-hi); color: var(--text); }
   .btn-sm { font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; min-height: 28px; }
-  .price { color: var(--pink); font-size: 1.5rem; font-weight: bold; font-family: var(--font-mono); }
+  .price { color: var(--accent); font-size: 1.5rem; font-weight: bold; font-family: var(--font-mono); }
   .change.up { color: var(--green); } .change.down { color: var(--red); }
   .err { color: var(--red); font-size: 0.8rem; }
   .key-status { font-size: 0.65rem; color: var(--muted2); margin-top: 5px; }
@@ -338,16 +383,16 @@
     font-size: 0.58rem; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px;
     border-radius: var(--radius-pill); text-transform: uppercase; white-space: nowrap; min-height: unset;
   }
-  .tag-roth    { background: rgba(236,72,153,0.12);  color: #ec4899; border: 1px solid rgba(236,72,153,0.3); }
+  .tag-roth    { background: rgba(74,222,128,0.12);  color: var(--accent); border: 1px solid rgba(74,222,128,0.3); }
   .tag-taxable { background: rgba(56,189,248,0.08);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
   .tag-401k    { background: rgba(245,158,11,0.08);  color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
   .tag-crypto  { background: rgba(167,139,250,0.08); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
   .port-acct-name  { color: var(--text); font-size: 0.74rem; font-weight: 500; }
-  .port-acct-total { color: var(--pink); font-size: 0.92rem; font-weight: 700; font-family: var(--font-mono); }
+  .port-acct-total { color: var(--accent); font-size: 0.92rem; font-weight: 700; font-family: var(--font-mono); }
   .port-htable { width: 100%; border-collapse: collapse; background: rgba(8,13,26,0.5); }
   .port-htable td { padding: 9px 16px; font-size: 0.73rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
   .port-htable tr:last-child td { border-bottom: none; }
-  .port-htable tr:hover td { background: rgba(236,72,153,0.04); }
+  .port-htable tr:hover td { background: rgba(74,222,128,0.04); }
   .port-htable .h-ticker { width: 1%; white-space: nowrap; }
   .port-htable .h-name   { color: var(--muted); font-size: 0.71rem; }
   .port-htable .h-r      { text-align: right; white-space: nowrap; }
@@ -356,7 +401,7 @@
   .port-htable .h-gl     { text-align: right; }
   .ticker-badge {
     display: inline-block; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
-    color: var(--pink); background: var(--pink-glass); border: 1px solid rgba(236,72,153,0.25);
+    color: var(--accent); background: var(--accent-glass); border: 1px solid rgba(74,222,128,0.25);
     padding: 2px 8px; border-radius: 5px; letter-spacing: 0.04em;
   }
   .gl-pill {
@@ -384,13 +429,13 @@
     background: rgba(255,255,255,0.03); border: 1px solid var(--border2); color: var(--text);
     font-family: var(--font-mono); font-size: 0.88rem; padding: 9px 10px; border-radius: var(--radius-sm); outline: none; width: 100%; min-height: 44px;
   }
-  .mc-select:focus { border-color: var(--pink); }
+  .mc-select:focus { border-color: var(--accent); }
   .mc-toggle-row { display: flex; flex-wrap: wrap; gap: 12px; }
   .mc-toggle { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.72rem; color: var(--muted); }
-  .mc-toggle input { accent-color: var(--pink); }
+  .mc-toggle input { accent-color: var(--accent); }
   .mc-radio-row { display: flex; gap: 18px; }
   .mc-radio-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.72rem; color: var(--muted); }
-  .mc-radio-row input { accent-color: var(--pink); }
+  .mc-radio-row input { accent-color: var(--accent); }
 
   /* Presets */
   .mc-presets { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 2px; }
@@ -400,7 +445,7 @@
     transition: all 0.2s; border: 1px solid var(--border2); background: var(--surface3); color: var(--muted2); min-height: unset;
   }
   .preset-pill.active, .preset-pill.baseline:hover, .preset-pill.baseline.active
-    { background: var(--grad-pink); border-color: transparent; color: #fff; box-shadow: 0 0 14px var(--pink-glow); }
+    { background: var(--grad-accent); border-color: transparent; color: #052e12; box-shadow: 0 0 14px var(--accent-glow); }
   .preset-pill.cautious:hover, .preset-pill.cautious.active
     { background: var(--grad-amber); border-color: transparent; color: #000; }
   .preset-pill.stress:hover, .preset-pill.stress.active
@@ -522,7 +567,7 @@
   .mc-inner-tabs { display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
   .mc-itab { background: none; border: none; color: var(--muted2); font-size: 0.72rem; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; letter-spacing: 0.04em; transition: color 0.15s, background 0.15s; }
   .mc-itab:hover { color: var(--text); background: var(--surface2); }
-  .mc-itab.active { color: var(--pink); background: rgba(236,72,153,0.12); }
+  .mc-itab.active { color: var(--accent); background: rgba(74,222,128,0.10); }
 
   /* ── Plan Status Hero Card ── */
   .plan-hero { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 7px; }
@@ -586,7 +631,7 @@
   .ai-playbook { margin-top: 14px; padding: 14px 16px; background: var(--grad-card); border: 1px solid var(--border); border-radius: var(--radius); }
   .ai-playbook-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .ai-playbook-hdr h3 { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted2); }
-  .ai-playbook-hdr .ai-badge { font-size: 0.58rem; background: rgba(236,72,153,0.15); color: var(--pink); border: 1px solid rgba(236,72,153,0.25); border-radius: 4px; padding: 2px 6px; font-weight: 600; }
+  .ai-playbook-hdr .ai-badge { font-size: 0.58rem; background: rgba(74,222,128,0.12); color: var(--accent); border: 1px solid rgba(74,222,128,0.25); border-radius: 4px; padding: 2px 6px; font-weight: 600; }
   .ai-playbook-body { font-size: 0.74rem; color: var(--text); line-height: 1.65; }
   .pb-block { padding: 9px 0; border-bottom: 1px solid var(--border); }
   .pb-block:last-child { border-bottom: none; }
@@ -597,13 +642,13 @@
   .pb-block-hdr.sky     { color: #38bdf8; }
   .ai-thinking { display: flex; align-items: center; gap: 8px; color: var(--muted2); font-size: 0.72rem; padding: 8px 0; }
   .ai-thinking-dots { display: inline-flex; gap: 3px; }
-  .ai-thinking-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--pink); animation: aiDot 1.2s infinite; }
+  .ai-thinking-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: aiDot 1.2s infinite; }
   .ai-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
   .ai-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes aiDot { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
 
   /* ── Chat FAB + Overlay ── */
-  .chat-fab { position: fixed; bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--pink); z-index: 200; font-size: 1.3rem; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(236,72,153,0.45); transition: transform 0.15s; touch-action: manipulation; }
+  .chat-fab { position: fixed; bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: #052e12; z-index: 200; font-size: 1.3rem; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(74,222,128,0.45); transition: transform 0.15s; touch-action: manipulation; }
   .chat-fab:hover { transform: scale(1.08); }
   .chat-overlay { position: fixed; bottom: 76px; right: 16px; width: 320px; max-height: 460px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); z-index: 199; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.55); }
   .chat-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border2); font-size: 0.72rem; font-weight: 700; color: var(--text); }
@@ -611,14 +656,14 @@
   .chat-hdr select { background: var(--surface3); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-size: 0.65rem; padding: 3px 5px; }
   .chat-hdr button { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 0.9rem; padding: 2px 4px; }
   .chat-hist { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-  .chat-msg-user { align-self: flex-end; background: var(--pink); color: #fff; border-radius: 12px 12px 2px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 86%; line-height: 1.5; }
-  .chat-msg-ai { align-self: flex-start; background: var(--surface3); border: 1px solid var(--border); border-radius: 2px 12px 12px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 92%; line-height: 1.6; color: var(--text); }
-  .chat-msg-ai strong { color: var(--pink); }
+  .chat-msg-user { align-self: flex-end; background: var(--surface3); color: var(--text); border-radius: 12px 12px 2px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 86%; line-height: 1.5; }
+  .chat-msg-ai { align-self: flex-start; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px 12px 12px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 92%; line-height: 1.6; color: var(--text); }
+  .chat-msg-ai strong { color: var(--accent); }
   .finn-remember-btn { display: block; margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted2); font-size: 0.68rem; padding: 3px 8px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; }
   .finn-remember-btn:hover { opacity: 1; color: var(--gold); border-color: var(--gold); }
   .chat-suggested { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
   .chat-sug-btn { background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--muted2); font-size: 0.68rem; padding: 7px 10px; text-align: left; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
-  .chat-sug-btn:hover { border-color: var(--pink); color: var(--text); }
+  .chat-sug-btn:hover { border-color: var(--accent); color: var(--text); }
   .chat-input-row { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border2); align-items: flex-end; }
   .chat-input-row textarea { flex: 1; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-size: 0.73rem; padding: 7px 10px; resize: none; line-height: 1.4; font-family: var(--font-ui); }
   .chat-send { background: var(--gold); border: none; border-radius: 8px; color: #111; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: background 0.15s, opacity 0.15s; }
@@ -636,15 +681,24 @@
 
   /* ── Finn tab layout ── */
   .finn-main {
-    max-width: 760px; margin: 0 auto; display: flex; flex-direction: column;
+    flex: 1; display: flex; flex-direction: column;
     height: calc(100vh - var(--header-h) - 48px - 48px);
-    padding: 16px 16px 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
   }
+  .finn-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .finn-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,#4ade80,#22d3ee); display: grid; place-items: center; color: #052e12; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+  .finn-name-wrap .fn-name { font-weight: 600; font-size: 14px; }
+  .finn-name-wrap .fn-role { color: var(--muted); font-size: 11px; }
+  .finn-feed { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .finn-input-row { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; }
+  .finn-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 999px; font-size: 13px; font-family: inherit; outline: none; }
+  .finn-input:focus { border-color: var(--accent); }
+  .finn-send { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #052e12; border: none; cursor: pointer; display: grid; place-items: center; flex-shrink: 0; font-size: 1rem; }
   @media (max-width: 768px) {
-    .finn-main {
-      height: calc(100vh - var(--header-h) - var(--bottom-nav-h) - 48px - env(safe-area-inset-bottom, 0px));
-      padding: 12px 12px 8px;
-    }
+    .finn-layout { grid-template-columns: 1fr; height: auto; }
+    .finn-side { display: none; }
+    .finn-main { height: calc(100vh - var(--header-h) - var(--bottom-nav-h) - 48px - env(safe-area-inset-bottom, 0px)); }
   }
 
   /* ── Home / Landing ── */
@@ -666,8 +720,8 @@
   .home-lnw-sub  { font-size: 0.72rem; color: var(--muted); display: flex; gap: 10px; align-items: center; }
   .home-lnw-sub .sep { color: var(--border2); }
   .home-tfi-row  { font-size:0.70rem; color:var(--muted2); margin-top:5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .home-tfi-row .pace-ahead  { color:var(--green); font-weight:600; }
-  .home-tfi-row .pace-behind { color:var(--red);   font-weight:600; }
+  .home-tfi-row .pace-ahead  { color:var(--accent); font-weight:600; }
+  .home-tfi-row .pace-behind { color:var(--warn);   font-weight:600; }
   .home-next-level { display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.15); border-radius:var(--radius); margin-bottom:14px; font-size:0.72rem; }
   .hnl-label { font-size:0.58rem; font-weight:700; text-transform:uppercase; letter-spacing:0.10em; color:#6366f1; flex-shrink:0; }
   .hnl-name  { font-weight:600; color:var(--text); flex:1; }
@@ -697,7 +751,7 @@
   }
   .home-nav-tile:hover  { background: var(--surface3); border-color: var(--border2); color: var(--text); }
   .home-nav-tile:active { opacity: 0.7; }
-  .home-nav-tile svg    { color: var(--pink); }
+  .home-nav-tile svg    { color: var(--accent); }
 
   .home-tx-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
   .home-tx-row:last-child { border-bottom: none; }
@@ -773,7 +827,7 @@
 
   /* ── Contribution optimizer result ── */
   .contrib-result { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:12px 14px; margin-top:10px; font-size:0.78rem; }
-  .contrib-result .cr-val { font-family:var(--font-mono); font-size:1.2rem; font-weight:700; color:var(--pink); display:block; margin:4px 0; }
+  .contrib-result .cr-val { font-family:var(--font-mono); font-size:1.2rem; font-weight:700; color:var(--accent); display:block; margin:4px 0; }
 
   /* ── Sensitivity tornado ── */
   .tornado-wrap { margin-top:14px; padding:16px 18px; }
@@ -805,7 +859,7 @@
   .rm-ms-badge { font-size:0.60rem; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:var(--radius-pill); white-space:nowrap; flex-shrink:0; }
   .rm-badge-done   { background:rgba(16,185,129,0.12); color:var(--green); border:1px solid rgba(16,185,129,0.25); }
   .rm-badge-future { background:rgba(205,133,63,0.10); color:var(--gold); border:1px solid rgba(205,133,63,0.25); }
-  .rm-badge-retire { background:rgba(236,72,153,0.10); color:var(--pink); border:1px solid rgba(236,72,153,0.25); }
+  .rm-badge-retire { background:rgba(74,222,128,0.10); color:var(--accent); border:1px solid rgba(74,222,128,0.25); }
   .rm-badge-ss     { background:rgba(99,102,241,0.10); color:#818cf8; border:1px solid rgba(99,102,241,0.25); }
 
   /* ── Plan sub-nav ── */
@@ -864,15 +918,18 @@
 <body>
 <header>
   <div class="header-brand">
-    <div class="header-logo">
-      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
+    <div class="brand-mark">R<sup>2</sup>Fi</div>
+    <div>
+      <div class="brand-name">Road To FI</div>
     </div>
-    <h1>Road To <span>FI</span></h1>
-    <span class="header-tab-name" id="hdrTabName" style="display:none;">Overview</span>
+    <span class="brand-sub">· Personal retirement plan</span>
+    <span class="header-tab-name" id="hdrTabName" style="display:none;margin-left:8px;font-size:0.80rem;font-weight:700;color:var(--text);">Overview</span>
   </div>
-  <div class="header-actions" style="display:flex;align-items:center;gap:10px;">
+  <div class="header-actions" style="display:flex;align-items:center;gap:12px;">
+    <div class="age-pill">
+      <span class="dot"></span>
+      Age <b id="hdrAge">45</b> · retiring at <b>62</b> · <b id="hdrYrs">17</b> yrs to go
+    </div>
     <button id="exportPdfBtn" class="btn-sm export-pdf-btn" onclick="window.print()" style="font-size:0.62rem;padding:4px 10px;">Export PDF</button>
     <span class="refresh-ts" id="refreshTs"></span>
   </div>
@@ -1141,7 +1198,7 @@
             <div class="mc-section-title">AI Model</div>
             <div class="field" style="margin-bottom:4px;">
               <label>Ollama Model</label>
-              <input type="text" id="aiModel" value="qwen3.5:9b" placeholder="qwen3.5:9b" style="font-family:var(--font-mono);font-size:0.72rem;">
+              <input type="text" id="aiModel" value="qwen2.5:7b" placeholder="qwen2.5:7b" style="font-family:var(--font-mono);font-size:0.72rem;">
             </div>
             <div style="font-size:0.61rem;color:var(--muted2);margin-bottom:4px;">Used for AI Playbook and chat. Set OLLAMA_URL env var if not on host network.</div>
 
@@ -1316,7 +1373,7 @@
 <script>
 const fm = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
 const fp = n => (n * 100).toFixed(1) + '%';
-const mdLite = t => t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\\n/g,'<br>').replace(/^[\\u2713\\u26a0\\u2192\\u2022]\\s/gm, m => `<span style="color:var(--pink)">${m}</span>`);
+const mdLite = t => t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\\n/g,'<br>').replace(/^[\\u2713\\u26a0\\u2192\\u2022]\\s/gm, m => `<span style="color:var(--accent)">${m}</span>`);
 function renderPlaybookBlocks(text) {
   const sections = [
     { key: 'WHAT WORKS',    cls: 'emerald' },
@@ -1430,7 +1487,7 @@ function showToast(msg, type = 'success', duration = 4000) {
   setTimeout(() => t.remove(), duration);
 }
 
-function svgSparkline(data, color = '#ec4899', w = 120, h = 24) {
+function svgSparkline(data, color = '#4ade80', w = 120, h = 24) {
   if (!data || data.length < 2) return '';
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
@@ -1542,7 +1599,7 @@ async function loadHome() {
     })();
 
     el.innerHTML = `
-      <div class="panel" style="padding:20px 18px 16px;border-color:rgba(236,72,153,0.25);">
+      <div class="panel" style="padding:20px 18px 16px;border-color:rgba(74,222,128,0.20);">
 
         <!-- FI Ring + LNW hero -->
         <div class="home-hero">
@@ -1550,8 +1607,8 @@ async function loadHome() {
             <svg width="164" height="164" viewBox="0 0 164 164">
               <defs>
                 <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#ec4899"/>
-                  <stop offset="100%" stop-color="#6366f1"/>
+                  <stop offset="0%" stop-color="#4ade80"/>
+                  <stop offset="100%" stop-color="#34d399"/>
                 </linearGradient>
               </defs>
               <circle class="fi-ring-track" cx="82" cy="82" r="${R}" stroke-width="10"/>
@@ -1569,11 +1626,11 @@ async function loadHome() {
           <div class="home-lnw-sub">
             <span>Liquid NW</span>
             <span class="sep">|</span>
-            <span style="color:var(--pink)">Target ${fm(target)}</span>
+            <span style="color:var(--accent)">Target ${fm(target)}</span>
             <span class="sep">|</span>
-            <span style="color:var(--amber)">Gap ${fm(gap)}</span>
+            <span style="color:var(--gold)">Gap ${fm(gap)}</span>
           </div>
-          ${(() => { const _h = JSON.parse(localStorage.getItem('retAdv_nwHistory')||'[]'); const _d = _h.map(x=>x.lnw).filter(Boolean); return _d.length >= 2 ? `<div class="home-sparkline-row"><span>LNW trend</span>${svgSparkline(_d,'#ec4899',120,22)}</div>` : ''; })()}
+          ${(() => { const _h = JSON.parse(localStorage.getItem('retAdv_nwHistory')||'[]'); const _d = _h.map(x=>x.lnw).filter(Boolean); return _d.length >= 2 ? `<div class="home-sparkline-row"><span>LNW trend</span>${svgSparkline(_d,'#4ade80',120,22)}</div>` : ''; })()}
           ${tfiStr || paceBadgeHtml ? `
           <div class="home-tfi-row">
             ${tfiStr ? `<span>FI in <b style="color:var(--text)">${tfiStr}</b></span>` : ''}
@@ -1697,19 +1754,32 @@ async function loadLedger() {
     const barW = Math.min(progress * 100, 100).toFixed(1);
 
     const levels = d.freedom_levels || [];
-    const levelRows = levels.map(lv => {
-      let badge, goalStr;
-      if (lv.status === 'ACHIEVED') {
-        badge   = '<span class="lbadge badge-achieved">ACHIEVED</span>';
-        goalStr = lv.goal_text || '—';
+    const nextLvIdx = levels.findIndex(lv => lv.status !== 'ACHIEVED');
+    const levelRows = levels.map((lv, idx) => {
+      const isDone = lv.status === 'ACHIEVED';
+      const isNext = idx === nextLvIdx;
+      const cardCls = isDone ? 'done' : isNext ? 'next' : '';
+      const numCls  = isDone ? 'done' : isNext ? 'next' : '';
+      const amtStr  = lv.goal ? fm(lv.goal) : (lv.goal_text || '—');
+      let statusStr, progressBar = '';
+      if (isDone) {
+        statusStr = 'Achieved ✓';
       } else if (lv.progress !== null && lv.progress !== undefined) {
-        badge   = `<span class="lbadge badge-progress">${fp(lv.progress)}</span>`;
-        goalStr = lv.goal ? fm(lv.goal) : '—';
+        statusStr = fp(lv.progress);
+        if (isNext) progressBar = `<div class="level-progbar"><div style="width:${Math.min(lv.progress*100,100).toFixed(0)}%"></div></div>`;
       } else {
-        badge   = `<span class="lbadge badge-progress">${lv.goal ? fm(lv.goal) : '—'}</span>`;
-        goalStr = '';
+        statusStr = '—';
       }
-      return `<div class="level-row"><span class="lname">${lv.name}</span><span class="lgoal">${goalStr}</span>${badge}</div>`;
+      return `<div class="level-card ${cardCls}">
+        <div class="level-num">${idx + 1}</div>
+        <div class="level-info">
+          <div class="level-name">${lv.name}</div>
+          <div class="level-desc">${lv.description || ''}</div>
+          ${progressBar}
+        </div>
+        <div class="level-amt">${amtStr}</div>
+        <div class="level-status">${statusStr}</div>
+      </div>`;
     }).join('');
 
     const alloc = d.allocation || {};
@@ -1749,6 +1819,25 @@ async function loadLedger() {
     const monthHeaders = months.map(m => `<th>${m}</th>`).join('');
 
     document.getElementById('refreshTs').textContent = 'Last read: ' + new Date().toLocaleTimeString();
+
+    // ── Spending Velocity (monthly burn / daily avg / vs floor) ──
+    const floorMonthly = 1417;
+    const burnVsFloor = expenseTotal > 0 ? (expenseTotal / floorMonthly).toFixed(1) + '×' : '—';
+
+    // ── Populate Finn sidebar live context ──
+    const pctNum = (progress * 100);
+    const _el = id => document.getElementById(id);
+    const retireYr = new Date().getFullYear() + Math.round((target - lnw) / Math.max(expenseTotal || 1, 1));
+    if (_el('fc-age'))        _el('fc-age').textContent = rules.client_age || '45';
+    if (_el('fc-retire-yr'))  _el('fc-retire-yr').textContent = rules.retire_year || '2043';
+    if (_el('fc-lnw'))        _el('fc-lnw').textContent = fm(lnw);
+    if (_el('fc-fi-pct'))     _el('fc-fi-pct').textContent = pctNum.toFixed(1) + '%';
+    if (_el('fc-bridge'))     _el('fc-bridge').textContent = fm(m['SGOV BRIDGE'] || m['BRIDGE'] || 0);
+    if (_el('fc-bridge-gap')) _el('fc-bridge-gap').textContent = fm(Math.max(0, 360000 - (m['SGOV BRIDGE'] || m['BRIDGE'] || 0)));
+    // ── Populate header age pill ──
+    if (_el('hdrAge')) _el('hdrAge').textContent = rules.client_age || '45';
+    if (_el('hdrYrs')) _el('hdrYrs').textContent = Math.max(0, (rules.retire_year || 2043) - new Date().getFullYear());
+
     el.innerHTML = `
       ${sectionToggle('Freedom Levels', 'sec-levels', `<div class="levels-grid">${levelRows}</div>`, true)}
       ${sectionToggle('Asset Allocation', 'sec-alloc', `
@@ -1790,10 +1879,31 @@ async function loadLedger() {
         <div class="panel" style="margin-bottom:14px;padding:14px 16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);">Savings Rate — 6 Month Trend</div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--green);font-family:var(--font-mono);">${latestPct}</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--accent);font-family:var(--font-mono);">${latestPct}</div>
           </div>
           <canvas id="srSparkline" height="60"></canvas>
         </div>
+        ${expenseTotal > 0 ? `
+        <div class="panel" style="margin-bottom:14px;padding:14px 16px;">
+          <h2 style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted2);margin-bottom:12px;">Spending Velocity</h2>
+          <div class="sv-row">
+            <div class="sv-item">
+              <span class="sv-label">Burn this month</span>
+              <span class="sv-value">${fm(expenseTotal)}</span>
+            </div>
+            <div class="sv-item">
+              <span class="sv-label">Daily avg</span>
+              <span class="sv-value">${dailyBurn > 0 ? fm(dailyBurn) : '—'}</span>
+            </div>
+            <div class="sv-item">
+              <span class="sv-label">vs floor ($1,417/mo)</span>
+              <span class="sv-value" style="color:var(--accent)">${burnVsFloor}</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">
+            Floor is the bare-minimum living expense — Social Security at 67 covers it 2.2×.
+          </div>
+        </div>` : ''}
       `);
       setTimeout(() => {
         const ctx = document.getElementById('srSparkline');
@@ -1804,16 +1914,16 @@ async function loadLedger() {
           data: {
             labels: srLabels,
             datasets: [{ data: srData.map(v => +(v * 100).toFixed(1)),
-              borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)',
-              fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#10b981' }]
+              borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)',
+              fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#4ade80' }]
           },
           options: {
             responsive: true,
             plugins: { legend: { display: false },
               tooltip: { callbacks: { label: ctx => ctx.raw + '%' } } },
             scales: {
-              x: { ticks: { color: '#526070', font: { size: 9 } }, grid: { display: false } },
-              y: { ticks: { color: '#526070', font: { size: 9 }, callback: v => v + '%' },
+              x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { display: false } },
+              y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v + '%' },
                    grid: { color: 'rgba(255,255,255,0.04)' }, min: 0 }
             }
           }
@@ -1929,11 +2039,11 @@ async function uploadLedger(input) {
       input.value = '';
       setTimeout(() => loadPortfolio(), 800);
     } else {
-      status.style.color = 'var(--pink)';
+      status.style.color = 'var(--warn)';
       status.textContent = d.error || 'Upload failed';
     }
   } catch(e) {
-    status.style.color = 'var(--pink)';
+    status.style.color = 'var(--warn)';
     status.textContent = 'Upload failed: ' + e.message;
   }
 }
@@ -2328,7 +2438,7 @@ function renderSpendChart(d) {
         { label: 'P75', data: d.spend_bands.p75, fill: '+1', borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.10)', tension: 0.35, pointRadius: 0, borderWidth: 0 },
         { label: 'P25', data: d.spend_bands.p25, fill: '-1', borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.10)', tension: 0.35, pointRadius: 0, borderWidth: 0 },
         { label: 'Median Spend', data: d.spend_bands.p50, fill: false, borderColor: '#cd853f', borderWidth: 2.5, tension: 0.35, pointRadius: 0 },
-        { label: 'Biological Floor', data: d.floor_line, fill: false, borderColor: '#ec4899', borderWidth: 1.5, borderDash: [6,3], tension: 0.3, pointRadius: 0, spanGaps: true },
+        { label: 'Biological Floor', data: d.floor_line, fill: false, borderColor: '#f87171', borderWidth: 1.5, borderDash: [6,3], tension: 0.3, pointRadius: 0, spanGaps: true },
         { label: 'SS Coverage', data: d.ss_line, fill: false, borderColor: '#6b7280', borderWidth: 1.5, borderDash: [3,3], tension: 0.3, pointRadius: 0 },
       ]
     },
@@ -2474,7 +2584,7 @@ function renderMCResults(d) {
         <h2>Annual Spending Projection</h2>
         <p style="color:var(--muted);font-size:0.78rem;margin:2px 0 12px;line-height:1.5;">
           <span style="color:#cd853f;font-weight:600;">Gold band</span> — what you actually spend each year (P25/P75 range, P50 line).
-          &nbsp;<span style="color:#ec4899;font-weight:600;">— — Floor</span> — biological minimum if you cut back all discretionary.
+          &nbsp;<span style="color:#f87171;font-weight:600;">— — Floor</span> — biological minimum if you cut back all discretionary.
           &nbsp;<span style="color:#6b7280;font-weight:600;">··· SS</span> — Social Security income alone.
           The gap between SS and Floor is what the portfolio must cover each year.
         </p>
@@ -2509,8 +2619,8 @@ function renderMCResults(d) {
   // ── SS Haircut callout ───────────────────────────────────────────────────
   if (window._lastSimParams && window._lastSimParams.use_ss_haircut) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend', `
-      <div class="panel panel-risk" style="margin-bottom:14px;padding:14px 18px;border-left:3px solid #ec4899;">
-        <h2 style="color:#ec4899;">&#9888; 20% SS Haircut Active</h2>
+      <div class="panel panel-risk" style="margin-bottom:14px;padding:14px 18px;">
+        <h2 style="color:#f87171;">&#9888; 20% SS Haircut Active</h2>
         <p style="color:var(--muted);font-size:0.78rem;margin:4px 0 0;">These results already reflect a 20% reduction in Social Security benefits. Success rate of <strong>${d.success_pct}%</strong> is the haircut scenario. If this is &ge;80%, your floor survives a Congressional cut.</p>
       </div>
     `);
@@ -2748,7 +2858,7 @@ function renderMCResults(d) {
           data: {
             labels: rp.ages,
             datasets: [
-              { label: 'Tier 1 (150%)', data: rp.t1, borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
+              { label: 'Tier 1 (150%)', data: rp.t1, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
               { label: 'Tier 2 (200%)', data: rp.t2, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
               { label: 'Tier 3 (250%)', data: rp.t3, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
             ]
@@ -2810,7 +2920,7 @@ function renderMCResults(d) {
          <label><input type="radio" name="gsTrials" value="200" checked> 200</label>
          <label><input type="radio" name="gsTrials" value="500"> 500</label>
        </div>
-       <button class="btn-sm" onclick="runGridSearch()" style="width:100%;margin-top:12px;background:var(--pink);color:#fff;">Run Grid Search</button>
+       <button class="btn-sm" onclick="runGridSearch()" style="width:100%;margin-top:12px;background:var(--accent);color:#052e12;">Run Grid Search</button>
        <div id="gsResults"></div>
      </div>`
   );
@@ -2973,7 +3083,7 @@ function sectionToggle(label, id, innerHTML, defaultOpen) {
 }
 
 // ── Allocation Donut Chart ─────────────────────────────────────────────────
-const DONUT_COLORS = ['#ec4899','#6366f1','#0ea5e9','#f59e0b','#14b8a6','#8b5cf6','#10b981','#f43f5e','#84cc16','#f97316'];
+const DONUT_COLORS = ['#4ade80','#6366f1','#0ea5e9','#fbbf24','#14b8a6','#8b5cf6','#10b981','#f87171','#84cc16','#f97316'];
 
 function renderAllocChart(alloc, canvasId, legendId) {
   canvasId  = canvasId  || 'allocChart2';
@@ -3197,7 +3307,7 @@ function renderNWHistoryChart(hist) {
     data: {
       labels: hist.map(h => h.label),
       datasets: [
-        { label: 'Liquid NW', data: hist.map(h => h.lnw), borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.08)', fill: true, tension: 0.3, pointRadius: hist.length > 30 ? 0 : 3 },
+        { label: 'Liquid NW', data: hist.map(h => h.lnw), borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)', fill: true, tension: 0.3, pointRadius: hist.length > 30 ? 0 : 3 },
         { label: 'Total NW',  data: hist.map(h => h.tnw), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.06)', fill: true, tension: 0.3, pointRadius: hist.length > 30 ? 0 : 3 },
       ]
     },
@@ -3840,7 +3950,7 @@ async function loadRoadmap() {
 
     // ── Milestone rows HTML ──
     const msYr = (yr, cls, badge, name, val) => {
-      const dot = cls === 'rm-badge-done' ? '#10b981' : cls === 'rm-badge-retire' ? '#ec4899' : cls === 'rm-badge-ss' ? '#818cf8' : '#cd853f';
+      const dot = cls === 'rm-badge-done' ? '#4ade80' : cls === 'rm-badge-retire' ? '#4ade80' : cls === 'rm-badge-ss' ? '#818cf8' : '#fbbf24';
       const ageActual = yr && plan.retire_year ? plan.retire_age - (plan.retire_year - yr) : '—';
       return `<div class="rm-ms-row">
         <span class="rm-ms-dot" style="background:${dot}"></span>
@@ -3873,7 +3983,7 @@ async function loadRoadmap() {
       <div class="rm-stat-grid">
         <div class="rm-stat" style="border-color:rgba(236,72,153,0.25);">
           <div class="rm-stat-label">Engine (VTI)</div>
-          <div class="rm-stat-val" style="color:var(--pink)">${fm(bal.engine)}</div>
+          <div class="rm-stat-val" style="color:var(--accent)">${fm(bal.engine)}</div>
           <div class="rm-stat-sub">stocks, growing at 10%/yr</div>
         </div>
         <div class="rm-stat" style="border-color:rgba(205,133,63,0.25);">
@@ -3926,7 +4036,7 @@ async function loadRoadmap() {
             {
               label: 'Liquid NW',
               data: lnwData,
-              borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.07)',
+              borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.07)',
               fill: true, tension: 0.35,
               pointBackgroundColor: ptColors, pointRadius: ptRadius, pointBorderColor: 'transparent',
               borderWidth: 2,
@@ -4099,7 +4209,7 @@ async function loadForecast() {
         <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.68rem;text-align:right;color:${row.invest<0?'var(--amber)':'var(--muted2)'}">${row.invest<0?fm(row.invest):'—'}</td>
         <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;font-weight:600">${fm(row.checking)}</td>
         <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;color:var(--muted)">${fm(row.savings)}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;color:var(--pink);font-weight:700">${fm(row.total)}</td>
+        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;color:var(--accent);font-weight:700">${fm(row.total)}</td>
       </tr>`;
     }).join('');
     el.innerHTML = calibHtml + `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
@@ -4111,7 +4221,7 @@ async function loadForecast() {
         <th style="text-align:right;padding:5px 8px;color:var(--amber);font-size:0.60rem;text-transform:uppercase;">Invest</th>
         <th style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">Checking</th>
         <th style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">SGOV</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--pink);font-size:0.60rem;text-transform:uppercase;">Total</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--accent);font-size:0.60rem;text-transform:uppercase;">Total</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
@@ -4178,29 +4288,63 @@ loadHome();
 
 <!-- ══ FINN TAB ══════════════════════════════════════════���════════════════════ -->
 <div id="tab-chat" class="tab-pane">
-<main class="finn-main">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-    <span style="font-size:1.4rem;">&#129302;</span>
-    <h2 style="margin:0;font-size:1.1rem;color:var(--gold);">Finn</h2>
-    <select id="chatCtx" title="Context" style="margin-left:auto;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;">
-      <option value="all">All data</option>
-      <option value="simulation">Last Sim</option>
-      <option value="dashboard">Dashboard</option>
-    </select>
-    <select id="chatModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-family:var(--font-mono);">
-      <option value="qwen3.5:9b" selected>qwen3.5:9b</option>
-      <option value="llama3.1:8b">llama3.1:8b</option>
-      <option value="llama3.2:3b">llama3.2:3b</option>
-      <option value="mistral">mistral</option>
-    </select>
-    <button onclick="clearChat()" title="Clear history" style="background:none;border:1px solid var(--border2);color:var(--muted2);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.85rem;">&#8635; Clear</button>
-  </div>
-  <div id="chatHistory" class="chat-hist" style="flex:1;overflow-y:auto;min-height:0;"></div>
-  <div class="chat-input-row" style="margin-top:8px;">
-    <textarea id="chatInput" placeholder="Ask about your finances\u2026" rows="2"
-      style="flex:1;resize:none;background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px 12px;font-size:0.9rem;font-family:inherit;"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">&#8593;</button>
+<main style="max-width:1200px;margin:0 auto;padding:20px 24px;">
+  <div class="finn-layout">
+    <!-- Chat column -->
+    <div class="finn-main">
+      <div class="finn-head">
+        <div class="finn-avatar">F</div>
+        <div class="finn-name-wrap">
+          <div class="fn-name">Finn</div>
+          <div class="fn-role">Fiduciary advisor \u00b7 JL Collins council \u00b7 powered by Ollama</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <select id="chatCtx" title="Context" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.72rem;">
+            <option value="all">All data</option>
+            <option value="simulation">Last Sim</option>
+            <option value="dashboard">Dashboard</option>
+          </select>
+          <select id="chatModel" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:0.72rem;font-family:var(--font-mono);">
+            <option value="qwen2.5:7b" selected>qwen2.5:7b</option>
+            <option value="qwen3.5:9b">qwen3.5:9b</option>
+            <option value="llama3.1:8b">llama3.1:8b</option>
+            <option value="llama3.2:3b">llama3.2:3b</option>
+            <option value="mistral">mistral</option>
+          </select>
+          <button onclick="clearChat()" title="Clear history" style="background:none;border:1px solid var(--border2);color:var(--muted2);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.82rem;min-height:unset;">&#8635;</button>
+        </div>
+      </div>
+      <div id="chatHistory" class="finn-feed chat-hist"></div>
+      <div class="finn-input-row">
+        <input class="finn-input" id="chatInput" placeholder="Ask Finn anything about your plan\u2026"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();sendChat();}">
+        <button class="finn-send" id="chatSendBtn" onclick="sendChat()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+    <!-- Context sidebar -->
+    <div class="finn-side">
+      <h3>Live context</h3>
+      <div class="finn-ctx-row"><span class="k">Age</span><span class="v" id="fc-age">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">Retire year</span><span class="v" id="fc-retire-yr">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">LNW</span><span class="v" id="fc-lnw">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">FI %</span><span class="v" id="fc-fi-pct">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">Bridge</span><span class="v" id="fc-bridge">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">Bridge gap</span><span class="v" id="fc-bridge-gap">\u2014</span></div>
+      <div class="finn-ctx-row"><span class="k">SS @ 67</span><span class="v">$3,058/mo</span></div>
+      <div class="finn-ctx-row"><span class="k">Floor</span><span class="v">$17k/yr</span></div>
+      <h3>Plan vocabulary</h3>
+      <div style="font-size:11.5px;line-height:1.7;color:var(--muted);">
+        <b style="color:var(--text)">Bridge</b> &middot; T-bill account, draws 62&rarr;67<br>
+        <b style="color:var(--text)">Engine</b> &middot; stock portfolio, untouched 62&rarr;67<br>
+        <b style="color:var(--text)">Floor</b> &middot; $17k/yr min living cost<br>
+        <b style="color:var(--text)">Ripcord</b> &middot; claim SS at 62 if bridge fails<br>
+        <b style="color:var(--text)">Lifestyle Ratchet</b> &middot; spend gains only above 1.5&times;<br>
+        <b style="color:var(--text)">Spending Smile</b> &middot; go-go &rarr; slow-go &rarr; no-go<br>
+        <b style="color:var(--text)">Moat</b> &middot; margin between assets and floor
+      </div>
+    </div>
   </div>
 </main>
 </div>
