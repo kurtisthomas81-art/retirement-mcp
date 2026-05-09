@@ -1785,9 +1785,9 @@ async function loadLedger() {
     const srEl = document.getElementById('ov-sr-content');
     if (srEl) {
       if (srVals.length >= 2) {
-        const srLabels  = [...months].reverse();
-        const srData    = [...srVals].reverse();
-        const latestPct = (srVals[0] * 100).toFixed(1) + '%';
+        const srLabels  = [...months];
+        const srData    = [...srVals];
+        const latestPct = (srVals[srVals.length - 1] * 100).toFixed(1) + '%';
         srEl.innerHTML = `
           <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:8px;">
             <div style="font-size:32px;font-weight:600;letter-spacing:-0.02em;">${latestPct}</div>
@@ -4032,7 +4032,7 @@ async function loadTransactions(page) {
     _txState = { page: d.page, pages: d.pages };
 
     // Populate filter dropdowns on first load
-    if ((d.months||[]).length && !document.getElementById('txMonthFilter').children.length > 1) {
+    if ((d.months||[]).length && document.getElementById('txMonthFilter').options.length <= 1) {
       const ms = document.getElementById('txMonthFilter');
       const ts = document.getElementById('txTypeFilter');
       if (ms.options.length === 1) d.months.forEach(m => { const o=document.createElement('option'); o.value=m; o.text=m; ms.add(o); });
