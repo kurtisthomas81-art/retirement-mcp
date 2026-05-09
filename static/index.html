@@ -1594,7 +1594,7 @@ async function loadHome() {
 
     // ── 4 Stat cards ──
     const alloc     = d.allocation || {};
-    const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || alloc['SGOV'] || 0;
+    const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || alloc['SGOV'] || (d.mc_prefill && d.mc_prefill.sgov_balance) || 0;
     const cashVal   = m['LIQUID CASH'] || m['CASH'] || 0;
     // Engine = allocation sum minus cash/bond/SGOV buckets
     const engineVal = Object.entries(alloc)
@@ -1852,8 +1852,8 @@ async function loadLedger() {
     if (_el('fc-retire-yr'))  _el('fc-retire-yr').textContent = rules.retire_year || '2043';
     if (_el('fc-lnw'))        _el('fc-lnw').textContent       = fm(lnw);
     if (_el('fc-fi-pct'))     _el('fc-fi-pct').textContent    = pctNum.toFixed(1) + '%';
-    if (_el('fc-bridge'))     _el('fc-bridge').textContent    = fm(m['SGOV BRIDGE'] || m['BRIDGE'] || 0);
-    if (_el('fc-bridge-gap')) _el('fc-bridge-gap').textContent = fm(Math.max(0, 360000 - (m['SGOV BRIDGE'] || m['BRIDGE'] || 0)));
+    if (_el('fc-bridge'))     _el('fc-bridge').textContent    = fm(m['SGOV BRIDGE'] || m['BRIDGE'] || (d.mc_prefill && d.mc_prefill.sgov_balance) || 0);
+    if (_el('fc-bridge-gap')) _el('fc-bridge-gap').textContent = fm(Math.max(0, 360000 - (m['SGOV BRIDGE'] || m['BRIDGE'] || (d.mc_prefill && d.mc_prefill.sgov_balance) || 0)));
 
     // ── Refresh timestamp ──
     const tsEl = document.getElementById('refreshTs');
