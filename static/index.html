@@ -1594,10 +1594,10 @@ async function loadHome() {
 
     // ── 4 Stat cards ──
     const alloc     = d.allocation || {};
-    const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || alloc['SGOV'] || (d.mc_prefill && d.mc_prefill.sgov_balance) || 0;
-    const cashVal   = m['LIQUID CASH'] || m['CASH'] || 0;
-    // Engine = allocation sum minus cash/bond/SGOV buckets
-    const engineVal = Object.entries(alloc)
+    const mc        = d.mc_prefill || {};
+    const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || mc.sgov_balance || alloc['SGOV'] || 0;
+    const cashVal   = mc.checking_balance || m['LIQUID CASH'] || m['CASH'] || 0;
+    const engineVal = mc.engine_balance   || Object.entries(alloc)
       .filter(([k]) => !/(sgov|bond|cash|money|treasury)/i.test(k))
       .reduce((s, [, v]) => s + (v || 0), 0);
 
