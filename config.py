@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import date
 from pathlib import Path
@@ -38,6 +39,92 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:9b")
 
 FINN_MEMORY_PATH = str(Path(__file__).parent / "finn_memory.md")
 FINN_BRAIN_PATH  = str(Path(__file__).parent / "finn_brain.md")
+PLANS_PATH       = Path(__file__).parent / "data" / "plans.json"
+
+# ── Plan defaults (used when plans.json is missing or as seed values) ───────────
+
+PLAN_DEFAULTS = {
+    "retire_age":            62,
+    "ss_age":                67,
+    "full_ss_annual":        36697,
+    "bridge_target":         360000,
+    "bridge_draw_annual":    72000,
+    "biological_floor":      17000,
+    "ratchet_multiplier":    1.5,
+    "withdrawal_rate_post_ss": 0.0,
+    "mean_return":           0.10,
+    "volatility":            0.15,
+    "sgov_yield":            0.04,
+    "inflation_rate":        0.03,
+    "dividend_yield":        0.015,
+    "gk_trigger":            0.20,
+    "gk_cut_rate":           0.50,
+    "bear_streak_years":     3,
+    "bear_streak_cut":       0.25,
+    "portfolio_cap":         5000000,
+}
+
+_SEED_PLAN = {
+    "id":          "money-machine-v2-6",
+    "name":        "Money Machine V2.6",
+    "description": "Bridge to 67, SS covers floor, engine untouched 62–67",
+    "created_at":  "2026-05-10",
+    "updated_at":  "2026-05-10",
+    "client": {
+        "retire_age":     62,
+        "ss_age":         67,
+        "full_ss_annual": 36697,
+    },
+    "strategy": {
+        "bridge_target":           360000,
+        "bridge_draw_annual":      72000,
+        "biological_floor":        17000,
+        "ratchet_multiplier":      1.5,
+        "withdrawal_rate_post_ss": 0.0,
+    },
+    "market": {
+        "mean_return":    0.10,
+        "volatility":     0.15,
+        "sgov_yield":     0.04,
+        "inflation_rate": 0.03,
+        "dividend_yield": 0.015,
+    },
+    "risk": {
+        "gk_trigger":        0.20,
+        "gk_cut_rate":       0.50,
+        "bear_streak_years": 3,
+        "bear_streak_cut":   0.25,
+        "portfolio_cap":     5000000,
+    },
+}
+
+
+def _seed_plans_file():
+    """Create plans.json with the default plan if it doesn't exist."""
+    PLANS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    data = {"active_id": _SEED_PLAN["id"], "plans": [_SEED_PLAN]}
+    PLANS_PATH.write_text(json.dumps(data, indent=2))
+    return data
+
+
+def load_active_plan() -> dict:
+    """Return flattened active plan dict. Falls back to PLAN_DEFAULTS if file missing."""
+    try:
+        if not PLANS_PATH.exists():
+            return PLAN_DEFAULTS.copy()
+        data = json.loads(PLANS_PATH.read_text())
+        active_id = data.get("active_id")
+        for p in data.get("plans", []):
+            if p["id"] == active_id:
+                flat = {}
+                for section in ("client", "strategy", "market", "risk"):
+                    flat.update(p.get(section, {}))
+                flat.update({k: v for k, v in p.items()
+                             if k not in ("client", "strategy", "market", "risk")})
+                return flat
+    except Exception:
+        pass
+    return PLAN_DEFAULTS.copy()
 
 # ── Advisor system prompt ───────────────────────────────────────────────────────
 # Placeholders filled at runtime by _fmt_system_prompt() in api_routes.py:
@@ -56,7 +143,7 @@ SYSTEM_PROMPT = (
     "No false comfort.\n\n"
     "CLIENT:\n"
     "- DOB: January 29, 1981 | Age: {age} | Employer: {employer}\n"
-    "- Target retirement: age 62 in {retire_year} — {years_to_retire} years from now\n"
+    "- Target retirement: age {plan_retire_age} in {retire_year} — {years_to_retire} years from now\n"
     "- Always say 'you'/'your'. Never use their name in responses.\n\n"
     "HOW TO TALK:\n"
     "- Lead with the answer, not the setup. Give the verdict first, then the reasoning.\n"
@@ -107,27 +194,27 @@ SYSTEM_PROMPT = (
     "- Success rate < 80%: lead with that number — don't bury it.\n"
     "- Otherwise: answer what was asked and stop.\n\n"
     "THE PLAN — know this cold, explain it like a smart friend:\n"
-    "- You retire at 62. Social Security kicks in at 67 and pays $36,697/yr (today's dollars). "
-    "  That alone covers your entire living expenses — after 67 you never need to touch your investments.\n"
-    "- Living expense floor: $17,000/yr in today's dollars. That's the bare minimum to keep the lights on. "
+    "- You retire at {plan_retire_age}. Social Security kicks in at {plan_ss_age} and pays ${plan_ss_annual:,}/yr (today's dollars). "
+    "  That alone covers your entire living expenses — after {plan_ss_age} you never need to touch your investments.\n"
+    "- Living expense floor: ${plan_floor:,}/yr in today's dollars. That's the bare minimum to keep the lights on. "
     "  Social Security pays more than double that, so the floor is fully covered.\n"
-    "- The bridge account (SGOV T-bills) is the money that keeps you alive from 62 to 67 "
+    "- The bridge account (SGOV T-bills) is the money that keeps you alive from {plan_retire_age} to {plan_ss_age} "
     "  while Social Security isn't paying yet and the stock portfolio is left alone to grow.\n"
-    "- BRIDGE ACCOUNT TARGET: $360,000 by age 62. That is the goal. Not $250k, not $300k — $360,000. "
-    "  It draws down at $72,000/yr (inflation-adjusted) and lasts exactly 5 years. "
+    "- BRIDGE ACCOUNT TARGET: ${plan_bridge_target:,} by age {plan_retire_age}. That is the goal — ${plan_bridge_target:,}. "
+    "  It draws down at ${plan_bridge_draw:,}/yr (inflation-adjusted) and lasts exactly {plan_bridge_window} years. "
     "  A stock crash cannot touch it — it's in T-bills.\n"
-    "- If the bridge account is too small to cover 5 years, claim Social Security early at 62 "
-    "  instead of waiting for 67 (the ripcord).\n"
-    "- The stock portfolio is untouched from 62 to 67. No withdrawals. Just growth.\n"
-    "- Lifestyle Ratchet: don't spend investment gains until the portfolio is 1.5× the retirement balance.\n"
+    "- If the bridge account is too small to cover {plan_bridge_window} years, claim Social Security early at {plan_retire_age} "
+    "  instead of waiting for {plan_ss_age} (the ripcord).\n"
+    "- The stock portfolio is untouched from {plan_retire_age} to {plan_ss_age}. No withdrawals. Just growth.\n"
+    "- Lifestyle Ratchet: don't spend investment gains until the portfolio is {plan_ratchet}× the retirement balance.\n"
     "- Spending Smile: spend more in your 60s–70s (go-go years), less in your 80s, very little after 85.\n\n"
     "HOW TO TALK ABOUT THE PLAN:\n"
     "- Use plain words. 'Bridge account' not 'SGOV instrument'. 'Stock portfolio' not 'equity engine'. "
     "  'Living expense floor' not 'biological floor'. 'T-bills' not 'SGOV'.\n"
     "- When someone asks a direct question, give the direct answer first — then explain. "
-    "  'Your bridge account target is $360,000.' Done. Then add context if the question warrants it.\n"
-    "- Never recalculate a number that's already defined. The bridge goal is $360,000. "
-    "  The annual draw is $72,000. The floor is $17,000. Say the number — don't reason to a new one.\n"
+    "  'Your bridge account target is ${plan_bridge_target:,}.' Done. Then add context if the question warrants it.\n"
+    "- Never recalculate a number that's already defined. The bridge goal is ${plan_bridge_target:,}. "
+    "  The annual draw is ${plan_bridge_draw:,}. The floor is ${plan_floor:,}. Say the number — don't reason to a new one.\n"
     "- No weasel words: no 'let's aim for', no 'roughly', no 'we can revisit', "
     "  no 'sustainable withdrawal rate'. Those belong to advisors who don't know this plan. You do.\n"
     "- No filler: no 'Great question', no 'It is worth noting', no 'As an AI', no 'Certainly!'.\n"

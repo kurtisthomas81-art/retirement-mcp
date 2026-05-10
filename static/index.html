@@ -1338,6 +1338,7 @@
 <main>
   <div class="plan-subnav">
     <button class="plan-tab active" onclick="switchPlanTab('roadmap', this)">Roadmap</button>
+    <button class="plan-tab" onclick="switchPlanTab('plans', this)">Strategy Plans</button>
     <button class="plan-tab" onclick="switchPlanTab('rules', this)">Rules</button>
     <button class="plan-tab" onclick="switchPlanTab('rothlad', this)">Roth Ladder</button>
     <button class="plan-tab" onclick="switchPlanTab('forecast', this)">Forecast</button>
@@ -1348,6 +1349,17 @@
     <div class="panel">
       <h2>FI Roadmap &mdash; GPS to Age 62</h2>
       <div id="roadmapContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading roadmap&hellip;</div></div>
+    </div>
+  </div>
+
+  <!-- Sub-pane: Strategy Plans -->
+  <div id="plan-sub-plans" class="plan-sub-pane">
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <h2 style="margin:0;">Strategy Plans</h2>
+        <button class="btn-sm" onclick="showNewPlanForm()">+ New Plan</button>
+      </div>
+      <div id="plansContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading plans&hellip;</div></div>
     </div>
   </div>
 
@@ -1528,6 +1540,7 @@ function switchPlanTab(name, btn) {
   // Lazy-load sub-sections
   if (name === 'rules'    && !rulesLoaded)    loadRules();
   if (name === 'forecast' && !forecastLoaded) loadForecast();
+  if (name === 'plans')                       loadPlans();
   if (name === 'rothlad') {
     const rl = document.getElementById('rl_trad');
     if (rl && !rl._prefilled) {
@@ -4188,6 +4201,274 @@ async function loadTaxLoss() {
 loadHome();
 ledgerLoaded = true;
 loadLedger();
+
+// ── Plan Builder ──────────────────────────────────────────────────────────────
+
+let _plansCache = null;
+
+async function loadPlans() {
+  const el = document.getElementById('plansContent');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/plans');
+    const d = await r.json();
+    if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
+    _plansCache = d;
+    el.innerHTML = renderPlansList(d);
+  } catch(e) {
+    el.innerHTML = `<span class="err">Error loading plans: ${e.message}</span>`;
+  }
+}
+
+function renderPlansList(d) {
+  const { active_id, plans } = d;
+  if (!plans || plans.length === 0) return '<div style="color:var(--muted2)">No plans yet.</div>';
+
+  const activePlan = plans.find(p => p.id === active_id);
+  let html = '';
+
+  // Active plan editor card
+  if (activePlan) {
+    const cl = activePlan.client || {};
+    const st = activePlan.strategy || {};
+    const mk = activePlan.market || {};
+    const ri = activePlan.risk || {};
+    html += `
+    <div style="border:1px solid var(--accent);border-radius:10px;padding:20px;margin-bottom:24px;background:rgba(205,133,63,0.04);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span style="color:var(--accent);font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Active Plan</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;">
+        <div style="font-size:1.25rem;font-weight:700;">${activePlan.name}</div>
+        <div style="color:var(--muted);font-size:0.78rem;">${activePlan.description || ''}</div>
+      </div>
+      <form id="activePlanForm" onsubmit="saveActivePlan(event,'${activePlan.id}')">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:16px;">
+          <div>
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Strategy</div>
+            ${pf('Retire Age',        'retire_age',            cl.retire_age            ?? 62,    'number')}
+            ${pf('SS Claim Age',      'ss_age',                cl.ss_age                ?? 67,    'number')}
+            ${pf('SS Annual ($)',      'full_ss_annual',        cl.full_ss_annual         ?? 36697, 'number')}
+            ${pf('Bridge Target ($)', 'bridge_target',         st.bridge_target          ?? 360000,'number')}
+            ${pf('Bridge Draw/yr ($)','bridge_draw_annual',    st.bridge_draw_annual     ?? 72000, 'number')}
+            ${pf('Floor/yr ($)',      'biological_floor',      st.biological_floor       ?? 17000, 'number')}
+            ${pf('Ratchet Trigger ×', 'ratchet_multiplier',   st.ratchet_multiplier     ?? 1.5,   'number', '0.1')}
+          </div>
+          <div>
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Market Assumptions</div>
+            ${pf('Mean Return %',   'mean_return_pct',   (mk.mean_return    ?? 0.10)*100, 'number','0.1')}
+            ${pf('Volatility %',    'volatility_pct',    (mk.volatility     ?? 0.15)*100, 'number','0.1')}
+            ${pf('SGOV Yield %',    'sgov_yield_pct',    (mk.sgov_yield     ?? 0.04)*100, 'number','0.1')}
+            ${pf('Inflation %',     'inflation_rate_pct',(mk.inflation_rate ?? 0.03)*100, 'number','0.1')}
+          </div>
+          <div>
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Risk Controls</div>
+            ${pf('Ripcord Trigger %', 'gk_trigger_pct',      (ri.gk_trigger        ?? 0.20)*100,'number','1')}
+            ${pf('Ripcord Cut %',     'gk_cut_rate_pct',     (ri.gk_cut_rate       ?? 0.50)*100,'number','1')}
+            ${pf('Bear Streak (yrs)', 'bear_streak_years',    ri.bear_streak_years  ?? 3,        'number')}
+            ${pf('Portfolio Cap ($)', 'portfolio_cap',        ri.portfolio_cap      ?? 5000000,  'number')}
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn-sm" style="background:var(--accent);color:#000;font-weight:700;">Save Changes</button>
+          <span id="planSaveStatus" style="font-size:0.78rem;color:var(--muted);align-self:center;"></span>
+        </div>
+      </form>
+    </div>`;
+  }
+
+  // All plans list
+  html += `<div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">All Plans</div>`;
+  html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+  for (const p of plans) {
+    const isActive = p.id === active_id;
+    html += `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid ${isActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;background:var(--surface);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="color:${isActive ? 'var(--accent)' : 'var(--muted2)'};font-size:1.1rem;">${isActive ? '●' : '○'}</span>
+        <div>
+          <div style="font-weight:600;font-size:0.9rem;">${p.name}${isActive ? ' <span style="font-size:0.65rem;color:var(--accent);font-weight:700;text-transform:uppercase;margin-left:6px;">active</span>' : ''}</div>
+          <div style="color:var(--muted);font-size:0.72rem;">${p.description || 'No description'} · retire ${(p.client||{}).retire_age ?? 62} · SS ${(p.client||{}).ss_age ?? 67}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        ${!isActive ? `<button class="btn-sm" onclick="activatePlan('${p.id}')">Activate</button>` : ''}
+        <button class="btn-sm" onclick="duplicatePlan('${p.id}')">Duplicate</button>
+        ${!isActive ? `<button class="btn-sm" style="color:#f87171;border-color:#f87171;" onclick="deletePlan('${p.id}','${p.name}')">Delete</button>` : ''}
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function pf(label, name, value, type, step) {
+  const stepAttr = step ? `step="${step}"` : '';
+  return `<div style="margin-bottom:8px;">
+    <label style="display:block;font-size:0.72rem;color:var(--muted);margin-bottom:2px;">${label}</label>
+    <input type="${type}" name="${name}" value="${value}" ${stepAttr}
+      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:0.82rem;font-family:var(--font-mono);">
+  </div>`;
+}
+
+async function saveActivePlan(e, planId) {
+  e.preventDefault();
+  const form = document.getElementById('activePlanForm');
+  const fd   = new FormData(form);
+  const get  = k => parseFloat(fd.get(k));
+  const body = {
+    retire_age:            get('retire_age'),
+    ss_age:                get('ss_age'),
+    full_ss_annual:        get('full_ss_annual'),
+    bridge_target:         get('bridge_target'),
+    bridge_draw_annual:    get('bridge_draw_annual'),
+    biological_floor:      get('biological_floor'),
+    ratchet_multiplier:    get('ratchet_multiplier'),
+    mean_return:           get('mean_return_pct')    / 100,
+    volatility:            get('volatility_pct')     / 100,
+    sgov_yield:            get('sgov_yield_pct')     / 100,
+    inflation_rate:        get('inflation_rate_pct') / 100,
+    gk_trigger:            get('gk_trigger_pct')     / 100,
+    gk_cut_rate:           get('gk_cut_rate_pct')    / 100,
+    bear_streak_years:     get('bear_streak_years'),
+    portfolio_cap:         get('portfolio_cap'),
+  };
+  const st = document.getElementById('planSaveStatus');
+  try {
+    st.textContent = 'Saving…';
+    const r = await fetch(`/api/plans/${planId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.error) { st.style.color='#f87171'; st.textContent = d.error; return; }
+    st.style.color = '#4ade80';
+    st.textContent = '✓ Saved — reload Roadmap or Simulate to see changes';
+  } catch(err) {
+    st.style.color = '#f87171';
+    st.textContent = err.message;
+  }
+}
+
+async function activatePlan(planId) {
+  const r = await fetch(`/api/plans/${planId}/activate`, {method:'POST'});
+  const d = await r.json();
+  if (d.error) { showToast(d.error, 'info'); return; }
+  showToast('Plan activated — reload Roadmap and Simulate to apply', 'success');
+  await loadPlans();
+}
+
+async function deletePlan(planId, name) {
+  if (!confirm(`Delete plan "${name}"? This cannot be undone.`)) return;
+  const r = await fetch(`/api/plans/${planId}`, {method:'DELETE'});
+  const d = await r.json();
+  if (d.error) { showToast(d.error, 'info'); return; }
+  showToast('Plan deleted', 'success');
+  await loadPlans();
+}
+
+async function duplicatePlan(planId) {
+  if (!_plansCache) return;
+  const src = _plansCache.plans.find(p => p.id === planId);
+  if (!src) return;
+  const cl = src.client || {}; const st = src.strategy || {};
+  const mk = src.market  || {}; const ri = src.risk     || {};
+  const body = {
+    name:                  `${src.name} (copy)`,
+    description:           src.description || '',
+    retire_age:            cl.retire_age,
+    ss_age:                cl.ss_age,
+    full_ss_annual:        cl.full_ss_annual,
+    bridge_target:         st.bridge_target,
+    bridge_draw_annual:    st.bridge_draw_annual,
+    biological_floor:      st.biological_floor,
+    ratchet_multiplier:    st.ratchet_multiplier,
+    withdrawal_rate_post_ss: st.withdrawal_rate_post_ss,
+    mean_return:           mk.mean_return,
+    volatility:            mk.volatility,
+    sgov_yield:            mk.sgov_yield,
+    inflation_rate:        mk.inflation_rate,
+    dividend_yield:        mk.dividend_yield,
+    gk_trigger:            ri.gk_trigger,
+    gk_cut_rate:           ri.gk_cut_rate,
+    bear_streak_years:     ri.bear_streak_years,
+    bear_streak_cut:       ri.bear_streak_cut,
+    portfolio_cap:         ri.portfolio_cap,
+  };
+  const r = await fetch('/api/plans', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.error) { showToast(d.error, 'info'); return; }
+  showToast(`"${d.name}" created`, 'success');
+  await loadPlans();
+}
+
+function showNewPlanForm() {
+  const el = document.getElementById('plansContent');
+  if (!el) return;
+  el.insertAdjacentHTML('afterbegin', `
+  <div id="newPlanForm" style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;background:var(--surface);">
+    <div style="font-weight:700;margin-bottom:14px;">New Strategy Plan</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:2px;">Plan Name</label>
+        <input id="np_name" type="text" placeholder="e.g. Conservative Pivot"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-size:0.85rem;">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:2px;">Description</label>
+        <input id="np_desc" type="text" placeholder="One-line description"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-size:0.85rem;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+      ${npf('Retire Age','np_retire_age',62)}
+      ${npf('SS Age','np_ss_age',67)}
+      ${npf('SS Annual ($)','np_ss_annual',36697)}
+      ${npf('Bridge Target ($)','np_bridge_target',360000)}
+      ${npf('Bridge Draw/yr ($)','np_bridge_draw',72000)}
+      ${npf('Floor/yr ($)','np_floor',17000)}
+      ${npf('Mean Return %','np_return',10)}
+      ${npf('SGOV Yield %','np_sgov',4)}
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-sm" style="background:var(--accent);color:#000;font-weight:700;" onclick="createNewPlan()">Create Plan</button>
+      <button class="btn-sm" onclick="document.getElementById('newPlanForm').remove()">Cancel</button>
+    </div>
+  </div>`);
+}
+
+function npf(label, id, val) {
+  return `<div>
+    <label style="font-size:0.70rem;color:var(--muted);display:block;margin-bottom:2px;">${label}</label>
+    <input id="${id}" type="number" value="${val}"
+      style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 7px;color:var(--text);font-size:0.80rem;font-family:var(--font-mono);">
+  </div>`;
+}
+
+async function createNewPlan() {
+  const g = id => parseFloat(document.getElementById(id)?.value || 0);
+  const name = document.getElementById('np_name')?.value.trim();
+  if (!name) { showToast('Plan name is required', 'info'); return; }
+  const body = {
+    name, description: document.getElementById('np_desc')?.value.trim() || '',
+    retire_age: g('np_retire_age'), ss_age: g('np_ss_age'),
+    full_ss_annual: g('np_ss_annual'), bridge_target: g('np_bridge_target'),
+    bridge_draw_annual: g('np_bridge_draw'), biological_floor: g('np_floor'),
+    mean_return: g('np_return') / 100, sgov_yield: g('np_sgov') / 100,
+  };
+  const r = await fetch('/api/plans', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.error) { showToast(d.error, 'info'); return; }
+  showToast(`"${d.name}" created`, 'success');
+  document.getElementById('newPlanForm')?.remove();
+  await loadPlans();
+}
 </script>
 
 <!-- ══ FINN TAB ══════════════════════════════════════════���════════════════════ -->

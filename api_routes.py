@@ -1,7 +1,10 @@
 import asyncio
 import itertools
+import json
 import os
+import re
 import time
+import uuid
 from pathlib import Path
 
 import requests
@@ -51,14 +54,25 @@ def _fmt_system_prompt():
     dob         = config.CLIENT_DOB
     today_d     = date.today()
     age         = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
-    retire_year = dob.year + config.CLIENT_RETIRE_AGE
+    plan        = config.load_active_plan()
+    retire_age  = plan.get("retire_age", config.CLIENT_RETIRE_AGE)
+    retire_year = dob.year + retire_age
     years_to_retire = retire_year - today_d.year
+    ss_age      = plan.get("ss_age", 67)
     return config.SYSTEM_PROMPT.format(
         today=today_d.isoformat(),
         age=age,
         retire_year=retire_year,
         years_to_retire=years_to_retire,
         employer=config.CLIENT_EMPLOYER,
+        plan_retire_age=retire_age,
+        plan_ss_age=ss_age,
+        plan_ss_annual=plan.get("full_ss_annual", 36697),
+        plan_bridge_target=plan.get("bridge_target", 360000),
+        plan_bridge_draw=plan.get("bridge_draw_annual", 72000),
+        plan_floor=plan.get("biological_floor", 17000),
+        plan_ratchet=plan.get("ratchet_multiplier", 1.5),
+        plan_bridge_window=ss_age - retire_age,
     )
 
 
@@ -120,14 +134,19 @@ def _build_context_string(sim_data, dashboard_data):
             if mc.get("annual_floor_cost"): lines.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
             if mc.get("net_monthly_income"): lines.append(f"  Net monthly income: ${mc['net_monthly_income']:,.0f}")
 
+    plan = config.load_active_plan()
+    _ra  = plan.get("retire_age", 62)
+    _sa  = plan.get("ss_age", 67)
+    _bw  = _sa - _ra
+    _wr  = plan.get("withdrawal_rate_post_ss", 0.0)
     lines += [
         "\nPLAN TARGETS (fixed numbers — cite these directly, do not recalculate):",
-        "  Bridge account (T-bills) goal by age 62: $360,000",
-        "  Annual draw from bridge (ages 62–67):     $72,000/yr, grows with inflation",
-        "  Living expense floor:                     $17,000/yr in today's dollars",
-        "  Social Security at 67:                    $36,697/yr in today's dollars",
-        "  Bridge window:                            5 years (age 62 to 67)",
-        "  Post-67 withdrawal rate:                  0% — Social Security covers everything",
+        f"  Bridge account (T-bills) goal by age {_ra}: ${plan.get('bridge_target', 360000):,}",
+        f"  Annual draw from bridge (ages {_ra}–{_sa}): ${plan.get('bridge_draw_annual', 72000):,}/yr, grows with inflation",
+        f"  Living expense floor: ${plan.get('biological_floor', 17000):,}/yr in today's dollars",
+        f"  Social Security at {_sa}: ${plan.get('full_ss_annual', 36697):,}/yr in today's dollars",
+        f"  Bridge window: {_bw} years (age {_ra} to {_sa})",
+        f"  Post-{_sa} withdrawal rate: {_wr*100:.0f}% — Social Security covers everything",
     ]
 
     if dashboard_data and dashboard_data.get("freedom_levels"):
@@ -204,6 +223,164 @@ async def api_rules(request: Request):
     age = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
     retire_year = dob.year + config.CLIENT_RETIRE_AGE
     return JSONResponse({**config.RULES_2026, "retire_year": retire_year, "current_age": age})
+
+
+def _read_plans() -> dict:
+    if not config.PLANS_PATH.exists():
+        return config._seed_plans_file()
+    try:
+        return json.loads(config.PLANS_PATH.read_text())
+    except Exception:
+        return config._seed_plans_file()
+
+
+def _write_plans(data: dict):
+    config.PLANS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    config.PLANS_PATH.write_text(json.dumps(data, indent=2))
+
+
+def _plan_id_from_name(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return f"{slug}-{uuid.uuid4().hex[:6]}"
+
+
+async def api_plans_list(request: Request):
+    try:
+        data = await asyncio.to_thread(_read_plans)
+        return JSONResponse({"active_id": data.get("active_id"), "plans": data.get("plans", [])})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_plans_create(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+    name = str(body.get("name", "")).strip()
+    if not name:
+        return JSONResponse({"error": "name required"}, status_code=400)
+    from datetime import date as _date
+    today_str = _date.today().isoformat()
+    new_plan = {
+        "id":          _plan_id_from_name(name),
+        "name":        name,
+        "description": str(body.get("description", "")),
+        "created_at":  today_str,
+        "updated_at":  today_str,
+        "client": {
+            "retire_age":     int(body.get("retire_age",     62)),
+            "ss_age":         int(body.get("ss_age",         67)),
+            "full_ss_annual": int(body.get("full_ss_annual", 36697)),
+        },
+        "strategy": {
+            "bridge_target":           int(body.get("bridge_target",        360000)),
+            "bridge_draw_annual":      int(body.get("bridge_draw_annual",   72000)),
+            "biological_floor":        int(body.get("biological_floor",     17000)),
+            "ratchet_multiplier":      float(body.get("ratchet_multiplier", 1.5)),
+            "withdrawal_rate_post_ss": float(body.get("withdrawal_rate_post_ss", 0.0)),
+        },
+        "market": {
+            "mean_return":    float(body.get("mean_return",    0.10)),
+            "volatility":     float(body.get("volatility",     0.15)),
+            "sgov_yield":     float(body.get("sgov_yield",     0.04)),
+            "inflation_rate": float(body.get("inflation_rate", 0.03)),
+            "dividend_yield": float(body.get("dividend_yield", 0.015)),
+        },
+        "risk": {
+            "gk_trigger":        float(body.get("gk_trigger",        0.20)),
+            "gk_cut_rate":       float(body.get("gk_cut_rate",       0.50)),
+            "bear_streak_years": int(body.get("bear_streak_years",   3)),
+            "bear_streak_cut":   float(body.get("bear_streak_cut",   0.25)),
+            "portfolio_cap":     int(body.get("portfolio_cap",       5000000)),
+        },
+    }
+    def _do_create():
+        data = _read_plans()
+        data["plans"].append(new_plan)
+        _write_plans(data)
+        return new_plan
+    plan = await asyncio.to_thread(_do_create)
+    return JSONResponse(plan, status_code=201)
+
+
+async def api_plans_update(request: Request):
+    plan_id = request.path_params.get("plan_id", "")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+    from datetime import date as _date
+
+    def _do_update():
+        data = _read_plans()
+        for p in data["plans"]:
+            if p["id"] == plan_id:
+                if "name" in body:        p["name"]        = str(body["name"])
+                if "description" in body: p["description"] = str(body["description"])
+                for section, keys in [
+                    ("client",   ["retire_age", "ss_age", "full_ss_annual"]),
+                    ("strategy", ["bridge_target", "bridge_draw_annual", "biological_floor",
+                                  "ratchet_multiplier", "withdrawal_rate_post_ss"]),
+                    ("market",   ["mean_return", "volatility", "sgov_yield",
+                                  "inflation_rate", "dividend_yield"]),
+                    ("risk",     ["gk_trigger", "gk_cut_rate", "bear_streak_years",
+                                  "bear_streak_cut", "portfolio_cap"]),
+                ]:
+                    if section not in p:
+                        p[section] = {}
+                    for k in keys:
+                        if k in body:
+                            p[section][k] = body[k]
+                p["updated_at"] = _date.today().isoformat()
+                _write_plans(data)
+                return p
+        return None
+
+    result = await asyncio.to_thread(_do_update)
+    if result is None:
+        return JSONResponse({"error": "plan not found"}, status_code=404)
+    return JSONResponse(result)
+
+
+async def api_plans_activate(request: Request):
+    plan_id = request.path_params.get("plan_id", "")
+
+    def _do_activate():
+        data = _read_plans()
+        ids = [p["id"] for p in data.get("plans", [])]
+        if plan_id not in ids:
+            return False
+        data["active_id"] = plan_id
+        _write_plans(data)
+        return True
+
+    ok = await asyncio.to_thread(_do_activate)
+    if not ok:
+        return JSONResponse({"error": "plan not found"}, status_code=404)
+    return JSONResponse({"ok": True, "active_id": plan_id})
+
+
+async def api_plans_delete(request: Request):
+    plan_id = request.path_params.get("plan_id", "")
+
+    def _do_delete():
+        data = _read_plans()
+        if data.get("active_id") == plan_id:
+            return "active"
+        original = len(data["plans"])
+        data["plans"] = [p for p in data["plans"] if p["id"] != plan_id]
+        if len(data["plans"]) == original:
+            return "not_found"
+        _write_plans(data)
+        return "ok"
+
+    result = await asyncio.to_thread(_do_delete)
+    if result == "active":
+        return JSONResponse({"error": "cannot delete the active plan"}, status_code=409)
+    if result == "not_found":
+        return JSONResponse({"error": "plan not found"}, status_code=404)
+    return JSONResponse({"ok": True})
 
 
 async def api_finn_memory_get(request: Request):
@@ -500,18 +677,20 @@ def _compute_roadmap(dashboard_data, all_investment_txns):
     retire_year = dob.year + retire_age
     current_year = today.year
 
-    mc   = dashboard_data.get("mc_prefill", {})
+    mc      = dashboard_data.get("mc_prefill", {})
     metrics = dashboard_data.get("metrics", {})
+    plan    = config.load_active_plan()
 
-    RETURN_RATE   = 0.10
-    SGOV_YIELD    = 0.04
-    BRIDGE_DRAW   = 72_000
-    BRIDGE_TARGET = 360_000
-    SS_AGE        = 67
+    RETURN_RATE   = plan.get("mean_return",        0.10)
+    SGOV_YIELD    = plan.get("sgov_yield",          0.04)
+    BRIDGE_DRAW   = plan.get("bridge_draw_annual",  72_000)
+    BRIDGE_TARGET = plan.get("bridge_target",       360_000)
+    SS_AGE        = plan.get("ss_age",              67)
+    retire_age    = plan.get("retire_age",          retire_age)
 
     engine = float(mc.get("engine_balance", 0) or 0)
     sgov   = float(mc.get("sgov_balance",   0) or 0)
-    ss_annual = float(mc.get("full_ss_annual", 36_697) or 36_697)
+    ss_annual = float(mc.get("full_ss_annual", plan.get("full_ss_annual", 36_697)) or plan.get("full_ss_annual", 36_697))
     fi_target = float(metrics.get("FI TARGET (Age 62)", 0) or 0)
 
     # 90-day contribution averages from Investment transactions
@@ -569,7 +748,7 @@ def _compute_roadmap(dashboard_data, all_investment_txns):
                           "days_sampled":  90},
         "plan":          {"retire_age": retire_age, "retire_year": retire_year,
                           "ss_age": SS_AGE, "ss_annual": round(ss_annual),
-                          "bridge_draw": BRIDGE_DRAW, "bridge_target": BRIDGE_TARGET,
+                          "bridge_draw": round(BRIDGE_DRAW), "bridge_target": round(BRIDGE_TARGET),
                           "fi_target": round(fi_target), "return_rate": RETURN_RATE},
         "milestones":    {"moat_funded_year": moat_funded_year,
                           "fi_target_year":   fi_target_year,
@@ -931,6 +1110,11 @@ def build_app(mcp_app):
         Route("/icon-192.svg",              icon_svg),
         Route("/icon-512.svg",              icon_svg),
         Route("/api/rules",                 api_rules),
+        Route("/api/plans",                 api_plans_list,            methods=["GET"]),
+        Route("/api/plans",                 api_plans_create,          methods=["POST"]),
+        Route("/api/plans/{plan_id}/activate", api_plans_activate,     methods=["POST"]),
+        Route("/api/plans/{plan_id}",       api_plans_update,          methods=["PUT"]),
+        Route("/api/plans/{plan_id}",       api_plans_delete,          methods=["DELETE"]),
         Route("/api/finn/memory",           api_finn_memory_get,       methods=["GET"]),
         Route("/api/finn/memory/add",       api_finn_memory_add,       methods=["POST"]),
         Route("/api/ledger/dashboard",      api_ledger_dashboard),
