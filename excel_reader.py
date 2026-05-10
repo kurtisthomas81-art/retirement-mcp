@@ -3,6 +3,8 @@ from pathlib import Path
 import openpyxl
 import config
 
+ENGINE_TICKERS = {"FXAIX", "VTI", "SWPPX", "SPLG", "VXF", "SPDW", "BTC"}
+
 
 def _open_ledger():
     path = config.LEDGER_PATH
@@ -155,9 +157,28 @@ def read_dashboard_data():
         elif "SGOV"         in c1 and v2 is not None: nw["sgov_balance"]   = float(v2)
         elif "TOTAL INVESTED" in c1 and v2 is not None: nw["total_invested"] = float(v2)
 
+    engine_bal_port = 0.0
+    try:
+        ws_port = wb["PORTFOLIO"]
+        for row in ws_port.iter_rows(min_row=2, values_only=True):
+            if not row or not any(v is not None for v in row):
+                continue
+            ticker_raw = str(row[1] or "").strip() if len(row) > 1 else ""
+            if not ticker_raw:
+                continue
+            av_sym = ticker_raw.replace("MUTF:", "").replace("CURRENCY:", "").split("USD")[0]
+            if av_sym not in ENGINE_TICKERS:
+                continue
+            shares = float(row[3]) if len(row) > 3 and isinstance(row[3], (int, float)) else 0.0
+            cached_price = float(row[5]) if len(row) > 5 and isinstance(row[5], (int, float)) else None
+            if shares and cached_price:
+                engine_bal_port += shares * cached_price
+    except Exception:
+        pass
+
     wb.close()
 
-    engine_bal = max(0.0, nw["total_invested"] - nw["sgov_balance"])
+    engine_bal = engine_bal_port if engine_bal_port > 0 else max(0.0, nw["total_invested"] - nw["sgov_balance"])
     mc_prefill = {
         "current_age":        None,
         "engine_balance":     round(engine_bal),
