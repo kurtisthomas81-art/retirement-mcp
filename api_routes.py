@@ -410,7 +410,7 @@ async def api_profile_save(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
 
     allowed = {"name", "dob", "employer", "email"}
-    updates = {k: str(v).strip() for k, v in body.items() if k in allowed}
+    updates = {k: str(v).strip() for k, v in body.items() if k in allowed and str(v).strip()}
 
     # Validate DOB format
     if "dob" in updates:
