@@ -1754,15 +1754,15 @@ async function loadHome() {
 
     // ── Coast FI progress bar ──
     const coastGoal = levels.length >= 6 && levels[5].goal ? levels[5].goal : null;
-    const coastPct  = coastGoal && engineVal ? Math.min(engineVal / coastGoal * 100, 100) : 0;
-    const coastDone = coastGoal && engineVal >= coastGoal;
+    const coastPct  = coastGoal && lnw ? Math.min(lnw / coastGoal * 100, 100) : 0;
+    const coastDone = coastGoal && lnw >= coastGoal;
     if (coastGoal) {
       const barColor = coastDone ? '#4ade80' : 'var(--accent)';
       setHtml('ov-coast-fi-bar', `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
         <div style="flex:1;">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px;">
             <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;">COAST FI — LVL 6</span>
-            <span style="font-family:var(--font-mono);color:${barColor};">${fm(engineVal)} / ${fm(coastGoal)}</span>
+            <span style="font-family:var(--font-mono);color:${barColor};">${fm(lnw)} / ${fm(coastGoal)}</span>
           </div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
             <div style="height:100%;width:${coastPct.toFixed(0)}%;background:${barColor};border-radius:2px;transition:width 0.6s ease;"></div>
