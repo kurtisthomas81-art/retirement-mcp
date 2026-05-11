@@ -3415,6 +3415,7 @@ function renderBudgetTable(spending, months) {
   );
   if (!cats.length) return;
   // Use most recent month value (months are chronological oldest→newest, so last index)
+  const recentMonth = (months || []).length ? months[months.length - 1] : 'Recent';
   const rows = cats.map(([cat, vals]) => {
     const actual = typeof vals[vals.length - 1] === 'number' ? Math.abs(vals[vals.length - 1]) : 0;
     const bgt    = parseFloat(budget[cat] || 0);
@@ -3429,7 +3430,6 @@ function renderBudgetTable(spending, months) {
       <td class="${deltaCls}">${deltaStr}</td>
     </tr>`;
   }).join('');
-  const recentMonth = (months || []).length ? months[months.length - 1] : 'Recent';
   el.innerHTML = `<table class="budget-table">
     <thead><tr><th>Category</th><th>Budget/mo</th><th>Actual (${recentMonth})</th><th>Delta</th></tr></thead>
     <tbody>${rows}</tbody>
