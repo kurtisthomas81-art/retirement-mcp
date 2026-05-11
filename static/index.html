@@ -1061,6 +1061,7 @@
   <div class="ov-grid-2">
     <div class="panel">
       <h2>Freedom Levels <span class="panel-sub">JL Collins ladder</span></h2>
+      <div id="ov-coast-fi-bar" style="margin:-4px 0 14px;"></div>
       <div class="levels-grid" id="ov-levels-list">
         <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
       </div>
@@ -1727,6 +1728,9 @@ async function loadHome() {
       const isNext = idx === nextLvIdx;
       const cardCls = isDone ? 'done' : isNext ? 'next' : '';
       const amtStr  = lv.goal ? fm(lv.goal) : (lv.goal_text || '—');
+      const coastBadge = idx === 5
+        ? `<span style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;background:#cd853f22;color:#cd853f;border:1px solid #cd853f55;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;">COAST FI</span>`
+        : '';
       let statusStr, progressBar = '';
       if (isDone) {
         statusStr = 'Achieved ✓';
@@ -1739,7 +1743,7 @@ async function loadHome() {
       return `<div class="level-card ${cardCls}">
         <div class="level-num">${idx + 1}</div>
         <div class="level-info">
-          <div class="level-name">${lv.name}</div>
+          <div class="level-name">${lv.name}${coastBadge}</div>
           <div class="level-desc">${lv.description || ''}</div>
           ${progressBar}
         </div>
@@ -1748,6 +1752,25 @@ async function loadHome() {
       </div>`;
     }).join('');
     setHtml('ov-levels-list', levelRows || '<div style="color:var(--muted2)">No levels data</div>');
+
+    // ── Coast FI progress bar ──
+    const coastGoal = levels.length >= 6 && levels[5].goal ? levels[5].goal : null;
+    const coastPct  = coastGoal && engineVal ? Math.min(engineVal / coastGoal * 100, 100) : 0;
+    const coastDone = coastGoal && engineVal >= coastGoal;
+    if (coastGoal) {
+      const barColor = coastDone ? '#4ade80' : 'var(--accent)';
+      setHtml('ov-coast-fi-bar', `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px;">
+            <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;">COAST FI — LVL 6</span>
+            <span style="font-family:var(--font-mono);color:${barColor};">${fm(engineVal)} / ${fm(coastGoal)}</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+            <div style="height:100%;width:${coastPct.toFixed(0)}%;background:${barColor};border-radius:2px;transition:width 0.6s ease;"></div>
+          </div>
+        </div>${coastDone ? `<span style="font-size:0.72rem;font-weight:700;color:#4ade80;white-space:nowrap;">✓ Achieved</span>` : ''}
+      </div>`);
+    }
 
     // ── NW History storage ──
     const lnwNum = parseFloat(lnw) || 0;
