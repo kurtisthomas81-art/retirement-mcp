@@ -1049,7 +1049,7 @@
       </div>
       <div class="ov-firing-meta">
         <div class="ov-meta-row"><span class="k">Liquid Net Worth</span><span class="v" id="om-lnw">—</span></div>
-        <div class="ov-meta-row"><span class="k">FI target (age 62, infl. adj.)</span><span class="v" id="om-target">—</span></div>
+        <div class="ov-meta-row"><span class="k">FI target (age 62, nominal $)</span><span class="v" id="om-target">—</span></div>
         <div class="ov-meta-row"><span class="k">On pace</span><span class="v green" id="om-pace">—</span></div>
         <div class="ov-meta-row"><span class="k">Bridge gap to $360k</span><span class="v gold" id="om-bridge-gap">—</span></div>
       </div>
@@ -1616,11 +1616,13 @@ async function loadHome() {
     }
     window._lastDashboard = d;
 
-    const m        = d.metrics || {};
-    const lnw      = m['LIQUID NET WORTH']   || 0;
-    const target   = m['FI TARGET (Age 62)'] || 0;
-    const progress = m['PROGRESS TO FI']     || 0;
-    const pct      = Math.min(progress * 100, 100);
+    const m             = d.metrics || {};
+    const lnw           = m['LIQUID NET WORTH']   || 0;
+    const _todayTarget  = m['FI TARGET (Age 62)'] || 0;
+    const _yearsToRet   = Math.max(0, (rules.retire_year || 2043) - new Date().getFullYear());
+    const _inflRate     = rules.inflation_rate || 0.03;
+    const target        = _todayTarget > 0 ? Math.round(_todayTarget * Math.pow(1 + _inflRate, _yearsToRet)) : 0;
+    const pct           = target > 0 ? Math.min(lnw / target * 100, 100) : Math.min((m['PROGRESS TO FI'] || 0) * 100, 100);
 
     // ── 4 Stat cards ──
     const alloc     = d.allocation || {};
@@ -1811,11 +1813,15 @@ async function loadLedger() {
     const d = await r.json();
     if (d.error) { console.error('loadLedger:', d.error); return; }
 
-    const m        = d.metrics || {};
-    const lnw      = m['LIQUID NET WORTH']   || 0;
-    const target   = m['FI TARGET (Age 62)'] || 0;
-    const progress = m['PROGRESS TO FI']     || 0;
-    const alloc    = d.allocation || {};
+    const m              = d.metrics || {};
+    const lnw            = m['LIQUID NET WORTH']   || 0;
+    const _ldgTodayTgt   = m['FI TARGET (Age 62)'] || 0;
+    const _ldgRules      = window._rules || {};
+    const _ldgYearsToRet = Math.max(0, (_ldgRules.retire_year || 2043) - new Date().getFullYear());
+    const _ldgInflRate   = _ldgRules.inflation_rate || 0.03;
+    const target         = _ldgTodayTgt > 0 ? Math.round(_ldgTodayTgt * Math.pow(1 + _ldgInflRate, _ldgYearsToRet)) : 0;
+    const progress       = m['PROGRESS TO FI']     || 0;
+    const alloc          = d.allocation || {};
     const months   = d.spending_months || [];
     const spend    = d.spending || {};
     const srVals   = spend['SAVINGS RATE'] || [];
@@ -1917,7 +1923,7 @@ async function loadLedger() {
     renderBudgetTable(d.spending, d.spending_months);
 
     // ── Finn sidebar live context ──
-    const pctNum = (progress * 100);
+    const pctNum = target > 0 ? Math.min(lnw / target * 100, 100) : (progress * 100);
     const rules  = window._rules || {};
     const _el    = id => document.getElementById(id);
     if (_el('fc-age'))        _el('fc-age').textContent       = rules.client_age || '45';
