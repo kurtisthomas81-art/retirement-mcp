@@ -234,6 +234,7 @@ async def api_rules(request: Request):
         "client_age":   age,   # alias — frontend reads client_age
         "dob":          profile["dob"],
         "ss_age":       plan.get("ss_age", 67),
+        "mean_return":  plan.get("mean_return", 0.10),
     })
 
 

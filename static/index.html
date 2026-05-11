@@ -1698,7 +1698,7 @@ async function loadHome() {
          + Math.min((savedContrib.weeklyIRA || 0) * 52, rules.ira_roth_limit || 7500)
          + Math.min((savedContrib.annualGross || 0) * (savedContrib.emp401kPct || 0) / 100, rules.contrib_401k || 24500))
       : invest * 12;
-    const tfiMonths = calcTimeToFI(lnw, target, annualContrib, 0.09);
+    const tfiMonths = calcTimeToFI(lnw, target, annualContrib, rules.mean_return || 0.10);
     const tfiStr    = tfiMonths ? `~${Math.floor(tfiMonths / 12)}y ${tfiMonths % 12}mo` : '—';
 
     setEl('om-lnw',        fm(lnw));
@@ -1834,11 +1834,21 @@ async function loadLedger() {
     const expenseTotal = Object.entries(spend)
       .filter(([k]) => k !== 'Income' && k !== 'TRUE SAVING RATE' && k !== 'SAVINGS RATE')
       .reduce((sum, [, vals]) => {
-        const v = vals[0];
+        const v = vals[vals.length - 1];
         if (typeof v !== 'number') return sum;
         return sum + (v < 0 ? Math.abs(v) : (v > 100 ? v : 0));
       }, 0);
-    const dailyBurn    = expenseTotal > 0 ? expenseTotal / new Date().getDate() : 0;
+    const _recentMonthLabel = months.length ? months[months.length - 1] : null;
+    const _daysInPeriod = (() => {
+      if (!_recentMonthLabel) return new Date().getDate();
+      const _abbr = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      const [_mon, _yr] = _recentMonthLabel.split(' ');
+      if (!Object.prototype.hasOwnProperty.call(_abbr, _mon) || !_yr) return new Date().getDate();
+      const _now = new Date(), _py = +_yr, _pm = _abbr[_mon];
+      if (_py === _now.getFullYear() && _pm === _now.getMonth()) return _now.getDate();
+      return new Date(_py, _pm + 1, 0).getDate();
+    })();
+    const dailyBurn    = expenseTotal > 0 ? expenseTotal / _daysInPeriod : 0;
     const floorMonthly = 1417;
     const burnVsFloor  = expenseTotal > 0 ? (expenseTotal / floorMonthly).toFixed(1) + '×' : '—';
 
@@ -1890,7 +1900,7 @@ async function loadLedger() {
       if (expenseTotal > 0) {
         svEl.innerHTML = `
           <div class="sv-row">
-            <div class="sv-item"><span class="sv-label">Burn this month</span><span class="sv-value">${fm(expenseTotal)}</span></div>
+            <div class="sv-item"><span class="sv-label">Burn ${_recentMonthLabel || 'this month'}</span><span class="sv-value">${fm(expenseTotal)}</span></div>
             <div class="sv-item"><span class="sv-label">Daily avg</span><span class="sv-value">${dailyBurn > 0 ? fm(dailyBurn) : '—'}</span></div>
             <div class="sv-item"><span class="sv-label">vs floor ($1,417/mo)</span><span class="sv-value" style="color:var(--accent)">${burnVsFloor}</span></div>
           </div>
@@ -3349,7 +3359,8 @@ function calcContribTFI(lnwNum, targetNum, rules) {
   const wrap = document.getElementById('tfiCardWrap');
   if (!wrap) return;
 
-  const tfiMonths = calcTimeToFI(lnwNum, targetNum, total, 0.09);
+  const _tfiRate  = rules.mean_return || 0.10;
+  const tfiMonths = calcTimeToFI(lnwNum, targetNum, total, _tfiRate);
   if (tfiMonths === null) { wrap.innerHTML = ''; return; }
 
   const tfiYr    = Math.floor(tfiMonths / 12);
@@ -3357,6 +3368,7 @@ function calcContribTFI(lnwNum, targetNum, rules) {
   const tfiDate  = new Date();
   tfiDate.setMonth(tfiDate.getMonth() + tfiMonths);
   const tfiLabel = tfiDate.toLocaleDateString('en-US', {month:'short', year:'numeric'});
+  const _tfiRatePct = Math.round(_tfiRate * 100);
 
   const breakdown = [
     annualTaxable > 0 ? `Taxable $${Math.round(annualTaxable).toLocaleString()}` : null,
@@ -3369,7 +3381,7 @@ function calcContribTFI(lnwNum, targetNum, rules) {
     <div class="stat-card accent-pink">
       <div class="sc-label">Time to FI (w/ contributions)</div>
       <div class="sc-value">${tfiYr}y ${tfiMo}mo</div>
-      <div class="sc-sub">Est. ${tfiLabel} &bull; +$${Math.round(total).toLocaleString()}/yr &bull; 9% return</div>
+      <div class="sc-sub">Est. ${tfiLabel} &bull; +$${Math.round(total).toLocaleString()}/yr &bull; ${_tfiRatePct}% return</div>
       ${breakdown ? `<div class="sc-sub" style="margin-top:3px;font-size:0.68rem;opacity:0.7;">${breakdown}</div>` : ''}
     </div>
   </div>`;
@@ -3388,9 +3400,9 @@ function renderBudgetTable(spending, months) {
     k !== 'Income' && k !== 'TRUE SAVING RATE' && k !== 'SAVINGS RATE'
   );
   if (!cats.length) return;
-  // Use most recent month value
+  // Use most recent month value (months are chronological oldest→newest, so last index)
   const rows = cats.map(([cat, vals]) => {
-    const actual = typeof vals[0] === 'number' ? Math.abs(vals[0]) : 0;
+    const actual = typeof vals[vals.length - 1] === 'number' ? Math.abs(vals[vals.length - 1]) : 0;
     const bgt    = parseFloat(budget[cat] || 0);
     const delta  = bgt > 0 ? bgt - actual : null;
     const deltaCls = delta === null ? '' : delta >= 0 ? 'delta-under' : 'delta-over';
@@ -3402,7 +3414,7 @@ function renderBudgetTable(spending, months) {
       <td class="${deltaCls}">${deltaStr}</td>
     </tr>`;
   }).join('');
-  const recentMonth = (months || []).length ? months[0] : 'Recent';
+  const recentMonth = (months || []).length ? months[months.length - 1] : 'Recent';
   el.innerHTML = `<table class="budget-table">
     <thead><tr><th>Category</th><th>Budget/mo</th><th>Actual (${recentMonth})</th><th>Delta</th></tr></thead>
     <tbody>${rows}</tbody>
