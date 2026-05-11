@@ -4211,11 +4211,13 @@ async function loadForecast() {
   const el = document.getElementById('forecastContent');
   el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Loading&hellip;</div>';
   try {
-    const r = await fetch('/api/forecast');
-    const d = await r.json();
+    const [r, rd] = await Promise.all([fetch('/api/forecast'), fetch('/api/ledger/dashboard')]);
+    const d  = await r.json();
+    const dd = await rd.json();
     if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
     const c        = d.calibration || {};
     const baseRows = d.rows || [];
+    const mc       = (dd.mc_prefill) || {};
 
     // ── Extend to 90 days using avg daily pattern from last 14 actual rows ──
     const extendToNDays = (rows, n) => {
@@ -4252,7 +4254,9 @@ async function loadForecast() {
     // ── Horizon snapshot stats ──
     const endOf = arr => arr.length ? arr[arr.length - 1] : {};
     const e30 = endOf(rows30), e60 = endOf(rows60), e90 = endOf(rows90);
-    const chkNow = c.checking_balance || 0;
+    const chkNow  = mc.checking_balance  || c.checking_balance  || 0;
+    const brNow   = mc.sgov_balance      || c.savings_balance   || 0;
+    const asOfDate = new Date().toISOString().slice(0, 10);
     const trendBadge = v =>
       `<span style="font-size:0.65rem;color:${v>=0?'var(--accent)':'var(--warn)'};margin-left:4px;">${v>=0?'▲ +':'▼ '}${fm(Math.abs(v))}</span>`;
 
@@ -4265,8 +4269,8 @@ async function loadForecast() {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
         <div class="stat-card accent-sky">
           <div class="sc-label">As Of</div>
-          <div class="sc-value" style="font-size:0.95rem;">${c.current_date||'—'}</div>
-          <div class="sc-sub">Chk ${fm(chkNow)} · Bridge ${fm(c.savings_balance||0)}</div>
+          <div class="sc-value" style="font-size:0.95rem;">${asOfDate}</div>
+          <div class="sc-sub">Chk ${fm(chkNow)} · Bridge ${fm(brNow)}</div>
         </div>
         <div class="stat-card accent-emerald">
           <div class="sc-label">Day 30 Checking</div>
