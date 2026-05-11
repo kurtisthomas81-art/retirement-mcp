@@ -946,6 +946,7 @@
       Age <b id="hdrAge">45</b> · retiring at <b>62</b> · <b id="hdrYrs">17</b> yrs to go
     </div>
     <button id="exportPdfBtn" class="btn-sm export-pdf-btn" onclick="window.print()" style="font-size:0.62rem;padding:4px 10px;">Export PDF</button>
+    <button onclick="toggleProfile()" title="Profile & Settings" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;" id="profileBtn">⚙</button>
     <span class="refresh-ts" id="refreshTs"></span>
   </div>
 </header>
@@ -1013,6 +1014,22 @@
       <div class="ov-stat-label">Checking</div>
       <div class="ov-stat-value" id="ov-checking-val">—</div>
       <div class="ov-stat-meta" id="ov-checking-meta"></div>
+    </div>
+  </div>
+
+  <!-- Row 1b: Live countdown badges -->
+  <div id="countdownRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;">
+      <div style="font-size:0.60rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px;">Current Age</div>
+      <div id="cd-age" style="font-size:1.05rem;font-weight:700;font-family:var(--font-mono);color:var(--text);">—</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 16px;text-align:center;">
+      <div style="font-size:0.60rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);margin-bottom:4px;">To Retirement</div>
+      <div id="cd-retire" style="font-size:1.05rem;font-weight:700;font-family:var(--font-mono);color:var(--accent);">—</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;">
+      <div style="font-size:0.60rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px;">To SS at <span id="cd-ss-age">67</span></div>
+      <div id="cd-ss" style="font-size:1.05rem;font-weight:700;font-family:var(--font-mono);color:var(--text);">—</div>
     </div>
   </div>
 
@@ -1690,8 +1707,17 @@ async function loadHome() {
     setEl('om-bridge-gap', fm(Math.max(0, 360000 - bridgeVal)));
 
     // ── Header age pill ──
-    setEl('hdrAge', rules.client_age || '45');
+    setEl('hdrAge', rules.client_age || rules.current_age || '45');
     setEl('hdrYrs', Math.max(0, (rules.retire_year || 2043) - new Date().getFullYear()));
+
+    // ── Countdown timers — seed from rules then fetch profile DOB ──
+    initCountdown(rules.dob, rules.retire_age || 62, rules.ss_age || 67);
+    if (!_profileData) {
+      fetch('/api/profile').then(r => r.json()).then(p => {
+        _profileData = p;
+        if (p.dob) initCountdown(p.dob, rules.retire_age || 62, rules.ss_age || 67);
+      }).catch(() => {});
+    }
 
     // ── Freedom Levels ──
     const levels    = d.freedom_levels || [];
@@ -4664,6 +4690,273 @@ async function sendChat() {
   hist.scrollTop = 99999;
   sendBtn.disabled = false;
   input.focus();
+}
+</script>
+
+<!-- ══ PROFILE PANEL ══════════════════════════════════════════════════════ -->
+<div id="profileOverlay" onclick="toggleProfile()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;"></div>
+<div id="profilePanel" style="display:none;position:fixed;top:0;right:0;height:100%;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--border);z-index:1000;overflow-y:auto;padding:24px 24px 40px;box-sizing:border-box;box-shadow:-4px 0 24px rgba(0,0,0,0.4);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+    <div style="font-size:1.1rem;font-weight:700;">Profile &amp; Identity</div>
+    <button onclick="toggleProfile()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
+  </div>
+
+  <!-- Identity Fields -->
+  <div style="margin-bottom:24px;">
+    <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px;">Personal Info</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:3px;">Name</label>
+        <input id="prof_name" type="text" placeholder="Your name"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:0.88rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:3px;">Date of Birth <span style="color:var(--accent);font-size:0.68rem;">drives all countdowns &amp; ages</span></label>
+        <input id="prof_dob" type="date"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:0.88rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:3px;">Employer</label>
+        <input id="prof_employer" type="text" placeholder="e.g. Best Buy"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:0.88rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:3px;">Email <span style="color:var(--muted2);font-size:0.68rem;">used for digest emails</span></label>
+        <input id="prof_email" type="email" placeholder="you@example.com"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:0.88rem;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+      <button onclick="saveProfile()" style="background:var(--accent);color:#000;font-weight:700;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-size:0.82rem;">Save Profile</button>
+      <span id="profSaveStatus" style="font-size:0.78rem;color:var(--muted);"></span>
+    </div>
+  </div>
+
+  <!-- Life Milestones -->
+  <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:20px;">
+    <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px;">Life Milestones</div>
+    <div id="profMilestones" style="display:flex;flex-direction:column;font-size:0.84rem;"></div>
+  </div>
+
+  <!-- Wealth Milestones -->
+  <div style="border-top:1px solid var(--border);padding-top:20px;">
+    <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:14px;">Wealth Milestones</div>
+    <div id="profWealthMilestones" style="display:flex;flex-direction:column;font-size:0.84rem;"></div>
+  </div>
+</div>
+
+<script>
+// ── Profile panel ─────────────────────────────────────────────────────────────
+
+let _profileData = null;
+
+function toggleProfile() {
+  const panel   = document.getElementById('profilePanel');
+  const overlay = document.getElementById('profileOverlay');
+  const open    = panel.style.display !== 'none';
+  panel.style.display   = open ? 'none' : 'block';
+  overlay.style.display = open ? 'none' : 'block';
+  if (!open && !_profileData) loadProfilePanel();
+}
+
+async function loadProfilePanel() {
+  try {
+    const r = await fetch('/api/profile');
+    const d = await r.json();
+    if (d.error) return;
+    _profileData = d;
+    document.getElementById('prof_name').value     = d.name     || '';
+    document.getElementById('prof_dob').value      = d.dob      || '';
+    document.getElementById('prof_employer').value = d.employer  || '';
+    document.getElementById('prof_email').value    = d.email     || '';
+    renderProfMilestones(d);
+    renderWealthMilestones();
+  } catch(e) {}
+}
+
+async function saveProfile() {
+  const body = {
+    name:     document.getElementById('prof_name').value.trim(),
+    dob:      document.getElementById('prof_dob').value.trim(),
+    employer: document.getElementById('prof_employer').value.trim(),
+    email:    document.getElementById('prof_email').value.trim(),
+  };
+  const st = document.getElementById('profSaveStatus');
+  st.textContent = 'Saving…'; st.style.color = 'var(--muted)';
+  try {
+    const r = await fetch('/api/profile', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.error) { st.style.color='#f87171'; st.textContent = d.error; return; }
+    _profileData = d;
+    st.style.color = '#4ade80';
+    st.textContent = '✓ Saved';
+    renderProfMilestones(d);
+    // Refresh countdown with new DOB/plan
+    initCountdown(d.dob);
+    // Refresh age pill
+    const dob = new Date(d.dob + 'T00:00:00');
+    const now = new Date();
+    const age = now.getFullYear() - dob.getFullYear() -
+      ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0);
+    const el = document.getElementById('hdrAge');
+    if (el) el.textContent = age;
+  } catch(e) { st.style.color='#f87171'; st.textContent = e.message; }
+}
+
+function renderProfMilestones(profile) {
+  const el = document.getElementById('profMilestones');
+  if (!el || !profile.dob) return;
+  const plan = window._rules || {};
+  const retireAge = plan.retire_age || 62;
+  const ssAge     = plan.ss_age     || 67;
+  const dob  = new Date(profile.dob + 'T00:00:00');
+  const today = new Date();
+  const retireDate = new Date(dob.getFullYear() + retireAge, dob.getMonth(), dob.getDate());
+  const ssDate     = new Date(dob.getFullYear() + ssAge,     dob.getMonth(), dob.getDate());
+
+  function fmtDate(d) {
+    return d.toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+  }
+  function diff(target) {
+    if (target <= today) return 'Already passed';
+    let y = target.getFullYear() - today.getFullYear();
+    let m = target.getMonth()    - today.getMonth();
+    let da= target.getDate()     - today.getDate();
+    if (da < 0) { m--; da += new Date(today.getFullYear(), today.getMonth()+1, 0).getDate(); }
+    if (m < 0)  { y--; m += 12; }
+    const parts = [];
+    if (y > 0)  parts.push(`${y}y`);
+    if (m > 0)  parts.push(`${m}m`);
+    if (da > 0) parts.push(`${da}d`);
+    return parts.join(' ') || 'Today';
+  }
+
+  // Current exact age
+  let ageY = today.getFullYear() - dob.getFullYear();
+  let ageM = today.getMonth()    - dob.getMonth();
+  let ageD = today.getDate()     - dob.getDate();
+  if (ageD < 0) { ageM--; ageD += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+  if (ageM < 0) { ageY--; ageM += 12; }
+
+  el.innerHTML = [
+    row('Today',        today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})),
+    row('Exact age',    `${ageY}y ${ageM}m ${ageD}d`),
+    row(`Retirement (age ${retireAge})`, `${fmtDate(retireDate)}  <span style="color:var(--accent)">${diff(retireDate)}</span>`),
+    row(`SS at age ${ssAge}`,            `${fmtDate(ssDate)}  <span style="color:var(--muted)">${diff(ssDate)}</span>`),
+  ].join('');
+
+  function row(label, val) {
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="color:var(--muted);font-size:0.76rem;">${label}</span>
+      <span style="font-family:var(--font-mono);font-size:0.80rem;text-align:right;">${val}</span>
+    </div>`;
+  }
+}
+
+function renderWealthMilestones() {
+  const el = document.getElementById('profWealthMilestones');
+  if (!el) return;
+
+  const lnw = (() => {
+    const d = window._lastDashboard;
+    if (d && d.metrics) return d.metrics['LIQUID NET WORTH'] || 0;
+    return 0;
+  })();
+
+  // Monthly growth rate from localStorage history
+  const nwHist = JSON.parse(localStorage.getItem('retAdv_nwHistory') || '[]');
+  const monthlyGrowth = nwHist.length >= 2
+    ? nwHist[nwHist.length-1].lnw - nwHist[nwHist.length-2].lnw
+    : null;
+
+  const MILESTONES = [100000, 200000, 300000, 500000, 700000, 1000000, 1500000, 2000000, 3000000];
+
+  function fmEta(target) {
+    if (!monthlyGrowth || monthlyGrowth <= 0) return null;
+    const months = Math.ceil((target - lnw) / monthlyGrowth);
+    if (months <= 0) return null;
+    const y = Math.floor(months / 12);
+    const m = months % 12;
+    return (y > 0 ? `${y}y ` : '') + (m > 0 ? `${m}m` : '');
+  }
+
+  function fm(n) {
+    return n >= 1000000 ? `$${(n/1000000).toFixed(1)}M` : `$${(n/1000).toFixed(0)}K`;
+  }
+
+  el.innerHTML = MILESTONES.map(ms => {
+    const done = lnw >= ms;
+    const pct  = done ? 100 : lnw > 0 ? Math.min(99, (lnw / ms * 100)) : 0;
+    const eta  = done ? null : fmEta(ms);
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-weight:600;font-size:0.82rem;color:${done ? '#4ade80' : 'var(--text)'};">${done ? '✓ ' : ''}${fm(ms)}</span>
+        <span style="font-size:0.75rem;font-family:var(--font-mono);color:${done ? '#4ade80' : 'var(--muted)'};">${done ? 'Achieved' : (eta ? `~${eta} away` : `${pct.toFixed(0)}%`)}</span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${done ? '#4ade80' : 'var(--accent)'};border-radius:2px;transition:width 0.6s ease;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Countdown timer ───────────────────────────────────────────────────────────
+
+let _cdInterval = null;
+let _cdDob = null;
+let _cdRetireAge = 62;
+let _cdSsAge     = 67;
+
+function initCountdown(dob, retireAge, ssAge) {
+  if (dob)      _cdDob      = dob;
+  if (retireAge) _cdRetireAge = retireAge;
+  if (ssAge)     _cdSsAge    = ssAge;
+  if (_cdInterval) clearInterval(_cdInterval);
+  if (!_cdDob) return;
+  tickCountdown();
+  _cdInterval = setInterval(tickCountdown, 1000);
+}
+
+function tickCountdown() {
+  if (!_cdDob) return;
+  const dob   = new Date(_cdDob + 'T00:00:00');
+  const today = new Date();
+  const retireDate = new Date(dob.getFullYear() + _cdRetireAge, dob.getMonth(), dob.getDate());
+  const ssDate     = new Date(dob.getFullYear() + _cdSsAge,     dob.getMonth(), dob.getDate());
+
+  function ymdhms(target, past) {
+    if (past ? today <= target : target <= today) return past ? exactAge(dob, today) : 'Reached';
+    let t = past ? today : target;
+    let f = past ? target : today;
+    let y = t.getFullYear() - f.getFullYear();
+    let m = t.getMonth()    - f.getMonth();
+    let d = t.getDate()     - f.getDate();
+    if (d < 0) { m--; d += new Date(f.getFullYear(), f.getMonth()+1, 0).getDate(); }
+    if (m < 0) { y--; m += 12; }
+    const parts = [];
+    if (y)  parts.push(`${y}y`);
+    if (m)  parts.push(`${m}m`);
+    if (d)  parts.push(`${d}d`);
+    return parts.join(' ') || 'Today';
+  }
+
+  function exactAge(dob, now) {
+    let y = now.getFullYear() - dob.getFullYear();
+    let m = now.getMonth()    - dob.getMonth();
+    let d = now.getDate()     - dob.getDate();
+    if (d < 0) { m--; d += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
+    if (m < 0) { y--; m += 12; }
+    return `${y}y ${m}m ${d}d`;
+  }
+
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setTxt('cd-age',    exactAge(dob, today));
+  setTxt('cd-retire', retireDate > today ? ymdhms(retireDate) : 'Retired ✓');
+  setTxt('cd-ss',     ssDate     > today ? ymdhms(ssDate)     : 'SS Active ✓');
+  setTxt('cd-ss-age', _cdSsAge);
 }
 </script>
 

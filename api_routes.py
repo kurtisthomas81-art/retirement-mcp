@@ -51,10 +51,11 @@ def _read_finn_brain() -> str:
 
 def _fmt_system_prompt():
     from datetime import date
-    dob         = config.CLIENT_DOB
+    profile     = config.load_profile()
+    plan        = config.load_active_plan()
+    dob         = date.fromisoformat(profile["dob"])
     today_d     = date.today()
     age         = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
-    plan        = config.load_active_plan()
     retire_age  = plan.get("retire_age", config.CLIENT_RETIRE_AGE)
     retire_year = dob.year + retire_age
     years_to_retire = retire_year - today_d.year
@@ -64,7 +65,7 @@ def _fmt_system_prompt():
         age=age,
         retire_year=retire_year,
         years_to_retire=years_to_retire,
-        employer=config.CLIENT_EMPLOYER,
+        employer=profile.get("employer", config.CLIENT_EMPLOYER),
         plan_retire_age=retire_age,
         plan_ss_age=ss_age,
         plan_ss_annual=plan.get("full_ss_annual", 36697),
@@ -218,11 +219,22 @@ async def icon_svg(request: Request):
 
 async def api_rules(request: Request):
     from datetime import date
-    dob = config.CLIENT_DOB
-    today_d = date.today()
-    age = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
-    retire_year = dob.year + config.CLIENT_RETIRE_AGE
-    return JSONResponse({**config.RULES_2026, "retire_year": retire_year, "current_age": age})
+    profile     = config.load_profile()
+    plan        = config.load_active_plan()
+    dob         = date.fromisoformat(profile["dob"])
+    today_d     = date.today()
+    age         = today_d.year - dob.year - ((today_d.month, today_d.day) < (dob.month, dob.day))
+    retire_age  = plan.get("retire_age", config.CLIENT_RETIRE_AGE)
+    retire_year = dob.year + retire_age
+    return JSONResponse({
+        **config.RULES_2026,
+        "retire_year":  retire_year,
+        "retire_age":   retire_age,
+        "current_age":  age,
+        "client_age":   age,   # alias — frontend reads client_age
+        "dob":          profile["dob"],
+        "ss_age":       plan.get("ss_age", 67),
+    })
 
 
 def _read_plans() -> dict:
@@ -381,6 +393,45 @@ async def api_plans_delete(request: Request):
     if result == "not_found":
         return JSONResponse({"error": "plan not found"}, status_code=404)
     return JSONResponse({"ok": True})
+
+
+async def api_profile_get(request: Request):
+    try:
+        profile = await asyncio.to_thread(config.load_profile)
+        return JSONResponse(profile)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_profile_save(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+    allowed = {"name", "dob", "employer", "email"}
+    updates = {k: str(v).strip() for k, v in body.items() if k in allowed}
+
+    # Validate DOB format
+    if "dob" in updates:
+        try:
+            from datetime import date as _date
+            _date.fromisoformat(updates["dob"])
+        except ValueError:
+            return JSONResponse({"error": "dob must be YYYY-MM-DD"}, status_code=400)
+
+    def _do_save():
+        current = config.load_profile()
+        current.update(updates)
+        config.PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        config.PROFILE_PATH.write_text(json.dumps(current, indent=2))
+        return current
+
+    try:
+        result = await asyncio.to_thread(_do_save)
+        return JSONResponse(result)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 async def api_finn_memory_get(request: Request):
@@ -1115,6 +1166,8 @@ def build_app(mcp_app):
         Route("/api/plans/{plan_id}/activate", api_plans_activate,     methods=["POST"]),
         Route("/api/plans/{plan_id}",       api_plans_update,          methods=["PUT"]),
         Route("/api/plans/{plan_id}",       api_plans_delete,          methods=["DELETE"]),
+        Route("/api/profile",               api_profile_get,           methods=["GET"]),
+        Route("/api/profile",               api_profile_save,          methods=["POST"]),
         Route("/api/finn/memory",           api_finn_memory_get,       methods=["GET"]),
         Route("/api/finn/memory/add",       api_finn_memory_add,       methods=["POST"]),
         Route("/api/ledger/dashboard",      api_ledger_dashboard),

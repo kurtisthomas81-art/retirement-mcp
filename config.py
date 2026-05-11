@@ -40,6 +40,7 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:9b")
 FINN_MEMORY_PATH = str(Path(__file__).parent / "finn_memory.md")
 FINN_BRAIN_PATH  = str(Path(__file__).parent / "finn_brain.md")
 PLANS_PATH       = Path(__file__).parent / "data" / "plans.json"
+PROFILE_PATH     = Path(__file__).parent / "data" / "profile.json"
 
 # ── Plan defaults (used when plans.json is missing or as seed values) ───────────
 
@@ -125,6 +126,30 @@ def load_active_plan() -> dict:
     except Exception:
         pass
     return PLAN_DEFAULTS.copy()
+
+
+def load_profile() -> dict:
+    """Return profile dict. profile.json overrides .env defaults."""
+    defaults = {
+        "name":     CLIENT_NAME,
+        "dob":      CLIENT_DOB.isoformat(),
+        "employer": CLIENT_EMPLOYER,
+        "email":    os.environ.get("CLIENT_EMAIL", ""),
+    }
+    try:
+        if PROFILE_PATH.exists():
+            saved = json.loads(PROFILE_PATH.read_text())
+            defaults.update({k: v for k, v in saved.items() if v is not None})
+    except Exception:
+        pass
+    return defaults
+
+
+def _seed_profile_file() -> dict:
+    PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    data = load_profile()
+    PROFILE_PATH.write_text(json.dumps(data, indent=2))
+    return data
 
 # ── Advisor system prompt ───────────────────────────────────────────────────────
 # Placeholders filled at runtime by _fmt_system_prompt() in api_routes.py:
