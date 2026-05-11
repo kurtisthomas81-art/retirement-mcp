@@ -4757,7 +4757,10 @@ function toggleProfile() {
   const open    = panel.style.display !== 'none';
   panel.style.display   = open ? 'none' : 'block';
   overlay.style.display = open ? 'none' : 'block';
-  if (!open && !_profileData) loadProfilePanel();
+  if (!open) {
+    if (!_profileData) loadProfilePanel();
+    else renderWealthMilestones();
+  }
 }
 
 async function loadProfilePanel() {
