@@ -4759,7 +4759,11 @@ function toggleProfile() {
   overlay.style.display = open ? 'none' : 'block';
   if (!open) {
     if (!_profileData) loadProfilePanel();
-    else renderWealthMilestones();
+    else {
+      renderProfMilestones(_profileData);
+      renderWealthMilestones();
+      _renderProfileSavedAt(localStorage.getItem('retAdv_profileSavedAt'));
+    }
   }
 }
 
