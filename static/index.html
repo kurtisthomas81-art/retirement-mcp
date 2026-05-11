@@ -737,7 +737,6 @@
   .home-tfi-row  { font-size:0.70rem; color:var(--muted2); margin-top:5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .home-tfi-row .pace-ahead  { color:var(--accent); font-weight:600; }
   .home-tfi-row .pace-behind { color:var(--warn);   font-weight:600; }
-  .home-next-level { display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.15); border-radius:var(--radius); margin-bottom:14px; font-size:0.72rem; }
   .hnl-label { font-size:0.58rem; font-weight:700; text-transform:uppercase; letter-spacing:0.10em; color:#6366f1; flex-shrink:0; }
   .hnl-name  { font-weight:600; color:var(--text); flex:1; }
   .hnl-gap   { color:var(--amber); font-family:var(--font-mono); white-space:nowrap; }
@@ -1736,7 +1735,7 @@ async function loadHome() {
         statusStr = 'Achieved ✓';
       } else if (lv.progress !== null && lv.progress !== undefined) {
         statusStr = fp(lv.progress);
-        if (isNext) progressBar = `<div class="level-progbar"><div style="width:${Math.min(lv.progress*100,100).toFixed(0)}%"></div></div>`;
+        if (isNext && idx !== 5) progressBar = `<div class="level-progbar"><div style="width:${Math.min(lv.progress*100,100).toFixed(0)}%"></div></div>`;
       } else {
         statusStr = '—';
       }
