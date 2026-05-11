@@ -1720,7 +1720,7 @@ async function loadHome() {
     }
 
     // ── Freedom Levels ──
-    const levels    = d.freedom_levels || [];
+    const levels    = (d.freedom_levels || []).filter(lv => !/road.to.coast/i.test(lv.name || ''));
     const nextLvIdx = levels.findIndex(lv => lv.status !== 'ACHIEVED');
     const levelRows = levels.map((lv, idx) => {
       const isDone = lv.status === 'ACHIEVED';
