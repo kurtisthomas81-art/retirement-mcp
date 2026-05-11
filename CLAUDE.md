@@ -55,9 +55,11 @@ data/ledger.xlsx → excel_reader.py → api_routes.py (REST endpoints)
 - **Docker PII gate**: `.env` and `data/ledger.xlsx` must never enter image layers — requires `.dockerignore`
 
 ### Deployment
-Docker on Unraid. **ALWAYS give each command separately — never chain with `&&`.** The Unraid terminal breaks on `&&` across newlines and the user must paste one command at a time.
+Docker on Unraid. **After every code change: commit the file(s) by name, push to GitHub, then immediately provide the Unraid rebuild sequence below.** Never skip the push or the rebuild block.
 
-**Unraid repo path:** `/mnt/user/appdata/retirement-mcp/src` — always `cd` here before git/docker commands.
+**ALWAYS give each command separately — never chain with `&&`.** The Unraid terminal breaks on `&&` across newlines and the user must paste one command at a time.
+
+**Unraid repo path:** `/mnt/user/appdata/retirement-mcp/src` — always `cd` here before git/docker commands. Remind the user to `cd /mnt/user/appdata/retirement-mcp/src` before running the sequence if there is any chance they are not already there.
 
 **Ollama container name:** `ollama` — pull models via `docker exec ollama ollama pull <model>`.
 
