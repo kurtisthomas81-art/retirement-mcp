@@ -1085,6 +1085,10 @@
         <h2>Spending Velocity</h2>
         <div id="ov-sv-content"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
       </div>
+      <div class="panel">
+        <h2>SWR if Retired Today</h2>
+        <div id="ov-swr-content"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
+      </div>
     </div>
   </div>
 
@@ -1708,6 +1712,26 @@ async function loadHome() {
     setEl('om-target',     fm(target));
     setEl('om-pace',       tfiStr);
     setEl('om-bridge-gap', fm(Math.max(0, 360000 - bridgeVal)));
+
+    // ── SWR if retired today ──
+    const swrEl = document.getElementById('ov-swr-content');
+    if (swrEl) {
+      const annualBurn = (mc.monthly_burn || 0) * 12;
+      if (lnw > 0 && annualBurn > 0) {
+        const swrPct  = annualBurn / lnw * 100;
+        const swrStr  = swrPct.toFixed(2) + '%';
+        const swrClr  = swrPct <= 4 ? 'var(--accent)' : swrPct <= 5 ? 'var(--gold)' : 'var(--warn)';
+        const swrNote = swrPct <= 4 ? 'Safe — at or below 4% rule' : swrPct <= 5 ? 'Borderline — approaching 4% ceiling' : 'Elevated — above 4% rule';
+        swrEl.innerHTML = `
+          <div style="font-size:2rem;font-weight:700;font-family:var(--font-mono);color:${swrClr};letter-spacing:-0.02em;line-height:1;">${swrStr}</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:6px;">${swrNote}</div>
+          <div style="font-size:0.68rem;color:var(--muted2);margin-top:8px;line-height:1.5;">
+            ${fm(annualBurn)}/yr ÷ ${fm(lnw)} LNW
+          </div>`;
+      } else {
+        swrEl.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">No burn rate in ledger</div>';
+      }
+    }
 
     // ── Header age pill ──
     setEl('hdrAge', rules.client_age || rules.current_age || '45');
