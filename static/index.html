@@ -127,19 +127,19 @@
   .bottom-nav { display: none; }
   @media (max-width: 768px) {
     .bottom-nav {
+      display: flex; flex-direction: column; justify-content: flex-start;
       position: fixed; bottom: 0; left: 0; right: 0;
-      height: var(--bottom-nav-h);
+      height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
       background: rgba(8,13,26,0.95);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border2); z-index: 200;
-      overflow: hidden;
-      padding-bottom: env(safe-area-inset-bottom,0px);
     }
     .bottom-nav-scroll {
-      display: flex; height: 100%;
-      overflow-x: scroll; overflow-y: hidden;
+      display: flex; flex: 1; align-items: stretch;
+      overflow-x: auto; overflow-y: hidden;
       overscroll-behavior-x: contain;
       -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
       padding: 0 4px;
       scrollbar-width: none; -ms-overflow-style: none;
     }
