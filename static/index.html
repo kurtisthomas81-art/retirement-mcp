@@ -133,12 +133,13 @@
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border2); z-index: 200;
       padding: 0 4px; padding-bottom: env(safe-area-inset-bottom,0px);
-      overflow: hidden;
+      overflow-x: auto; overflow-y: hidden;
+      touch-action: pan-x;
       scrollbar-width: none; -ms-overflow-style: none;
     }
     .bottom-nav::-webkit-scrollbar { display: none; }
     .bn-item {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      flex: 0 0 auto; min-width: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       background: none; border: none; color: var(--muted2);
       font-family: var(--font-ui); font-size: 0.62rem; font-weight: 600;
       letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
