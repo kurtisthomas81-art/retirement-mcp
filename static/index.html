@@ -4214,41 +4214,128 @@ async function loadForecast() {
     const r = await fetch('/api/forecast');
     const d = await r.json();
     if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
-    const c = d.calibration || {};
-    const calibHtml = c.current_date ? `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
-        <div class="stat-card accent-sky"><div class="sc-label">As Of</div><div class="sc-value" style="font-size:0.9rem;">${c.current_date}</div></div>
-        <div class="stat-card accent-emerald"><div class="sc-label">Projected Checking</div><div class="sc-value" style="font-size:0.9rem;">${fm(c.projected_checking)}</div></div>
-        <div class="stat-card accent-teal"><div class="sc-label">Projected SGOV</div><div class="sc-value" style="font-size:0.9rem;">${fm(c.projected_savings)}</div></div>
-        <div class="stat-card accent-indigo"><div class="sc-label">Projected Total</div><div class="sc-value" style="font-size:0.9rem;">${fm(c.projected_total)}</div></div>
-      </div>` : '';
-    const dayClr = day => ['Sat','Sun'].includes(day) ? 'var(--muted2)' : 'var(--text)';
-    const rows = (d.rows||[]).map(row => {
-      const net = row.income + row.expense + row.invest;
-      return `<tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.68rem;color:var(--muted2)">${row.date}</td>
-        <td style="padding:5px 8px;font-size:0.65rem;color:${dayClr(row.day)}">${row.day}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.68rem;text-align:right;color:${row.income>0?'var(--green)':'var(--muted2)'}">${row.income>0?'+'+fm(row.income):'—'}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.68rem;text-align:right;color:${row.expense<0?'var(--red)':'var(--muted2)'}">${row.expense<0?fm(row.expense):'—'}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.68rem;text-align:right;color:${row.invest<0?'var(--amber)':'var(--muted2)'}">${row.invest<0?fm(row.invest):'—'}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;font-weight:600">${fm(row.checking)}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;color:var(--muted)">${fm(row.savings)}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:0.70rem;text-align:right;color:var(--accent);font-weight:700">${fm(row.total)}</td>
+    const c    = d.calibration || {};
+    const rows = d.rows || [];
+
+    // ── Derived stats ──
+    const minChk    = rows.length ? Math.min(...rows.map(r => r.checking)) : null;
+    const minChkRow = rows.find(r => r.checking === minChk) || null;
+    const chkTrend  = (c.projected_checking != null && c.checking_balance != null)
+                      ? c.projected_checking - c.checking_balance : null;
+    const totTrend  = (c.projected_total != null && c.checking_balance != null && c.savings_balance != null)
+                      ? c.projected_total - (c.checking_balance + c.savings_balance) : null;
+    const trendBadge = v => v === null ? '' :
+      `<span style="font-size:0.68rem;color:${v>=0?'var(--accent)':'var(--warn)'};margin-left:5px;">${v>=0?'▲ +':'▼ '}${fm(Math.abs(v))}</span>`;
+
+    // ── Summary cards ──
+    const calibHtml = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;">
+        <div class="stat-card accent-sky">
+          <div class="sc-label">As Of</div>
+          <div class="sc-value" style="font-size:1rem;">${c.current_date||'—'}</div>
+          <div class="sc-sub">Chk ${fm(c.checking_balance||0)} · Bridge ${fm(c.savings_balance||0)}</div>
+        </div>
+        <div class="stat-card accent-emerald">
+          <div class="sc-label">Projected Checking</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_checking||0)}${trendBadge(chkTrend)}</div>
+          <div class="sc-sub">end of window</div>
+        </div>
+        <div class="stat-card accent-teal">
+          <div class="sc-label">Projected Bridge</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_savings||0)}</div>
+          <div class="sc-sub">SGOV account</div>
+        </div>
+        <div class="stat-card accent-indigo">
+          <div class="sc-label">Projected Total</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_total||0)}${trendBadge(totTrend)}</div>
+          <div class="sc-sub">checking + bridge</div>
+        </div>
+        ${minChkRow ? `<div class="stat-card accent-rose">
+          <div class="sc-label">Lowest Checking</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(minChk)}</div>
+          <div class="sc-sub">${minChkRow.date} · ${minChkRow.day}</div>
+        </div>` : ''}
+      </div>`;
+
+    // ── Balance trajectory chart ──
+    const chartHtml = `<canvas id="forecastChart" style="max-height:170px;margin-bottom:20px;"></canvas>`;
+
+    // ── Table ──
+    const thR = 'text-align:right;padding:7px 10px;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;';
+    const thL = thR.replace('text-align:right','text-align:left');
+    const td  = 'padding:7px 10px;font-family:var(--font-mono);font-size:0.78rem;text-align:right;';
+    const tableRows = rows.map(row => {
+      const net      = row.income + row.expense + row.invest;
+      const isWknd   = ['Sat','Sun'].includes(row.day);
+      const isMinChk = row === minChkRow;
+      const rowBg    = isMinChk              ? 'background:rgba(245,158,11,0.10);'
+                     : net > 0              ? 'background:rgba(74,222,128,0.04);'
+                     : net < 0              ? 'background:rgba(248,113,113,0.04);'
+                     : '';
+      return `<tr style="border-bottom:1px solid var(--border);${rowBg}${isWknd?'opacity:0.55;':''}">
+        <td style="padding:7px 10px;font-family:var(--font-mono);font-size:0.78rem;color:var(--muted2);">${row.date}</td>
+        <td style="padding:7px 10px;font-size:0.72rem;color:var(--muted);">${row.day}</td>
+        <td style="${td}color:${row.income>0?'var(--accent)':'var(--muted2)'}">${row.income>0?'+'+fm(row.income):'—'}</td>
+        <td style="${td}color:${row.expense<0?'var(--warn)':'var(--muted2)'}">${row.expense<0?fm(row.expense):'—'}</td>
+        <td style="${td}color:${row.invest<0?'var(--gold)':'var(--muted2)'}">${row.invest<0?fm(row.invest):'—'}</td>
+        <td style="${td}color:${net>0?'var(--accent)':net<0?'var(--warn)':'var(--muted2)'};font-weight:600;">${net===0?'—':(net>0?'+':'')+fm(net)}</td>
+        <td style="${td}${isMinChk?'color:var(--gold);font-weight:700;':''}">${fm(row.checking)}</td>
+        <td style="${td}color:var(--muted);">${fm(row.savings)}</td>
+        <td style="${td}font-weight:600;">${fm(row.total)}</td>
       </tr>`;
     }).join('');
-    el.innerHTML = calibHtml + `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
-      <thead><tr style="border-bottom:1px solid var(--border2);">
-        <th style="text-align:left;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">Date</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">Day</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--green);font-size:0.60rem;text-transform:uppercase;">In</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--red);font-size:0.60rem;text-transform:uppercase;">Out</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--amber);font-size:0.60rem;text-transform:uppercase;">Invest</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">Checking</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:0.60rem;text-transform:uppercase;">SGOV</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--accent);font-size:0.60rem;text-transform:uppercase;">Total</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
+
+    el.innerHTML = calibHtml + chartHtml + `
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="border-bottom:2px solid var(--border2);">
+            <th style="${thL}color:var(--muted2);">Date</th>
+            <th style="${thL}color:var(--muted2);">Day</th>
+            <th style="${thR}color:var(--accent);">In</th>
+            <th style="${thR}color:var(--warn);">Out</th>
+            <th style="${thR}color:var(--gold);">Invest</th>
+            <th style="${thR}color:var(--muted2);">Net</th>
+            <th style="${thR}color:var(--muted2);">Checking</th>
+            <th style="${thR}color:var(--muted2);">Bridge</th>
+            <th style="${thR}color:var(--text);">Total</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>`;
+
+    // ── Chart ──
+    setTimeout(() => {
+      const ctx = document.getElementById('forecastChart');
+      if (!ctx || !rows.length) return;
+      if (window._forecastChart) window._forecastChart.destroy();
+      window._forecastChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: rows.map(r => r.date.slice(5)),
+          datasets: [
+            { label: 'Checking', data: rows.map(r => r.checking),
+              borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.08)',
+              fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 },
+            { label: 'Total',    data: rows.map(r => r.total),
+              borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.06)',
+              fill: false, tension: 0.35, pointRadius: 2, borderWidth: 2 },
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: '#9aa3b2', font: { size: 11 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fm(c.raw) } }
+          },
+          scales: {
+            x: { ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 12 }, grid: { display: false } },
+            y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => '$'+(v/1000).toFixed(0)+'k' },
+                 grid: { color: 'rgba(255,255,255,0.04)' } }
+          }
+        }
+      });
+    }, 80);
+
   } catch(e) { el.innerHTML = `<span class="err">${e.message}</span>`; }
 }
 
