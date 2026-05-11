@@ -133,7 +133,9 @@
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border2); z-index: 200;
       padding: 0 4px; padding-bottom: env(safe-area-inset-bottom,0px);
-      overflow-x: auto; overflow-y: hidden;
+      overflow-x: scroll; overflow-y: hidden;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
       touch-action: pan-x;
       scrollbar-width: none; -ms-overflow-style: none;
     }
@@ -144,7 +146,7 @@
       font-family: var(--font-ui); font-size: 0.62rem; font-weight: 600;
       letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
       padding: 4px 2px; min-height: 44px; transition: color 0.15s;
-      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      touch-action: pan-x; -webkit-tap-highlight-color: transparent;
       border-radius: 0; box-shadow: none; position: relative;
     }
     .bn-item::before {
