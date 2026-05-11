@@ -1435,7 +1435,7 @@
   <!-- Sub-pane: Forecast -->
   <div id="plan-sub-forecast" class="plan-sub-pane">
     <div class="panel">
-      <h2>30-Day Cash Flow Forecast</h2>
+      <h2>Cash Flow Forecast</h2>
       <div id="forecastContent"><div style="color:var(--muted2);font-size:0.8rem;">Loading forecast&hellip;</div></div>
     </div>
   </div>
@@ -4214,79 +4214,111 @@ async function loadForecast() {
     const r = await fetch('/api/forecast');
     const d = await r.json();
     if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
-    const c    = d.calibration || {};
-    const rows = d.rows || [];
+    const c        = d.calibration || {};
+    const baseRows = d.rows || [];
 
-    // ── Derived stats ──
-    const minChk    = rows.length ? Math.min(...rows.map(r => r.checking)) : null;
-    const minChkRow = rows.find(r => r.checking === minChk) || null;
-    const chkTrend  = (c.projected_checking != null && c.checking_balance != null)
-                      ? c.projected_checking - c.checking_balance : null;
-    const totTrend  = (c.projected_total != null && c.checking_balance != null && c.savings_balance != null)
-                      ? c.projected_total - (c.checking_balance + c.savings_balance) : null;
-    const trendBadge = v => v === null ? '' :
-      `<span style="font-size:0.68rem;color:${v>=0?'var(--accent)':'var(--warn)'};margin-left:5px;">${v>=0?'▲ +':'▼ '}${fm(Math.abs(v))}</span>`;
+    // ── Extend to 90 days using avg daily pattern from last 14 actual rows ──
+    const extendToNDays = (rows, n) => {
+      if (rows.length >= n) return rows.slice(0, n);
+      const recent  = rows.slice(-Math.min(14, rows.length));
+      const avgInc  = recent.reduce((s, r) => s + r.income,  0) / recent.length;
+      const avgExp  = recent.reduce((s, r) => s + r.expense, 0) / recent.length;
+      const avgInv  = recent.reduce((s, r) => s + r.invest,  0) / recent.length;
+      const ext = [...rows];
+      let last = rows[rows.length - 1];
+      let dt   = new Date(last.date + 'T00:00:00');
+      while (ext.length < n) {
+        dt = new Date(dt.getTime() + 86400000);
+        const proj = {
+          date:     dt.toISOString().slice(0, 10),
+          day:      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()],
+          income:   avgInc, expense: avgExp, invest: avgInv,
+          checking: last.checking + avgInc + avgExp + avgInv,
+          savings:  last.savings,
+          total:    last.checking + avgInc + avgExp + avgInv + last.savings,
+          _proj:    true
+        };
+        ext.push(proj);
+        last = proj;
+      }
+      return ext;
+    };
+
+    const allRows = extendToNDays(baseRows, 90);
+    const rows30  = allRows.slice(0, 30);
+    const rows60  = allRows.slice(0, 60);
+    const rows90  = allRows;
+
+    // ── Horizon snapshot stats ──
+    const endOf = arr => arr.length ? arr[arr.length - 1] : {};
+    const e30 = endOf(rows30), e60 = endOf(rows60), e90 = endOf(rows90);
+    const chkNow = c.checking_balance || 0;
+    const trendBadge = v =>
+      `<span style="font-size:0.65rem;color:${v>=0?'var(--accent)':'var(--warn)'};margin-left:4px;">${v>=0?'▲ +':'▼ '}${fm(Math.abs(v))}</span>`;
+
+    // ── Lowest checking across full 90-day window ──
+    const minChk    = Math.min(...allRows.map(r => r.checking));
+    const minChkRow = allRows.find(r => r.checking === minChk) || null;
 
     // ── Summary cards ──
     const calibHtml = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
         <div class="stat-card accent-sky">
           <div class="sc-label">As Of</div>
-          <div class="sc-value" style="font-size:1rem;">${c.current_date||'—'}</div>
-          <div class="sc-sub">Chk ${fm(c.checking_balance||0)} · Bridge ${fm(c.savings_balance||0)}</div>
+          <div class="sc-value" style="font-size:0.95rem;">${c.current_date||'—'}</div>
+          <div class="sc-sub">Chk ${fm(chkNow)} · Bridge ${fm(c.savings_balance||0)}</div>
         </div>
         <div class="stat-card accent-emerald">
-          <div class="sc-label">Projected Checking</div>
-          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_checking||0)}${trendBadge(chkTrend)}</div>
-          <div class="sc-sub">end of window</div>
+          <div class="sc-label">Day 30 Checking</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(e30.checking||0)}${trendBadge((e30.checking||0)-chkNow)}</div>
+          <div class="sc-sub">total ${fm(e30.total||0)}</div>
         </div>
         <div class="stat-card accent-teal">
-          <div class="sc-label">Projected Bridge</div>
-          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_savings||0)}</div>
-          <div class="sc-sub">SGOV account</div>
+          <div class="sc-label">Day 60 Checking</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(e60.checking||0)}${trendBadge((e60.checking||0)-chkNow)}</div>
+          <div class="sc-sub">total ${fm(e60.total||0)}</div>
         </div>
         <div class="stat-card accent-indigo">
-          <div class="sc-label">Projected Total</div>
-          <div class="sc-value" style="font-size:1.2rem;">${fm(c.projected_total||0)}${trendBadge(totTrend)}</div>
-          <div class="sc-sub">checking + bridge</div>
+          <div class="sc-label">Day 90 Checking</div>
+          <div class="sc-value" style="font-size:1.2rem;">${fm(e90.checking||0)}${trendBadge((e90.checking||0)-chkNow)}</div>
+          <div class="sc-sub">total ${fm(e90.total||0)}</div>
         </div>
         ${minChkRow ? `<div class="stat-card accent-rose">
           <div class="sc-label">Lowest Checking</div>
           <div class="sc-value" style="font-size:1.2rem;">${fm(minChk)}</div>
-          <div class="sc-sub">${minChkRow.date} · ${minChkRow.day}</div>
+          <div class="sc-sub">${minChkRow.date} · ${minChkRow.day}${minChkRow._proj?' (proj)':''}</div>
         </div>` : ''}
       </div>`;
 
-    // ── Balance trajectory chart ──
-    const chartHtml = `<canvas id="forecastChart" style="max-height:170px;margin-bottom:20px;"></canvas>`;
-
-    // ── Table ──
-    const thR = 'text-align:right;padding:7px 10px;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;';
-    const thL = thR.replace('text-align:right','text-align:left');
-    const td  = 'padding:7px 10px;font-family:var(--font-mono);font-size:0.78rem;text-align:right;';
-    const tableRows = rows.map(row => {
-      const net      = row.income + row.expense + row.invest;
-      const isWknd   = ['Sat','Sun'].includes(row.day);
-      const isMinChk = row === minChkRow;
-      const rowBg    = isMinChk              ? 'background:rgba(245,158,11,0.10);'
-                     : net > 0              ? 'background:rgba(74,222,128,0.04);'
-                     : net < 0              ? 'background:rgba(248,113,113,0.04);'
-                     : '';
-      return `<tr style="border-bottom:1px solid var(--border);${rowBg}${isWknd?'opacity:0.55;':''}">
-        <td style="padding:7px 10px;font-family:var(--font-mono);font-size:0.78rem;color:var(--muted2);">${row.date}</td>
-        <td style="padding:7px 10px;font-size:0.72rem;color:var(--muted);">${row.day}</td>
-        <td style="${td}color:${row.income>0?'var(--accent)':'var(--muted2)'}">${row.income>0?'+'+fm(row.income):'—'}</td>
-        <td style="${td}color:${row.expense<0?'var(--warn)':'var(--muted2)'}">${row.expense<0?fm(row.expense):'—'}</td>
-        <td style="${td}color:${row.invest<0?'var(--gold)':'var(--muted2)'}">${row.invest<0?fm(row.invest):'—'}</td>
-        <td style="${td}color:${net>0?'var(--accent)':net<0?'var(--warn)':'var(--muted2)'};font-weight:600;">${net===0?'—':(net>0?'+':'')+fm(net)}</td>
-        <td style="${td}${isMinChk?'color:var(--gold);font-weight:700;':''}">${fm(row.checking)}</td>
-        <td style="${td}color:var(--muted);">${fm(row.savings)}</td>
-        <td style="${td}font-weight:600;">${fm(row.total)}</td>
-      </tr>`;
-    }).join('');
-
-    el.innerHTML = calibHtml + chartHtml + `
-      <div style="overflow-x:auto;">
+    // ── Build table HTML for a given row set ──
+    const buildTable = rows => {
+      const thR = 'text-align:right;padding:6px 10px;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;';
+      const thL = thR.replace('right','left');
+      const td  = 'padding:6px 10px;font-family:var(--font-mono);font-size:0.78rem;text-align:right;';
+      const body = rows.map(row => {
+        const net      = row.income + row.expense + row.invest;
+        const isWknd   = ['Sat','Sun'].includes(row.day);
+        const isMinChk = row.checking === minChk;
+        const rowBg    = isMinChk   ? 'background:rgba(245,158,11,0.10);'
+                       : row._proj  ? 'background:rgba(107,114,128,0.03);'
+                       : net > 0    ? 'background:rgba(74,222,128,0.04);'
+                       : net < 0    ? 'background:rgba(248,113,113,0.04);'
+                       : '';
+        const dimStyle = (isWknd || row._proj) ? `opacity:${row._proj?0.65:0.55};` : '';
+        const projMark = row._proj ? '<span style="font-size:0.58rem;color:var(--muted2);margin-left:2px;">~</span>' : '';
+        return `<tr style="border-bottom:1px solid var(--border);${rowBg}${dimStyle}">
+          <td style="padding:6px 10px;font-family:var(--font-mono);font-size:0.78rem;color:var(--muted2);">${row.date}${projMark}</td>
+          <td style="padding:6px 10px;font-size:0.72rem;color:var(--muted);">${row.day}</td>
+          <td style="${td}color:${row.income>0?'var(--accent)':'var(--muted2)'}">${row.income>0?'+'+fm(row.income):'—'}</td>
+          <td style="${td}color:${row.expense<0?'var(--warn)':'var(--muted2)'}">${row.expense<0?fm(row.expense):'—'}</td>
+          <td style="${td}color:${row.invest<0?'var(--gold)':'var(--muted2)'}">${row.invest<0?fm(row.invest):'—'}</td>
+          <td style="${td}color:${net>0?'var(--accent)':net<0?'var(--warn)':'var(--muted2)'};font-weight:600;">${net===0?'—':(net>0?'+':'')+fm(net)}</td>
+          <td style="${td}${isMinChk?'color:var(--gold);font-weight:700;':''}">${fm(row.checking)}</td>
+          <td style="${td}color:var(--muted);">${fm(row.savings)}</td>
+          <td style="${td}font-weight:600;">${fm(row.total)}</td>
+        </tr>`;
+      }).join('');
+      return `<div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr style="border-bottom:2px solid var(--border2);">
             <th style="${thL}color:var(--muted2);">Date</th>
@@ -4299,44 +4331,103 @@ async function loadForecast() {
             <th style="${thR}color:var(--muted2);">Bridge</th>
             <th style="${thR}color:var(--text);">Total</th>
           </tr></thead>
-          <tbody>${tableRows}</tbody>
+          <tbody>${body}</tbody>
         </table>
       </div>`;
+    };
 
-    // ── Chart ──
-    setTimeout(() => {
-      const ctx = document.getElementById('forecastChart');
-      if (!ctx || !rows.length) return;
-      if (window._forecastChart) window._forecastChart.destroy();
-      window._forecastChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: rows.map(r => r.date.slice(5)),
-          datasets: [
-            { label: 'Checking', data: rows.map(r => r.checking),
-              borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.08)',
-              fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 },
-            { label: 'Total',    data: rows.map(r => r.total),
-              borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.06)',
-              fill: false, tension: 0.35, pointRadius: 2, borderWidth: 2 },
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { labels: { color: '#9aa3b2', font: { size: 11 }, boxWidth: 12 } },
-            tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fm(c.raw) } }
+    // ── Build Chart.js chart for a given row set ──
+    const buildChart = rows => {
+      setTimeout(() => {
+        const ctx = document.getElementById('forecastChart');
+        if (!ctx || !rows.length) return;
+        if (window._forecastChart) window._forecastChart.destroy();
+        const actCount = baseRows.length;
+        const chkActual = rows.map((r, i) => i < actCount ? r.checking : null);
+        const chkProj   = rows.map((r, i) => i >= actCount - 1 ? r.checking : null);
+        const totActual = rows.map((r, i) => i < actCount ? r.total : null);
+        const totProj   = rows.map((r, i) => i >= actCount - 1 ? r.total : null);
+        window._forecastChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: rows.map(r => r.date.slice(5)),
+            datasets: [
+              { label: 'Checking',        data: chkActual,
+                borderColor: '#38bdf8',   backgroundColor: 'rgba(56,189,248,0.08)',
+                fill: true,  tension: 0.35, pointRadius: 0, borderWidth: 2 },
+              { label: 'Checking (proj)', data: chkProj,
+                borderColor: '#38bdf8',   backgroundColor: 'transparent',
+                borderDash: [4,3], fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1.5 },
+              { label: 'Total',           data: totActual,
+                borderColor: '#4ade80',   backgroundColor: 'transparent',
+                fill: false, tension: 0.35, pointRadius: 0, borderWidth: 2 },
+              { label: 'Total (proj)',    data: totProj,
+                borderColor: '#4ade80',   backgroundColor: 'transparent',
+                borderDash: [4,3], fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1.5 },
+            ]
           },
-          scales: {
-            x: { ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 12 }, grid: { display: false } },
-            y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => '$'+(v/1000).toFixed(0)+'k' },
-                 grid: { color: 'rgba(255,255,255,0.04)' } }
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: '#9aa3b2', font: { size: 11 }, boxWidth: 12,
+                filter: item => !item.text.includes('(proj)') } },
+              tooltip: { callbacks: { label: ctx => ctx.dataset.label.replace(' (proj)','') + ': ' + fm(ctx.raw) } }
+            },
+            scales: {
+              x: { ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 15 }, grid: { display: false } },
+              y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => '$'+(v/1000).toFixed(0)+'k' },
+                   grid: { color: 'rgba(255,255,255,0.04)' } }
+            }
           }
-        }
-      });
-    }, 80);
+        });
+      }, 80);
+    };
+
+    // ── Store state for pill switching ──
+    window._fcRows       = { 30: rows30, 60: rows60, 90: rows90 };
+    window._fcBuildTable = buildTable;
+    window._fcBuildChart = buildChart;
+    window._fcHorizon    = window._fcHorizon || 30;
+
+    // ── Horizon pills ──
+    const pillsHtml = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+        ${[30,60,90].map(n => `<button id="fc-pill-${n}" onclick="switchFcHorizon(${n})"
+          style="padding:4px 14px;font-size:0.7rem;border-radius:20px;cursor:pointer;
+                 border:1px solid var(--border2);
+                 background:${window._fcHorizon===n?'var(--gold)':'var(--surface3)'};
+                 color:${window._fcHorizon===n?'#0a0a0a':'var(--muted)'};
+                 font-weight:${window._fcHorizon===n?700:400};">${n}D</button>`).join('')}
+        <span style="font-size:0.65rem;color:var(--muted2);margin-left:4px;">
+          ${baseRows.length < 90
+            ? `${baseRows.length} actual · ${90-baseRows.length} projected`
+            : `${baseRows.length} rows`}
+        </span>
+      </div>`;
+
+    el.innerHTML = calibHtml + pillsHtml
+      + `<canvas id="forecastChart" style="max-height:180px;margin-bottom:20px;"></canvas>`
+      + `<div id="fc-table-container"></div>`;
+    document.getElementById('fc-table-container').innerHTML = buildTable(window._fcRows[window._fcHorizon]);
+    buildChart(window._fcRows[window._fcHorizon]);
 
   } catch(e) { el.innerHTML = `<span class="err">${e.message}</span>`; }
+}
+
+function switchFcHorizon(n) {
+  window._fcHorizon = n;
+  [30,60,90].forEach(v => {
+    const p = document.getElementById('fc-pill-'+v);
+    if (!p) return;
+    p.style.background  = v===n ? 'var(--gold)'    : 'var(--surface3)';
+    p.style.color       = v===n ? '#0a0a0a'        : 'var(--muted)';
+    p.style.fontWeight  = v===n ? '700'             : '400';
+  });
+  const rows = (window._fcRows || {})[n];
+  if (!rows) return;
+  const tc = document.getElementById('fc-table-container');
+  if (tc) tc.innerHTML = window._fcBuildTable(rows);
+  window._fcBuildChart(rows);
 }
 
 async function loadTaxLoss() {
