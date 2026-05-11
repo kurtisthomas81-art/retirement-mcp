@@ -998,21 +998,25 @@
       <div class="ov-stat-label">Liquid Net Worth</div>
       <div class="ov-stat-value" id="ov-lnw-val">—</div>
       <div class="ov-stat-meta" id="ov-lnw-meta"></div>
+      <div class="home-sparkline-row" id="ov-lnw-spark"></div>
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Engine (stocks)</div>
       <div class="ov-stat-value" id="ov-engine-val">—</div>
       <div class="ov-stat-meta">Untouched 62→67</div>
+      <div class="home-sparkline-row" id="ov-engine-spark"></div>
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Bridge (SGOV)</div>
       <div class="ov-stat-value" id="ov-bridge-val">—</div>
       <div class="ov-stat-meta" id="ov-bridge-meta"></div>
+      <div class="home-sparkline-row" id="ov-bridge-spark"></div>
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Checking</div>
       <div class="ov-stat-value" id="ov-checking-val">—</div>
       <div class="ov-stat-meta" id="ov-checking-meta"></div>
+      <div class="home-sparkline-row" id="ov-checking-spark"></div>
     </div>
   </div>
 
@@ -1777,11 +1781,22 @@ async function loadHome() {
       let hist = JSON.parse(localStorage.getItem('retAdv_nwHistory') || '[]');
       const today = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'});
       if (!hist.length || hist[hist.length-1].label !== today) {
-        hist.push({ label: today, lnw: lnwNum, tnw: tnwNum });
+        hist.push({ label: today, lnw: lnwNum, tnw: tnwNum, engine: engineVal||0, bridge: bridgeVal||0, cash: cashVal||0 });
         if (hist.length > 90) hist = hist.slice(-90);
         localStorage.setItem('retAdv_nwHistory', JSON.stringify(hist));
       }
       renderNWHistoryChart(hist);
+
+      // ── Stat card sparklines ──
+      const _spark = (id, data, color) => {
+        const el = document.getElementById(id);
+        if (!el || data.length < 2) return;
+        el.innerHTML = svgSparkline(data, color, 80, 18);
+      };
+      _spark('ov-lnw-spark',     hist.map(h => h.lnw),              '#4ade80');
+      _spark('ov-engine-spark',  hist.filter(h => h.engine != null).map(h => h.engine), '#cd853f');
+      _spark('ov-bridge-spark',  hist.filter(h => h.bridge != null).map(h => h.bridge), '#38bdf8');
+      _spark('ov-checking-spark',hist.filter(h => h.cash   != null).map(h => h.cash),   '#6b7280');
     }
 
     // ── Milestone toast ──
@@ -3406,7 +3421,8 @@ function renderBudgetTable(spending, months) {
     const delta  = bgt > 0 ? bgt - actual : null;
     const deltaCls = delta === null ? '' : delta >= 0 ? 'delta-under' : 'delta-over';
     const deltaStr = delta === null ? '—' : (delta >= 0 ? '&#9660; Under ' : '&#9650; Over ') + fm(Math.abs(delta));
-    return `<tr>
+    const safeCat  = cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr style="cursor:pointer" onclick="drillToCategory('${safeCat}','${recentMonth}')" title="View ${cat} transactions">
       <td>${cat}</td>
       <td>${bgt > 0 ? fm(bgt) : '<span style="color:var(--muted2)">—</span>'}</td>
       <td>${actual > 0 ? fm(actual) : '—'}</td>
@@ -4074,6 +4090,16 @@ async function loadRoadmap() {
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────
+function drillToCategory(cat, month) {
+  window._txDrilldown = { category: cat, month };
+  const txBtn = document.querySelector('[data-tab="transactions"]');
+  if (!transactionsLoaded) {
+    switchTab('transactions', txBtn);
+  } else {
+    switchTab('transactions', txBtn);
+    loadTransactions(1);
+  }
+}
 function clearTxDrilldown() {
   window._txCategoryFilter = null;
   document.getElementById('txDrilldownBadge')?.remove();
