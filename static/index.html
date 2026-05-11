@@ -61,7 +61,8 @@
     --bottom-nav-h: 56px;
     --header-h:     58px;
   }
-  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.9rem; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 0.9rem; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: hidden; }
+  html { overflow-x: hidden; }
 
   /* ── Header ── */
   header {
@@ -127,19 +128,21 @@
   .bottom-nav { display: none; }
   @media (max-width: 768px) {
     .bottom-nav {
-      display: flex; flex-direction: column; justify-content: flex-start;
+      display: block;
       position: fixed; bottom: 0; left: 0; right: 0;
+      box-sizing: border-box;
       height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
+      padding-bottom: env(safe-area-inset-bottom,0px);
       background: rgba(8,13,26,0.95);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border2); z-index: 200;
     }
     .bottom-nav-scroll {
-      display: flex; flex: 1; align-items: stretch;
+      display: flex; align-items: center;
+      height: var(--bottom-nav-h);
       overflow-x: auto; overflow-y: hidden;
       overscroll-behavior-x: contain;
       -webkit-overflow-scrolling: touch;
-      touch-action: pan-x;
       padding: 0 4px;
       scrollbar-width: none; -ms-overflow-style: none;
     }
