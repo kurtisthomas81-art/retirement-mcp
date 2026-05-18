@@ -4,7 +4,6 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-import itertools
 import numpy as np
 
 import config
@@ -686,7 +685,7 @@ def run_monte_carlo(params, seed=None):
         if use_ph:
             ph3_moat *= (1 + syld)
             euph     = ret >= euph_trig
-            tgt_ph   = base_draw_ann * infl_acc * ph_yrs
+            tgt_ph   = bridge_draw_ann * infl_acc * ph_yrs
             can_harv = euph & (mgain > 0) & (ph3_moat < tgt_ph)
             hv = np.where(can_harv, np.minimum(tgt_ph - ph3_moat, mgain), 0.0)
             eng -= hv; ph3_moat += hv; mgain -= hv

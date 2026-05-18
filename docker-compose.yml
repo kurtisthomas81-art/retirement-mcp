@@ -1,0 +1,11 @@
+services:
+  retirement-advisor:
+    build: .
+    container_name: retirement-advisor
+    ports:
+      - "8000:8000"
+    volumes:
+      - /mnt/user/appdata/retirement-mcp/data:/app/data
+    env_file:
+      - /mnt/user/appdata/retirement-mcp/.env
+    restart: unless-stopped

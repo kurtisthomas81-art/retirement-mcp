@@ -440,6 +440,11 @@ async def api_finn_memory_get(request: Request):
     return JSONResponse({"memory": _read_finn_memory()})
 
 
+def _append_finn_memory(entry: str):
+    with open(FINN_MEMORY_PATH, "a") as f:
+        f.write(entry)
+
+
 async def api_finn_memory_add(request: Request):
     try:
         body = await request.json()
@@ -450,8 +455,7 @@ async def api_finn_memory_add(request: Request):
         return JSONResponse({"error": "note required"}, status_code=400)
     today = time.strftime("%Y-%m-%d")
     entry = f"- [{today}] {note}\n"
-    with open(FINN_MEMORY_PATH, "a") as f:
-        f.write(entry)
+    await asyncio.to_thread(_append_finn_memory, entry)
     return JSONResponse({"ok": True, "entry": entry.strip()})
 
 
@@ -828,9 +832,12 @@ async def api_roadmap(request: Request):
 
 async def api_transactions(request: Request):
     try:
-        qs     = request.query_params
-        page   = int(qs.get("page", 1))
-        limit  = min(int(qs.get("limit", 50)), 200)
+        qs = request.query_params
+        try:
+            page  = max(1, int(qs.get("page", 1)))
+            limit = max(1, min(int(qs.get("limit", 50)), 200))
+        except (ValueError, TypeError):
+            return JSONResponse({"error": "page and limit must be integers"}, status_code=400)
         month  = qs.get("month") or None
         txtype = qs.get("type") or None
         data = await asyncio.to_thread(excel_reader.read_transactions_data, page, limit, month, txtype)
