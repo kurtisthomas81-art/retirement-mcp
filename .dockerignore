@@ -1,0 +1,14 @@
+.env
+.env.*
+data/
+*.xlsx
+finn_memory.md
+finn_history.json
+logs/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.git/
+.gitignore

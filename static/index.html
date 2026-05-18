@@ -1123,6 +1123,10 @@
         <h2>SWR if Retired Today</h2>
         <div id="ov-swr-content"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
       </div>
+      <div class="panel">
+        <h2>Bridge Phase Planning <span class="panel-sub">ACA · IRMAA</span></h2>
+        <div id="ov-bridge-alerts"><div style="color:var(--muted2);font-size:0.8rem;">Loading…</div></div>
+      </div>
     </div>
   </div>
 
@@ -1146,6 +1150,12 @@
 
   <!-- Contribution inputs -->
   <div class="panel" id="ov-contrib-wrap"></div>
+
+  <!-- SS Claiming Strategy -->
+  <div class="panel" id="ov-ss-compare-wrap" style="display:none;">
+    <h2>SS Claiming Strategy <span class="panel-sub">claim age comparison</span></h2>
+    <div id="ov-ss-compare-content"></div>
+  </div>
 
   <!-- Email Digest (collapsed by default) -->
   <details class="panel digest-panel">
@@ -1389,6 +1399,12 @@
 
     </div><!-- .mc-layout -->
   </div>
+
+  <!-- Tax Planning Thresholds reference panel -->
+  <div class="panel" id="mc-tax-ref-panel" style="display:none;margin-top:0;">
+    <h2>2026 Tax Planning Thresholds <span class="panel-sub">single filer · bridge-phase reference</span></h2>
+    <div id="mc-tax-ref-content"></div>
+  </div>
 </main>
 </div>
 
@@ -1584,7 +1600,22 @@ function switchTab(name, btn) {
   if (name === 'transactions' && !transactionsLoaded) loadTransactions(1);
   if (name === 'taxloss'      && !taxlossLoaded)      loadTaxLoss();
   if (name === 'chat') {
-    if (chatMessages.length === 0) showChatSuggestions();
+    const hist = document.getElementById('chatHistory');
+    if (chatMessages.length > 0 && hist && !hist.children.length) {
+      chatMessages.forEach(m => {
+        const el = document.createElement('div');
+        el.className = m.role === 'user' ? 'chat-msg-user' : 'chat-msg-ai';
+        if (m.role === 'assistant') { el.innerHTML = mdLite(m.content); } else { el.textContent = m.content; }
+        hist.appendChild(el);
+      });
+      const notice = document.createElement('div');
+      notice.style.cssText = 'text-align:center;font-size:0.63rem;color:var(--muted2);padding:6px 0 2px;';
+      notice.textContent = `↑ ${chatMessages.length} messages from last session`;
+      hist.insertBefore(notice, hist.firstChild);
+      hist.scrollTop = 99999;
+    } else if (chatMessages.length === 0) {
+      showChatSuggestions();
+    }
     setTimeout(() => document.getElementById('chatInput')?.focus(), 80);
   }
 }
@@ -1690,7 +1721,16 @@ async function loadHome() {
         metaEl.className   = 'ov-stat-meta ' + (monthlyDelta >= 0 ? 'up' : 'down');
       }
     }
-    if (bridgeVal > 0) setEl('ov-bridge-meta', `${Math.round(bridgeVal / 360000 * 100)}% of $360k goal`);
+    if (bridgeVal > 0) {
+      const moatTarget   = rules.moat_target || 360000;
+      const drawAnn      = rules.bridge_draw_ann || 72000;
+      const pctFunded    = Math.round(bridgeVal / moatTarget * 100);
+      const monthsRunway = Math.round(bridgeVal / (drawAnn / 12));
+      const depDate      = new Date();
+      depDate.setMonth(depDate.getMonth() + monthsRunway);
+      const depStr = depDate.toLocaleDateString('en-US', {month:'short', year:'numeric'});
+      setEl('ov-bridge-meta', `${pctFunded}% of goal · ${monthsRunway}mo runway · depletes ${depStr}`);
+    }
     const runway = m['SURVIVAL RUNWAY'];
     if (runway) setEl('ov-checking-meta', `${runway} runway`);
 
@@ -1882,6 +1922,81 @@ async function loadHome() {
         showToast(`LNW crossed ${highest >= 1000000 ? '$1M' : '$' + (highest/1000).toFixed(0) + 'k'} — keep stacking.`, 'milestone', 6000);
         localStorage.setItem('retAdv_lastMilestone', highest);
       }
+    }
+
+    // ── ACA cliff + IRMAA proximity alerts ──
+    const alertsEl = document.getElementById('ov-bridge-alerts');
+    if (alertsEl) {
+      const drawAnn   = rules.bridge_draw_ann || 72000;
+      const acaCliff  = rules.aca_cliff_magi_single || 60240;
+      const irmaaT1   = rules.irmaa_tier1_single    || 106000;
+      const acaDiff   = acaCliff - drawAnn;
+      const acaColor  = acaDiff >= 0 ? 'var(--accent)' : 'var(--warn)';
+      const acaIcon   = acaDiff >= 0 ? '✓' : '⚠';
+      const acaText   = acaDiff >= 0
+        ? `${fm(drawAnn)}/yr draw is ${fm(acaDiff)} below cliff ${acaIcon}`
+        : `Draw ${fm(drawAnn)}/yr exceeds cliff by ${fm(Math.abs(acaDiff))} ${acaIcon}`;
+      const irmaaRoom = irmaaT1 - drawAnn;
+      alertsEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="padding:9px 11px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
+            <div style="font-size:0.59rem;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.09em;margin-bottom:3px;">ACA Cliff (ages 62–64)</div>
+            <div style="font-size:0.74rem;color:${acaColor};">${acaText}</div>
+            <div style="font-size:0.63rem;color:var(--muted2);margin-top:2px;">Ceiling: ${fm(acaCliff)} MAGI</div>
+          </div>
+          <div style="padding:9px 11px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
+            <div style="font-size:0.59rem;font-weight:700;color:#cd853f;text-transform:uppercase;letter-spacing:0.09em;margin-bottom:3px;">IRMAA Tier 1 (age 65+)</div>
+            <div style="font-size:0.74rem;color:var(--text);">Conversion headroom: <span style="color:var(--accent);font-family:var(--font-mono);">${fm(irmaaRoom)}</span></div>
+            <div style="font-size:0.63rem;color:var(--muted2);margin-top:2px;">Threshold: ${fm(irmaaT1)} MAGI</div>
+          </div>
+        </div>`;
+    }
+
+    // ── SS claiming strategy comparator ──
+    const ss62mo = mc.ss_monthly_62 || 0;
+    const ss67mo = mc.ss_monthly_67 || 0;
+    const ss70mo = mc.ss_monthly_70 || 0;
+    if (ss67mo > 0) {
+      const ssWrap = document.getElementById('ov-ss-compare-wrap');
+      if (ssWrap) ssWrap.style.display = '';
+      const be67_62 = (ss62mo > 0 && ss67mo > ss62mo)
+        ? Math.round((67 * ss67mo - 62 * ss62mo) / (ss67mo - ss62mo)) : null;
+      const be70_67 = (ss70mo > 0 && ss70mo > ss67mo)
+        ? Math.round((70 * ss70mo - 67 * ss67mo) / (ss70mo - ss67mo)) : null;
+      const tdR = `style="text-align:right;padding:7px 10px;font-family:var(--font-mono);border-bottom:1px solid var(--border);"`;
+      const tdL = `style="text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);"`;
+      setHtml('ov-ss-compare-content', `
+        <table style="width:100%;border-collapse:collapse;font-size:0.74rem;">
+          <thead><tr style="border-bottom:1px solid var(--border2);">
+            <th style="text-align:left;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Claim Age</th>
+            <th style="text-align:right;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Monthly</th>
+            <th style="text-align:right;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Annual</th>
+            <th style="text-align:right;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">vs. Age 67</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td ${tdL}>62 <span style="color:var(--muted2);font-size:0.65rem;">early</span></td>
+              <td ${tdR}>${ss62mo ? '$'+Math.round(ss62mo).toLocaleString() : '—'}</td>
+              <td ${tdR}>${ss62mo ? fm(ss62mo*12) : '—'}</td>
+              <td ${tdR} style="color:var(--warn);">${be67_62 ? 'break-even '+be67_62 : '—'}</td>
+            </tr>
+            <tr style="background:rgba(205,133,63,0.06);">
+              <td ${tdL}>67 <span style="color:var(--accent);font-size:0.65rem;">full ✓</span></td>
+              <td ${tdR}>${ss67mo ? '$'+Math.round(ss67mo).toLocaleString() : '—'}</td>
+              <td ${tdR}>${ss67mo ? fm(ss67mo*12) : '—'}</td>
+              <td ${tdR} style="color:var(--muted2);">Baseline</td>
+            </tr>
+            <tr>
+              <td ${tdL} style="border-bottom:none;">70 <span style="color:var(--muted2);font-size:0.65rem;">max</span></td>
+              <td ${tdR} style="border-bottom:none;">${ss70mo ? '$'+Math.round(ss70mo).toLocaleString() : '—'}</td>
+              <td ${tdR} style="border-bottom:none;">${ss70mo ? fm(ss70mo*12) : '—'}</td>
+              <td ${tdR} style="border-bottom:none;color:var(--accent);">${be70_67 ? 'break-even '+be70_67 : '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:0.62rem;color:var(--muted2);margin-top:8px;line-height:1.5;">
+          Plan targets SS at age ${rules.ss_age || 67}. Bridge SGOV covers income from 62–${rules.ss_age || 67}.
+        </div>`);
     }
 
   } catch(e) {
@@ -2403,6 +2518,7 @@ async function runMC() {
     window._lastSimParams = params;
     window._lastSimData   = d;
     renderMCResults(d);
+    renderTaxRefPanel();
   } catch(e) {
     panel.innerHTML = `<span class="err">Network error: ${e.message}</span>`;
   } finally {
@@ -2452,6 +2568,14 @@ function renderMCChart(d) {
   const ctx = document.getElementById('mcChart');
   if (!ctx) return;
   if (window._mcChart) window._mcChart.destroy();
+  // "You are here" — current LNW at current age as a single dot on the chart
+  const _rules    = window._rules || {};
+  const _curAge   = _rules.client_age || _rules.current_age;
+  const _lnwNow   = (window._lastDashboard && window._lastDashboard.metrics)
+    ? (window._lastDashboard.metrics['LIQUID NET WORTH'] || 0) : 0;
+  const _ageIdx   = _curAge ? d.bands.ages.indexOf(_curAge) : -1;
+  const _hereData = _ageIdx >= 0 && _lnwNow > 0
+    ? d.bands.ages.map((_, i) => i === _ageIdx ? _lnwNow : null) : null;
   window._mcChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -2462,6 +2586,10 @@ function renderMCChart(d) {
         { label: 'P50', data: d.bands.p50, fill: false, borderColor: '#cd853f', borderWidth: 2.5, backgroundColor: 'transparent', tension: 0.4, pointRadius: 0 },
         { label: 'P25', data: d.bands.p25, fill: '-1',  borderColor: 'rgba(205,133,63,0.25)', backgroundColor: 'rgba(205,133,63,0.13)', tension: 0.4, pointRadius: 0, borderWidth: 0 },
         { label: 'P10', data: d.bands.p10, fill: '-1',  borderColor: 'rgba(205,133,63,0.55)', backgroundColor: 'rgba(205,133,63,0.07)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        ...(_hereData ? [{ label: 'You are here', data: _hereData, fill: false, borderColor: 'transparent',
+          backgroundColor: '#4ade80', pointBackgroundColor: '#4ade80', pointBorderColor: '#fff', pointBorderWidth: 2,
+          pointRadius: d.bands.ages.map((_, i) => i === _ageIdx ? 8 : 0),
+          pointHoverRadius: 10, showLine: false, spanGaps: false }] : []),
       ]
     },
     options: {
@@ -2519,6 +2647,38 @@ function renderSpendChart(d) {
       }
     }
   });
+}
+
+function renderTaxRefPanel() {
+  const wrap = document.getElementById('mc-tax-ref-panel');
+  const el   = document.getElementById('mc-tax-ref-content');
+  if (!wrap || !el) return;
+  const r = window._rules || {};
+  if (!r.std_deduction_single) return;
+  wrap.style.display = '';
+  const row = (label, val, note) =>
+    `<tr><td style="padding:6px 10px;color:var(--muted);font-size:0.73rem;">${label}</td>
+     <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-size:0.73rem;">${val}</td>
+     <td style="padding:6px 10px;color:var(--muted2);font-size:0.65rem;">${note}</td></tr>`;
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="border-bottom:1px solid var(--border2);">
+      <th style="text-align:left;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Threshold</th>
+      <th style="text-align:right;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Single (2026)</th>
+      <th style="text-align:left;padding:5px 10px;font-size:0.60rem;color:var(--muted);text-transform:uppercase;">Relevance</th>
+    </tr></thead>
+    <tbody style="border-top:1px solid var(--border);">
+      ${row('Standard Deduction',        fm(r.std_deduction_single),      'Tax-free income floor')}
+      ${row('LTCG 0% ceiling',           fm(r.ltcg_0pct_single),          'Harvest long-term gains tax-free below this')}
+      ${row('ACA Cliff (bridge, 62–64)', fm(r.aca_cliff_magi_single),      'Stay below for ACA subsidy eligibility')}
+      ${row('12% bracket top (≈)',        '$47,150',                        'Sweet spot for Roth conversions')}
+      ${row('IRMAA Tier 1 (65+)',         fm(r.irmaa_tier1_single),         'Medicare surcharge above this MAGI')}
+      ${row('NIIT threshold',             fm(r.niit_threshold_single),      '+3.8% on net investment income')}
+      ${row('LTCG 15% ceiling',          fm(r.ltcg_15pct_single),          '20% rate kicks in above this')}
+    </tbody>
+  </table>
+  <div style="font-size:0.62rem;color:var(--muted2);margin-top:8px;line-height:1.5;">
+    Bridge draw: ${fm(r.bridge_draw_ann || 72000)}/yr · SGOV interest is ordinary income · Roth conversions add to MAGI
+  </div>`;
 }
 
 function renderPlaybook(d) {
@@ -4910,7 +5070,9 @@ async function createNewPlan() {
 
 <script>
 // ── Chat globals ──────────────────────────────────────────────────────────────
-let chatMessages = [];
+let chatMessages = (() => {
+  try { return JSON.parse(localStorage.getItem('retAdv_chatHistory') || '[]'); } catch(e) { return []; }
+})();
 const CHAT_SUGGESTIONS = [
   "What\u2019s my plan\u2019s biggest tail risk?",
   "Is my SGOV moat sized correctly for my bridge period?",
@@ -4974,6 +5136,7 @@ async function submitFinnCorrection() {
 
 function clearChat() {
   chatMessages = [];
+  try { localStorage.removeItem('retAdv_chatHistory'); } catch(e) {}
   const hist = document.getElementById('chatHistory');
   hist.innerHTML = '';
   showChatSuggestions();
@@ -5025,12 +5188,22 @@ async function sendChat() {
     const aiBubble = document.createElement('div');
     aiBubble.className = 'chat-msg-ai';
     if (d.error) {
-      aiBubble.style.color = 'var(--red)';
-      aiBubble.textContent = '\u26a0 ' + d.error;
+      if (d.error.includes('Ollama') || d.error.includes('unreachable')) {
+        aiBubble.innerHTML = `<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;color:var(--warn);font-size:0.82rem;margin-bottom:5px;">&#9889; Finn is offline</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;">The Ollama container isn&#39;t responding. Start it with:</div>
+          <code style="display:block;background:var(--surface3);padding:5px 8px;border-radius:4px;font-size:0.68rem;margin-top:5px;color:var(--text);">docker start ollama</code>
+          <div style="font-size:0.64rem;color:var(--muted2);margin-top:6px;">Then pull the model if needed: <code style="background:var(--surface3);padding:1px 4px;border-radius:3px;">docker exec ollama ollama pull qwen3.5:9b</code></div>
+        </div>`;
+      } else {
+        aiBubble.style.color = 'var(--red)';
+        aiBubble.textContent = '\u26a0 ' + d.error;
+      }
     } else {
       const reply = d.reply || '';
       aiBubble.innerHTML = mdLite(reply);
       chatMessages.push({role: 'assistant', content: reply});
+      try { localStorage.setItem('retAdv_chatHistory', JSON.stringify(chatMessages.slice(-20))); } catch(e) {}
       const rememberBtn = document.createElement('button');
       rememberBtn.className = 'finn-remember-btn';
       rememberBtn.title = 'Flag this response — save a correction to Finn memory';

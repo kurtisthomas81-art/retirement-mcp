@@ -276,8 +276,11 @@ async def api_rules(request: Request):
         "client_age":   age,   # alias — frontend reads client_age
         "dob":          profile["dob"],
         "ss_age":       plan.get("ss_age", 67),
-        "mean_return":    plan.get("mean_return",    0.10),
-        "inflation_rate": plan.get("inflation_rate", 0.03),
+        "mean_return":      plan.get("mean_return",      0.10),
+        "inflation_rate":   plan.get("inflation_rate",   0.03),
+        "bridge_draw_ann":  plan.get("bridge_draw_ann",  72000),
+        "moat_target":      plan.get("moat_target",      360000),
+        "floor_annual":     plan.get("floor_annual",     17000),
     })
 
 
@@ -1181,6 +1184,15 @@ async def api_upload_ledger(request: Request):
         content = await upload.read()
         if len(content) > MAX_UPLOAD_BYTES:
             return JSONResponse({"error": f"File too large ({len(content)//1024}KB). Max 20MB."}, status_code=413)
+        tmp = Path(config.LEDGER_PATH).parent / ".~upload_validate.xlsx"
+        try:
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_bytes(content)
+            schema_err = excel_reader.validate_ledger_schema(str(tmp))
+        finally:
+            tmp.unlink(missing_ok=True)
+        if schema_err:
+            return JSONResponse({"error": f"Schema validation failed: {schema_err}"}, status_code=400)
         dest = Path(config.LEDGER_PATH)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)

@@ -166,23 +166,23 @@ All changes are frontend-only unless noted. No Python/API changes required for T
 8. ✅ **Milestone toast** — `showToast()` in `loadHome()`; $50k–$1M milestones via `retAdv_lastMilestone` localStorage
 
 ### Tier 3 — Bigger lifts
-9. **Scenario compare mode** — run two Monte Carlo configs side-by-side (e.g. retire 60 vs 62); requires second input set + diff-style results display; `/api/grid-search` is partially stubbed
+9. ✅ **Scenario compare mode** — `pinScenario()` + `.compare-strip` table; pin any run as Scenario A, compare against current run; diff colors green/red per metric
 10. ✅ **SWR live display** — `ov-swr-content` panel; colors green ≤4%, amber ≤5%, red >5%
 11. ✅ **30/60/90 day projected cash position** — Forecast tab; 90-day extension via avg daily pattern from last 14 rows (~line 4255)
 
 ### Tier 4 — Infrastructure / reliability gaps (Python + backend)
-12. **`/api/optimize-contribution` completion** — binary search for minimum annual contribution to hit 95% MC success; endpoint defined in `api_routes.py`, search logic not coded
-13. **`/api/send-digest` completion** — SMTP HTML digest template unfinished; weekly snapshot email (success %, NW, Finn summary)
-14. **Excel column validation** — `excel_reader.py` uses magic indices with silent failure; add `validate_ledger_schema()` called on upload to check headers before accepting the file
-15. **Tax constant deduplication** — `RULES_2026` appears in `config.py`, bracket tables in `monte_carlo.py`, and plain text in `retirement_advisor.get_2026_rules()`; all three drift independently every October
-16. **`.dockerignore`** — PII gate for `.env`, `data/`, `*.xlsx`, `finn_memory.md`; currently missing; required before any Docker push
+12. ✅ **`/api/optimize-contribution`** — binary search (18 iterations) to find minimum annual contribution for 95% success rate; in `api_routes.py`
+13. ✅ **`/api/send-digest`** — SMTP HTML digest: LNW, TNW, FI %, freedom levels; in `api_routes.py`
+14. ✅ **Excel column validation** — `validate_ledger_schema()` in `excel_reader.py`; called in `api_upload_ledger` before saving; checks required sheets + key section headers
+15. ✅ **Tax constant deduplication** — `get_2026_rules()` in `retirement_advisor.py` now reads from `config.RULES_2026` (single source of truth); also added ACA cliff + IRMAA + RMD table to the resource
+16. ✅ **`.dockerignore`** — created; blocks `.env`, `data/`, `*.xlsx`, `finn_memory.md`, `finn_history.json` from image layers
 
 ### Tier 5 — New features (not yet in codebase)
-17. **SS claiming strategy comparator** — side-by-side table: claim at 62 / 67 / 70; shows monthly income, lifetime breakeven age, 20-year cumulative; data from `compute_ss_benefit()` in `monte_carlo.py`
-18. **Bridge fund health gauge** — SGOV balance vs. $360k moat target; months of runway remaining; projected depletion date; surfaced prominently on overview next to FI ring
-19. **ACA cliff proximity alert** — during bridge years (62–64), show MAGI distance to $60,240 cliff; turns amber within $5k; data from `RULES_2026.aca_cliff` in `config.py`
-20. **IRMAA tier preview** — for ages 65–66, show current MAGI vs. $106k Tier 1 threshold; Roth conversion "budget" remaining before triggering Medicare surcharge
-21. **Tax bracket waterfall** — stacked bar: SS taxable portion + dividends + Roth conversions vs. bracket ceilings for a given simulation year; uses `compute_federal_tax()` internals
-22. **Actual vs. projected NW overlay** — overlay real NW history (from `retAdv_nwHistory`) on top of MC P50 band in the Simulate tab; shows whether you're tracking ahead or behind the median
-23. **Finn conversation history** — persist last N chat exchanges to `finn_history.json`; prepend on next session so Finn remembers context across page reloads
-24. **Ollama fallback message** — if `OLLAMA_URL` unreachable, return a styled "Finn is offline" card rather than raw 500; keeps UX clean when Ollama container is down
+17. ✅ **SS claiming strategy comparator** — overview panel `ov-ss-compare-wrap`; shows 62/67/70 monthly + annual + breakeven age vs. 67; visible when ledger has SS benefit data
+18. ✅ **Bridge fund health gauge** — `ov-bridge-meta` now shows: `X% of goal · Xmo runway · depletes Mon YYYY` using `rules.bridge_draw_ann` and `rules.moat_target`
+19. ✅ **ACA cliff proximity alert** — `ov-bridge-alerts` panel; shows bridge draw vs. $60,240 cliff with ✓/⚠ indicator; Roth conversion headroom before IRMAA Tier 1
+20. ✅ **IRMAA tier preview** — part of `ov-bridge-alerts`; shows conversion headroom before $106k Tier 1 Medicare surcharge
+21. ✅ **Tax bracket waterfall** — `renderTaxRefPanel()` renders after MC run; table of 7 key thresholds (std deduction, LTCG 0%, ACA cliff, 12% top, IRMAA, NIIT, LTCG 15%) with planning notes
+22. ✅ **Actual vs. projected NW overlay** — "You are here" green dot at current age/LNW plotted on MC wealth bands chart; shows how today's position compares to P10–P90 range
+23. ✅ **Finn conversation history** — `chatMessages` persisted to `localStorage.retAdv_chatHistory` (last 20); restored on chat tab open with "↑ N messages from last session" notice; cleared on Clear button
+24. ✅ **Ollama fallback message** — when Ollama unreachable, `sendChat()` renders styled offline card with `docker start ollama` command; replaces raw error string

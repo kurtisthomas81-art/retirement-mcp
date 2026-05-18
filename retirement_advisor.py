@@ -14,32 +14,42 @@ mcp = FastMCP("RetirementAuditor", host="0.0.0.0", port=8000)
 
 @mcp.resource("finance://2026_rules")
 def get_2026_rules() -> str:
-    return """
-    2026 TAX & RETIREMENT RULES (GROUND TRUTH — IRS confirmed):
+    """Reads from config.RULES_2026 — single source of truth, updated annually in config.py."""
+    from config import RULES_2026 as r, RMD_TABLE
+    return f"""2026 TAX & RETIREMENT RULES (source: config.RULES_2026)
 
-    RETIREMENT CONTRIBUTION LIMITS:
-    - 401k/403b employee limit: $24,500
-    - Catch-up (age 50+): $8,000 additional
-    - Super catch-up (age 60–63): $11,250 additional (SECURE 2.0)
-    - IRA/Roth IRA limit: $7,500 (under 50) / $8,600 (age 50+)
-    - SIMPLE IRA limit: $17,000
-    - ROTH-IFICATION MANDATE: If 2025 FICA wages > $150,000, ALL catch-up contributions must be Roth.
+RETIREMENT CONTRIBUTIONS:
+  401k/403b limit            : ${r['contrib_401k']:,}
+  Catch-up age 50+           : +${r['catchup_50_plus']:,}
+  Super catch-up age 60–63   : +${r['super_catchup_60_63']:,} (SECURE 2.0)
+  IRA/Roth IRA (under 50)    : ${r['ira_roth_limit']:,}
+  IRA/Roth IRA (age 50+)     : ${r['ira_roth_50_plus']:,}
+  SIMPLE IRA                 : ${r['simple_ira_limit']:,}
+  Rothification mandate      : FICA wages > ${r['rothification_income_threshold']:,} → catch-up must be Roth
 
-    ROTH IRA INCOME PHASE-OUT:
-    - Single / Head of Household: $153,000–$168,000
-    - Married Filing Jointly: $242,000–$252,000
+FEDERAL INCOME TAX (2026):
+  Standard deduction (single): ${r['std_deduction_single']:,}
+  Standard deduction (MFJ)   : ${r['std_deduction_mfj']:,}
+  65+ additional (single)    : +${r['senior_addl_deduction_single']:,}
+  65+ additional (MFJ)       : +${r['senior_addl_deduction_mfj']:,}
+  Senior bonus (65+)         : +${r['senior_bonus_deduction']:,} if MAGI < ${r['senior_bonus_magi_single']:,} single / ${r['senior_bonus_magi_mfj']:,} MFJ
 
-    FEDERAL INCOME TAX BRACKETS (2026, 7 brackets: 10/12/22/24/32/35/37%):
-    - Standard deduction: $16,100 (single) / $32,200 (married filing jointly)
-    - Additional standard deduction (age 65+): $2,050 (single) / $1,650 (MFJ)
-    - Senior bonus deduction (age 65+, MAGI < $75k single / $150k MFJ): extra $6,000
+LONG-TERM CAPITAL GAINS:
+  0%  : ≤ ${r['ltcg_0pct_single']:,} single / ${r['ltcg_0pct_mfj']:,} MFJ
+  15% : ≤ ${r['ltcg_15pct_single']:,} single / ${r['ltcg_15pct_mfj']:,} MFJ
+  NIIT: +3.8% if MAGI > ${r['niit_threshold_single']:,} single / ${r['niit_threshold_mfj']:,} MFJ
 
-    LONG-TERM CAPITAL GAINS RATES (2026):
-    - 0% rate: taxable income ≤ $49,450 (single) / $98,900 (MFJ)
-    - 15% rate: up to $492,300 (single) / $553,850 (MFJ)
-    - 20% rate: above those thresholds
-    - Net Investment Income Tax (NIIT): +3.8% if MAGI > $200k (single) / $250k (MFJ)
-    """
+ROTH IRA PHASE-OUT:
+  Single: ${r['roth_phaseout_single_low']:,}–${r['roth_phaseout_single_high']:,}
+  MFJ   : ${r['roth_phaseout_mfj_low']:,}–${r['roth_phaseout_mfj_high']:,}
+
+BRIDGE PHASE PLANNING:
+  ACA cliff (single, 62–64): ${r['aca_cliff_magi_single']:,} MAGI — stay below for ACA subsidy
+  IRMAA Tier 1 (single, 65+): ${r['irmaa_tier1_single']:,} MAGI — Medicare premium surcharge
+  IRMAA Tier 1 (MFJ, 65+)  : ${r['irmaa_tier1_mfj']:,} MAGI
+
+RMD TABLE (age → divisor, IRS Pub 590-B): {RMD_TABLE}
+"""
 
 # ── MCP tools ─────────────────────────────────────────────────────────────────
 

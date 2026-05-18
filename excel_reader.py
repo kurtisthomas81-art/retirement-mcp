@@ -12,6 +12,38 @@ def _open_ledger():
     return openpyxl.load_workbook(path, read_only=True, data_only=True)
 
 
+def validate_ledger_schema(path=None):
+    """Returns None if valid, or a string describing the first schema problem found."""
+    p = Path(path or config.LEDGER_PATH)
+    if not p.exists():
+        return f"File not found: {p}"
+    try:
+        wb = openpyxl.load_workbook(str(p), read_only=True, data_only=True)
+    except Exception as e:
+        return f"Cannot open workbook: {e}"
+    try:
+        missing = [s for s in ("DASHBOARD", "NET_WORTH", "SPENDING") if s not in wb.sheetnames]
+        if missing:
+            return f"Missing required sheets: {', '.join(missing)}"
+        found_fl = any(
+            str(row[0] or "") == "FINANCIAL FREEDOM LEVELS"
+            for row in wb["DASHBOARD"].iter_rows(min_row=1, max_row=80, values_only=True)
+            if row
+        )
+        if not found_fl:
+            return "DASHBOARD is missing 'FINANCIAL FREEDOM LEVELS' section header"
+        found_ss = any(
+            "SS Benefit" in str(row[0] or "")
+            for row in wb["NET_WORTH"].iter_rows(min_row=1, max_row=40, values_only=True)
+            if row
+        )
+        if not found_ss:
+            return "NET_WORTH is missing SS Benefit rows"
+        return None
+    finally:
+        wb.close()
+
+
 def read_portfolio_data():
     try:
         wb = _open_ledger()
