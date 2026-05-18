@@ -143,46 +143,43 @@ What it does: runs `pytest tests/` (all 21 tests must pass), verifies `.dockerig
 
 ---
 
-## UI Backlog — `static/index.html`
+## Feature Changelog — `static/index.html` + backend
 
-All changes are frontend-only unless noted. No Python/API changes required for Tier 1–2.
+All 24 planned features are shipped. Listed by original tier with implementation pointers.
 
-### Overview Tab — completed
-- Removed 3-card key stats row (Total NW / Runway / Savings Rate) from FI Ring panel — duplicated Financial Picture
-- Removed linear progress bar from Financial Picture — duplicated FI Ring %
-- Removed Monthly Cash Flow sub-panel from Allocation collapsible — duplicated bar chart above; renamed section to "Asset Allocation"
-- Removed stat card grid (LNW / Total NW / Liquid Cash / Runway / FI Target / Savings Rate) from Financial Picture — covered by FI Ring hero
+### Overview Tab — cleanup (completed)
+- Removed duplicate stat rows, progress bars, and cash flow sub-panel from FI Ring panel
 
-### Tier 1 — High impact, data already available
-1. ✅ **Years-to-FI countdown** — `tfiCardWrap` + `calcTimeToFI()` in `loadHome()`; shows "~Xy Ymo · Est. Mon YYYY"
-2. ✅ **Ahead/behind pace indicator** — `ov-pace-chip` in `loadHome()`; green/red pill vs. required monthly delta
-3. **Freedom Level next milestone callout** — surface next unachieved level + gap amount in the FI Ring meta row; CSS classes `.hnl-label/.hnl-name/.hnl-gap` are stubbed but no HTML/JS wires them; add `id="ov-next-level-row"` to firing meta + populate in `loadHome()` after freedom levels block
-4. ✅ **Savings rate sparkline** — `ov-sr-content` panel with 6-month Chart.js line in `loadHome()`
+### Tier 1 — Overview widgets (all ✅)
+1. ✅ **Years-to-FI countdown** — `tfiCardWrap` + `calcTimeToFI()` in `loadHome()`
+2. ✅ **Ahead/behind pace indicator** — `ov-pace-chip`; green/red pill vs. required monthly delta
+3. ✅ **Freedom Level next milestone callout** — `id="ov-next-level-row"` in FI Ring meta; `.hnl-label/.hnl-name/.hnl-gap`; wired in `loadHome()` after freedom levels block
+4. ✅ **Savings rate sparkline** — `ov-sr-content`; 6-month Chart.js line from `spending_months` + `SAVINGS RATE`
 
-### Tier 2 — Medium impact, moderate build
-5. ✅ **Spending velocity / daily burn** — `ov-sv-content` panel; burn vs. floor ratio in `loadHome()`
-6. ✅ **Category drilldown** — `tx-drilldown-badge` CSS + JS routing at line ~4168; click spending row → Transactions tab pre-filtered
-7. ✅ **NW sparklines in stat cards** — `_spark()` helper in `loadHome()`; 4 cards (LNW, Engine, Bridge, Cash) from `retAdv_nwHistory`
-8. ✅ **Milestone toast** — `showToast()` in `loadHome()`; $50k–$1M milestones via `retAdv_lastMilestone` localStorage
+### Tier 2 — Overview widgets (all ✅)
+5. ✅ **Spending velocity / daily burn** — `ov-sv-content`; burn vs. floor ratio
+6. ✅ **Category drilldown** — click spending row → Transactions tab pre-filtered; `tx-drilldown-badge`
+7. ✅ **NW sparklines in stat cards** — `_spark()` helper; 4 stat cards from `retAdv_nwHistory`
+8. ✅ **Milestone toast** — `showToast()`; $50k–$1M thresholds via `retAdv_lastMilestone`
 
-### Tier 3 — Bigger lifts
-9. ✅ **Scenario compare mode** — `pinScenario()` + `.compare-strip` table; pin any run as Scenario A, compare against current run; diff colors green/red per metric
-10. ✅ **SWR live display** — `ov-swr-content` panel; colors green ≤4%, amber ≤5%, red >5%
-11. ✅ **30/60/90 day projected cash position** — Forecast tab; 90-day extension via avg daily pattern from last 14 rows (~line 4255)
+### Tier 3 — Simulate tab (all ✅)
+9. ✅ **Scenario compare mode** — `pinScenario()` + `.compare-strip` diff table; green/red per metric
+10. ✅ **SWR live display** — `ov-swr-content`; green ≤4%, amber ≤5%, red >5%
+11. ✅ **30/60/90 day projected cash** — Forecast tab; 90-day extension via avg daily pattern
 
-### Tier 4 — Infrastructure / reliability gaps (Python + backend)
-12. ✅ **`/api/optimize-contribution`** — binary search (18 iterations) to find minimum annual contribution for 95% success rate; in `api_routes.py`
-13. ✅ **`/api/send-digest`** — SMTP HTML digest: LNW, TNW, FI %, freedom levels; in `api_routes.py`
-14. ✅ **Excel column validation** — `validate_ledger_schema()` in `excel_reader.py`; called in `api_upload_ledger` before saving; checks required sheets + key section headers
-15. ✅ **Tax constant deduplication** — `get_2026_rules()` in `retirement_advisor.py` now reads from `config.RULES_2026` (single source of truth); also added ACA cliff + IRMAA + RMD table to the resource
-16. ✅ **`.dockerignore`** — created; blocks `.env`, `data/`, `*.xlsx`, `finn_memory.md`, `finn_history.json` from image layers
+### Tier 4 — Infrastructure (all ✅)
+12. ✅ **`/api/optimize-contribution`** — binary search (18 iters) → minimum contribution for 95% success
+13. ✅ **`/api/send-digest`** — SMTP HTML digest: LNW, TNW, FI %, freedom levels
+14. ✅ **Excel schema validation** — `validate_ledger_schema()` in `excel_reader.py`; called on upload; checks required sheets + section headers; returns 400 with specific error on mismatch
+15. ✅ **Tax constant dedup** — `get_2026_rules()` in `retirement_advisor.py` reads `config.RULES_2026`; ACA cliff, IRMAA, RMD table included in MCP resource
+16. ✅ **`.dockerignore`** — blocks `.env`, `data/`, `*.xlsx`, `finn_memory.md`, `finn_history.json` from image layers
 
-### Tier 5 — New features (not yet in codebase)
-17. ✅ **SS claiming strategy comparator** — overview panel `ov-ss-compare-wrap`; shows 62/67/70 monthly + annual + breakeven age vs. 67; visible when ledger has SS benefit data
-18. ✅ **Bridge fund health gauge** — `ov-bridge-meta` now shows: `X% of goal · Xmo runway · depletes Mon YYYY` using `rules.bridge_draw_ann` and `rules.moat_target`
-19. ✅ **ACA cliff proximity alert** — `ov-bridge-alerts` panel; shows bridge draw vs. $60,240 cliff with ✓/⚠ indicator; Roth conversion headroom before IRMAA Tier 1
-20. ✅ **IRMAA tier preview** — part of `ov-bridge-alerts`; shows conversion headroom before $106k Tier 1 Medicare surcharge
-21. ✅ **Tax bracket waterfall** — `renderTaxRefPanel()` renders after MC run; table of 7 key thresholds (std deduction, LTCG 0%, ACA cliff, 12% top, IRMAA, NIIT, LTCG 15%) with planning notes
-22. ✅ **Actual vs. projected NW overlay** — "You are here" green dot at current age/LNW plotted on MC wealth bands chart; shows how today's position compares to P10–P90 range
-23. ✅ **Finn conversation history** — `chatMessages` persisted to `localStorage.retAdv_chatHistory` (last 20); restored on chat tab open with "↑ N messages from last session" notice; cleared on Clear button
-24. ✅ **Ollama fallback message** — when Ollama unreachable, `sendChat()` renders styled offline card with `docker start ollama` command; replaces raw error string
+### Tier 5 — New features (all ✅)
+17. ✅ **SS claiming comparator** — `ov-ss-compare-wrap`; 62/67/70 monthly + annual + breakeven vs. 67
+18. ✅ **Bridge health gauge** — `ov-bridge-meta`: `X% of goal · Xmo runway · depletes Mon YYYY`
+19. ✅ **ACA cliff alert** — `ov-bridge-alerts`; bridge draw vs. $60,240 cliff with ✓/⚠
+20. ✅ **IRMAA tier preview** — part of `ov-bridge-alerts`; headroom before $106k Medicare surcharge
+21. ✅ **Tax bracket reference** — `renderTaxRefPanel()`; 7 key 2026 thresholds shown after each MC run
+22. ✅ **"You are here" NW overlay** — green dot at current age/LNW on MC wealth bands chart
+23. ✅ **Finn chat history** — `retAdv_chatHistory` localStorage (last 20); restored on tab open with session notice
+24. ✅ **Ollama offline card** — styled card with `docker start ollama` command when Finn unreachable
