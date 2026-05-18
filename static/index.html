@@ -693,8 +693,17 @@
   .chat-msg-user { align-self: flex-end; background: var(--surface3); color: var(--text); border-radius: 12px 12px 2px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 86%; line-height: 1.5; }
   .chat-msg-ai { align-self: flex-start; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px 12px 12px 12px; padding: 8px 12px; font-size: 0.74rem; max-width: 92%; line-height: 1.6; color: var(--text); }
   .chat-msg-ai strong { color: var(--accent); }
-  .finn-remember-btn { display: block; margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted2); font-size: 0.68rem; padding: 3px 8px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; }
-  .finn-remember-btn:hover { opacity: 1; color: var(--gold); border-color: var(--gold); }
+  .finn-remember-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted2); font-size: 0.68rem; padding: 3px 8px; cursor: pointer; opacity: 0.55; transition: opacity 0.2s, color 0.2s, border-color 0.2s; }
+  .finn-remember-btn:hover { opacity: 1; color: var(--warn, #fb923c); border-color: var(--warn, #fb923c); }
+  #finnCorrectionOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9000; align-items:center; justify-content:center; }
+  #finnCorrectionOverlay.open { display:flex; }
+  #finnCorrectionModal { background:var(--surface2); border:1px solid var(--border2); border-radius:12px; padding:20px; width:min(420px,92vw); display:flex; flex-direction:column; gap:12px; }
+  #finnCorrectionModal h4 { margin:0; color:var(--gold); font-size:0.85rem; }
+  #finnCorrectionModal .finn-orig { font-size:0.72rem; color:var(--muted2); background:var(--surface3); border-radius:6px; padding:8px 10px; max-height:80px; overflow-y:auto; line-height:1.4; }
+  #finnCorrectionModal textarea { background:var(--surface3); border:1px solid var(--border2); border-radius:6px; color:var(--text); font-size:0.78rem; padding:8px 10px; resize:vertical; min-height:72px; width:100%; box-sizing:border-box; }
+  #finnCorrectionModal .finn-modal-btns { display:flex; gap:8px; justify-content:flex-end; }
+  #finnCorrectionModal .finn-modal-btns button { font-size:0.78rem; padding:6px 14px; border-radius:6px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text); }
+  #finnCorrectionModal .finn-modal-btns .btn-save { background:var(--accent); border-color:var(--accent); color:#000; font-weight:600; }
   .chat-suggested { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
   .chat-sug-btn { background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--muted2); font-size: 0.68rem; padding: 7px 10px; text-align: left; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
   .chat-sug-btn:hover { border-color: var(--accent); color: var(--text); }
@@ -4918,21 +4927,33 @@ function useSuggestion(btn, text) {
   sendChat();
 }
 
-async function saveFinnCorrection(userMsg, finnReply) {
-  const defaultNote = `Correction from chat: User said "${userMsg.slice(0,80)}". Finn should remember: `;
-  const note = window.prompt('What should Finn remember? (Edit or confirm)', defaultNote);
-  if (!note || !note.trim()) return;
+let _finnCorrectionContext = '';
+
+function saveFinnCorrection(userMsg, finnReply) {
+  _finnCorrectionContext = `User asked: "${userMsg.slice(0, 120)}"\nFinn replied: "${finnReply.slice(0, 200)}"`;
+  document.getElementById('finnCorrectionOrig').textContent = _finnCorrectionContext;
+  document.getElementById('finnCorrectionText').value = '';
+  document.getElementById('finnCorrectionOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('finnCorrectionText').focus(), 80);
+}
+
+function closeFinnCorrectionModal() {
+  document.getElementById('finnCorrectionOverlay').classList.remove('open');
+}
+
+async function submitFinnCorrection() {
+  const note = document.getElementById('finnCorrectionText').value.trim();
+  if (!note) return;
+  closeFinnCorrectionModal();
   try {
     const r = await fetch('/api/finn/memory/add', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({note: note.trim()})
+      body: JSON.stringify({note: note})
     });
     const d = await r.json();
-    if (d.ok) {
-      showToast('Saved to Finn memory', 'success', 3000);
-    }
-  } catch(e) { alert('Could not save memory: ' + e); }
+    if (d.ok) showToast('Saved to Finn memory', 'success', 3000);
+  } catch(e) { showToast('Could not save memory: ' + e.message, 'warning'); }
 }
 
 function clearChat() {
@@ -4996,8 +5017,8 @@ async function sendChat() {
       chatMessages.push({role: 'assistant', content: reply});
       const rememberBtn = document.createElement('button');
       rememberBtn.className = 'finn-remember-btn';
-      rememberBtn.title = 'Save a correction to Finn memory';
-      rememberBtn.innerHTML = '&#128204; Remember a correction';
+      rememberBtn.title = 'Flag this response — save a correction to Finn memory';
+      rememberBtn.innerHTML = '&#128204; Flag response';
       rememberBtn.onclick = () => saveFinnCorrection(msg, reply);
       aiBubble.appendChild(rememberBtn);
     }
@@ -5302,6 +5323,19 @@ function tickCountdown() {
   setTxt('cd-ss-age', _cdSsAge);
 }
 </script>
+
+<!-- ── Finn Correction Modal ─────────────────────────────────────────── -->
+<div id="finnCorrectionOverlay" onclick="if(event.target===this)closeFinnCorrectionModal()">
+  <div id="finnCorrectionModal">
+    <h4>&#128204; Flag FINN's Response</h4>
+    <div class="finn-orig" id="finnCorrectionOrig"></div>
+    <textarea id="finnCorrectionText" placeholder="What should Finn remember or do differently next time?"></textarea>
+    <div class="finn-modal-btns">
+      <button onclick="closeFinnCorrectionModal()">Cancel</button>
+      <button class="btn-save" onclick="submitFinnCorrection()">Save to Memory</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
