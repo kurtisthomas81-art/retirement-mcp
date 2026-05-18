@@ -154,18 +154,35 @@ All changes are frontend-only unless noted. No Python/API changes required for T
 - Removed stat card grid (LNW / Total NW / Liquid Cash / Runway / FI Target / Savings Rate) from Financial Picture — covered by FI Ring hero
 
 ### Tier 1 — High impact, data already available
-1. **Years-to-FI countdown** — compute from LNW, FI target, and monthly contribution rate in ledger; render below FI Ring hero (e.g. "~6 yrs 4 mo at current pace")
-2. **Ahead/behind pace indicator** — actual LNW growth this month vs. required monthly delta to hit target at 62; show "+$X ahead" or "-$X behind" in green/red near FI Ring
-3. **Freedom Level next milestone callout** — surface the next unachieved level + gap amount directly on overview (not buried in collapsible); data in `d.freedom_levels` array from `/api/ledger/dashboard`
-4. **Savings rate sparkline** — replace single "latest month" stat card with a 6-month Chart.js mini-line using `spending_months` + `SAVINGS RATE` row already returned by `/api/ledger/dashboard`
+1. ✅ **Years-to-FI countdown** — `tfiCardWrap` + `calcTimeToFI()` in `loadHome()`; shows "~Xy Ymo · Est. Mon YYYY"
+2. ✅ **Ahead/behind pace indicator** — `ov-pace-chip` in `loadHome()`; green/red pill vs. required monthly delta
+3. **Freedom Level next milestone callout** — surface next unachieved level + gap amount in the FI Ring meta row; CSS classes `.hnl-label/.hnl-name/.hnl-gap` are stubbed but no HTML/JS wires them; add `id="ov-next-level-row"` to firing meta + populate in `loadHome()` after freedom levels block
+4. ✅ **Savings rate sparkline** — `ov-sr-content` panel with 6-month Chart.js line in `loadHome()`
 
 ### Tier 2 — Medium impact, moderate build
-5. **Spending velocity / daily burn** — current month expenses ÷ days elapsed; "Burning $X/day this month"; derivable from transactions ledger
-6. **Category drilldown** — click any Spending Table row → filter Transactions tab to that category + month; pure frontend routing, no backend change
-7. **NW sparklines in stat cards** — inline trend from localStorage `retAdv_nwHistory` (90-day history already stored) rendered inside each NW stat card
-8. **Milestone toast** — on page load, check if LNW crossed a $50k/$100k threshold since last visit; show brief toast; uses localStorage history
+5. ✅ **Spending velocity / daily burn** — `ov-sv-content` panel; burn vs. floor ratio in `loadHome()`
+6. ✅ **Category drilldown** — `tx-drilldown-badge` CSS + JS routing at line ~4168; click spending row → Transactions tab pre-filtered
+7. ✅ **NW sparklines in stat cards** — `_spark()` helper in `loadHome()`; 4 cards (LNW, Engine, Bridge, Cash) from `retAdv_nwHistory`
+8. ✅ **Milestone toast** — `showToast()` in `loadHome()`; $50k–$1M milestones via `retAdv_lastMilestone` localStorage
 
 ### Tier 3 — Bigger lifts
-9. **Scenario compare mode** — run two Monte Carlo configs side-by-side (e.g. retire 60 vs 62); requires second input set + diff-style results display
-10. **SWR live display** — "If you retired today, SWR = X%"; annual expenses ÷ LNW; stat card that turns green at ≤4%
-11. **30/60/90 day projected cash position** — extend FORECAST_V3 data into a runway trend line on overview
+9. **Scenario compare mode** — run two Monte Carlo configs side-by-side (e.g. retire 60 vs 62); requires second input set + diff-style results display; `/api/grid-search` is partially stubbed
+10. ✅ **SWR live display** — `ov-swr-content` panel; colors green ≤4%, amber ≤5%, red >5%
+11. ✅ **30/60/90 day projected cash position** — Forecast tab; 90-day extension via avg daily pattern from last 14 rows (~line 4255)
+
+### Tier 4 — Infrastructure / reliability gaps (Python + backend)
+12. **`/api/optimize-contribution` completion** — binary search for minimum annual contribution to hit 95% MC success; endpoint defined in `api_routes.py`, search logic not coded
+13. **`/api/send-digest` completion** — SMTP HTML digest template unfinished; weekly snapshot email (success %, NW, Finn summary)
+14. **Excel column validation** — `excel_reader.py` uses magic indices with silent failure; add `validate_ledger_schema()` called on upload to check headers before accepting the file
+15. **Tax constant deduplication** — `RULES_2026` appears in `config.py`, bracket tables in `monte_carlo.py`, and plain text in `retirement_advisor.get_2026_rules()`; all three drift independently every October
+16. **`.dockerignore`** — PII gate for `.env`, `data/`, `*.xlsx`, `finn_memory.md`; currently missing; required before any Docker push
+
+### Tier 5 — New features (not yet in codebase)
+17. **SS claiming strategy comparator** — side-by-side table: claim at 62 / 67 / 70; shows monthly income, lifetime breakeven age, 20-year cumulative; data from `compute_ss_benefit()` in `monte_carlo.py`
+18. **Bridge fund health gauge** — SGOV balance vs. $360k moat target; months of runway remaining; projected depletion date; surfaced prominently on overview next to FI ring
+19. **ACA cliff proximity alert** — during bridge years (62–64), show MAGI distance to $60,240 cliff; turns amber within $5k; data from `RULES_2026.aca_cliff` in `config.py`
+20. **IRMAA tier preview** — for ages 65–66, show current MAGI vs. $106k Tier 1 threshold; Roth conversion "budget" remaining before triggering Medicare surcharge
+21. **Tax bracket waterfall** — stacked bar: SS taxable portion + dividends + Roth conversions vs. bracket ceilings for a given simulation year; uses `compute_federal_tax()` internals
+22. **Actual vs. projected NW overlay** — overlay real NW history (from `retAdv_nwHistory`) on top of MC P50 band in the Simulate tab; shows whether you're tracking ahead or behind the median
+23. **Finn conversation history** — persist last N chat exchanges to `finn_history.json`; prepend on next session so Finn remembers context across page reloads
+24. **Ollama fallback message** — if `OLLAMA_URL` unreachable, return a styled "Finn is offline" card rather than raw 500; keeps UX clean when Ollama container is down

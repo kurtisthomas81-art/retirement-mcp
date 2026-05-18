@@ -1089,6 +1089,7 @@
         <div class="ov-meta-row"><span class="k">FI target (age 62, nominal $)</span><span class="v" id="om-target">—</span></div>
         <div class="ov-meta-row"><span class="k">On pace</span><span class="v green" id="om-pace">—</span></div>
         <div class="ov-meta-row"><span class="k">Bridge gap to $360k</span><span class="v gold" id="om-bridge-gap">—</span></div>
+        <div class="home-tfi-row" id="ov-next-level-row" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);"></div>
       </div>
     </div>
   </div>
@@ -1811,6 +1812,21 @@ async function loadHome() {
       </div>`;
     }).join('');
     setHtml('ov-levels-list', levelRows || '<div style="color:var(--muted2)">No levels data</div>');
+
+    // ── Next Freedom Level callout ──
+    if (nextLvIdx !== -1) {
+      const nxt    = levels[nextLvIdx];
+      const gap    = nxt.goal ? Math.max(0, nxt.goal - lnw) : null;
+      const nxtEl  = document.getElementById('ov-next-level-row');
+      if (nxtEl) {
+        if (gap !== null && gap > 0) {
+          nxtEl.style.display = '';
+          nxtEl.innerHTML = `<span class="hnl-label">Next Level</span><span class="hnl-name">${nxt.name}</span><span class="hnl-gap">${fm(gap)} away</span>`;
+        } else if (gap === 0 || nxt.status === 'ACHIEVED') {
+          nxtEl.style.display = 'none';
+        }
+      }
+    }
 
     // ── Coast FI progress bar ──
     const coastGoal = levels.length >= 6 && levels[5].goal ? levels[5].goal : null;
