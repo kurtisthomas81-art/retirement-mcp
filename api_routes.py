@@ -25,6 +25,48 @@ import monte_carlo
 STATIC_DIR = Path(__file__).parent / "static"
 FINN_MEMORY_PATH = config.FINN_MEMORY_PATH
 
+# ── SSE broadcast ─────────────────────────────────────────────────────────────
+_sse_subscribers: set[asyncio.Queue] = set()
+
+
+async def _broadcast_refresh(reason: str = "data_updated") -> None:
+    dead = set()
+    for q in _sse_subscribers:
+        try:
+            q.put_nowait(reason)
+        except asyncio.QueueFull:
+            dead.add(q)
+    _sse_subscribers.difference_update(dead)
+
+
+async def api_events(request: Request):
+    q: asyncio.Queue = asyncio.Queue(maxsize=8)
+    _sse_subscribers.add(q)
+
+    async def stream():
+        try:
+            yield b"retry: 3000\n\n"
+            while True:
+                try:
+                    reason = await asyncio.wait_for(q.get(), timeout=25)
+                    payload = json.dumps({"type": reason})
+                    yield f"data: {payload}\n\n".encode()
+                except asyncio.TimeoutError:
+                    yield b": ping\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            _sse_subscribers.discard(q)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 # ── Finn advisor helpers ──────────────────────────────────────────────────────
 
@@ -550,6 +592,7 @@ async def api_portfolio_refresh(request: Request):
         result_data = await asyncio.to_thread(_refresh_logic)
         if isinstance(result_data, dict) and "error" in result_data:
             return JSONResponse(result_data, status_code=503)
+        await _broadcast_refresh("portfolio_updated")
         return JSONResponse(result_data)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -1141,6 +1184,7 @@ async def api_upload_ledger(request: Request):
         dest = Path(config.LEDGER_PATH)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
+        await _broadcast_refresh("ledger_updated")
         return JSONResponse({"ok": True, "saved_to": str(dest), "bytes": len(content)})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -1197,6 +1241,7 @@ def build_app(mcp_app):
         Route("/api/chat/stream",           api_chat_stream,           methods=["POST"]),
         Route("/api/summarize",             api_summarize,             methods=["POST"]),
         Route("/api/upload-ledger",         api_upload_ledger,         methods=["POST"]),
+        Route("/api/events",                api_events),
         Route("/api/health",                api_health),
         Route("/.well-known/oauth-authorization-server", oauth_metadata),
         Route("/oauth/token",               oauth_token,               methods=["GET", "POST"]),

@@ -4517,6 +4517,40 @@ loadHome();
 ledgerLoaded = true;
 loadLedger();
 
+// ── Global refresh (triggered by SSE on ledger upload or portfolio update) ────
+function globalRefresh() {
+  homeLoaded = false;
+  ledgerLoaded = false;
+  portfolioLoaded = false;
+  transactionsLoaded = false;
+  roadmapLoaded = false;
+  forecastLoaded = false;
+  taxlossLoaded = false;
+
+  loadHome();
+  ledgerLoaded = true;
+  loadLedger();
+
+  const activePane = document.querySelector('.tab-pane.active');
+  const activeTab = activePane ? activePane.id.replace('tab-', '') : null;
+  if (activeTab === 'portfolio')    loadPortfolio();
+  if (activeTab === 'transactions') loadTransactions(1);
+  if (activeTab === 'roadmap')      { loadRoadmap(); loadRules(); }
+  if (activeTab === 'taxloss')      loadTaxLoss();
+}
+
+(function initSSE() {
+  let es;
+  function connect() {
+    es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try { const d = JSON.parse(e.data); if (d.type) globalRefresh(); } catch (_) {}
+    };
+    es.onerror = () => { es.close(); setTimeout(connect, 5000); };
+  }
+  connect();
+})();
+
 // ── Plan Builder ──────────────────────────────────────────────────────────────
 
 let _plansCache = null;
