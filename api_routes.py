@@ -278,9 +278,9 @@ async def api_rules(request: Request):
         "ss_age":       plan.get("ss_age", 67),
         "mean_return":      plan.get("mean_return",      0.10),
         "inflation_rate":   plan.get("inflation_rate",   0.03),
-        "bridge_draw_ann":  plan.get("bridge_draw_ann",  72000),
-        "moat_target":      plan.get("moat_target",      360000),
-        "floor_annual":     plan.get("floor_annual",     17000),
+        "bridge_draw_ann":  plan.get("bridge_draw_annual", 72000),
+        "moat_target":      plan.get("bridge_target",    360000),
+        "floor_annual":     plan.get("biological_floor", 17000),
     })
 
 
@@ -769,7 +769,7 @@ async def api_ss_sensitivity(request: Request):
 
 def _compute_roadmap(dashboard_data, all_investment_txns):
     from datetime import date, timedelta
-    dob         = config.CLIENT_DOB
+    dob         = date.fromisoformat(config.load_profile()["dob"])
     today       = date.today()
     current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
     retire_age  = config.CLIENT_RETIRE_AGE
