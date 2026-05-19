@@ -568,8 +568,23 @@ async def api_ledger_dashboard(request: Request):
             if coast_age is not None:
                 data["metrics"]["COAST AGE"] = coast_age
             if len(visible) >= 6:
-                visible[5]["goal"]     = coast_fi
-                visible[5]["computed"] = True
+                visible[5]["goal"]        = coast_fi
+                visible[5]["computed"]    = True
+                visible[5]["description"] = (
+                    f"Hit ${coast_fi:,} by age {coast_age}, then stop contributing"
+                    if coast_age else
+                    f"${coast_fi:,} needed to coast to Full FI by 65"
+                )
+
+        # Override Full FI freedom level goal with plan's fi_target when set
+        if plan_fi > 0:
+            for lv in visible:
+                if re.search(r'full.fi', lv.get("name", ""), re.I):
+                    lv["goal"] = plan_fi
+                    break
+            else:
+                if len(visible) > 6:
+                    visible[-1]["goal"] = plan_fi
 
         return JSONResponse(data)
     except Exception as e:
