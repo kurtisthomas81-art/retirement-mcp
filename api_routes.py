@@ -281,6 +281,7 @@ async def api_rules(request: Request):
         "bridge_draw_ann":  plan.get("bridge_draw_annual", 72000),
         "moat_target":      plan.get("bridge_target",    360000),
         "floor_annual":     plan.get("biological_floor", 17000),
+        "sgov_yield":       plan.get("sgov_yield",       0.04),
     })
 
 

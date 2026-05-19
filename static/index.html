@@ -1293,7 +1293,7 @@
               <div class="field"><label>State Tax (%)</label><input type="number" id="mc_state_tx" value="3.99" step="0.01" min="0" max="15"></div>
             </div>
             <div id="mc_conv_cliff_opts" class="mc-toggle-row" style="display:none;margin-top:4px;">
-              <label class="mc-toggle" title="Restrict Roth conversions at ages 62–64 to stay below ACA MAGI cliff (~$60k). Preserves subsidy eligibility during early bridge."><input type="checkbox" id="mc_aca_cliff"> ACA Cliff (62–64)</label>
+              <label class="mc-toggle" title="Restrict Roth conversions at ages 62–64 to stay below ACA MAGI cliff. Only SGOV interest (~4% of balance) counts as MAGI — cliff is COLA-projected to ~$103k at retirement."><input type="checkbox" id="mc_aca_cliff"> ACA Cliff (62–64)</label>
               <label class="mc-toggle" title="At ages 65–66 (Medicare Blast), expand conversions toward IRMAA Tier 1 ceiling (~$106k) instead of stopping at the 12% bracket."><input type="checkbox" id="mc_irmaa_blast"> IRMAA Blast (65–66)</label>
             </div>
 
@@ -1923,22 +1923,32 @@ async function loadHome() {
     // ── ACA cliff + IRMAA proximity alerts ──
     const alertsEl = document.getElementById('ov-bridge-alerts');
     if (alertsEl) {
-      const drawAnn   = rules.bridge_draw_ann || 72000;
-      const acaCliff  = rules.aca_cliff_magi_single || 60240;
-      const irmaaT1   = rules.irmaa_tier1_single    || 106000;
-      const acaDiff   = acaCliff - drawAnn;
-      const acaColor  = acaDiff >= 0 ? 'var(--accent)' : 'var(--warn)';
-      const acaIcon   = acaDiff >= 0 ? '✓' : '⚠';
-      const acaText   = acaDiff >= 0
-        ? `${fm(drawAnn)}/yr draw is ${fm(acaDiff)} below cliff ${acaIcon}`
-        : `Draw ${fm(drawAnn)}/yr exceeds cliff by ${fm(Math.abs(acaDiff))} ${acaIcon}`;
+      const currentAge    = rules.current_age || rules.client_age || 45;
+      const retireAge     = rules.retire_age  || 62;
+      const inflRate      = rules.inflation_rate || 0.03;
+      const sgov_yield    = rules.sgov_yield  || 0.04;
+      const acaCliffNow   = rules.aca_cliff_magi_single || 62600;
+      const irmaaT1       = rules.irmaa_tier1_single    || 106000;
+      const drawAnn       = rules.bridge_draw_ann       || 72000;
+      // Only SGOV interest is taxable MAGI — principal withdrawals are return of basis
+      const sgov_interest = Math.round((bridgeVal || 0) * sgov_yield);
+      // Project cliff forward to retirement via COLA
+      const yearsToRetire = Math.max(0, retireAge - currentAge);
+      const cliffAtRetire = Math.round(acaCliffNow * Math.pow(1 + inflRate, yearsToRetire));
+      const acaDiff       = cliffAtRetire - sgov_interest;
+      const acaColor      = acaDiff >= 0 ? 'var(--accent)' : 'var(--warn)';
+      const acaIcon       = acaDiff >= 0 ? '✓' : '⚠';
+      const acaText       = acaDiff >= 0
+        ? `SGOV interest ${fm(sgov_interest)}/yr is ${fm(acaDiff)} below cliff ${acaIcon}`
+        : `SGOV interest ${fm(sgov_interest)}/yr exceeds cliff by ${fm(Math.abs(acaDiff))} ${acaIcon}`;
       const irmaaRoom = irmaaT1 - drawAnn;
       alertsEl.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="padding:9px 11px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
             <div style="font-size:0.59rem;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.09em;margin-bottom:3px;">ACA Cliff (ages 62–64)</div>
             <div style="font-size:0.74rem;color:${acaColor};">${acaText}</div>
-            <div style="font-size:0.63rem;color:var(--muted2);margin-top:2px;">Ceiling: ${fm(acaCliff)} MAGI</div>
+            <div style="font-size:0.63rem;color:var(--muted2);margin-top:2px;">Projected cliff at 62: ${fm(cliffAtRetire)} · today: ${fm(acaCliffNow)}</div>
+            <div style="font-size:0.63rem;color:var(--muted2);">Conversion headroom at 62: <span style="color:var(--accent);">${fm(acaDiff)}</span></div>
           </div>
           <div style="padding:9px 11px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
             <div style="font-size:0.59rem;font-weight:700;color:#cd853f;text-transform:uppercase;letter-spacing:0.09em;margin-bottom:3px;">IRMAA Tier 1 (age 65+)</div>
