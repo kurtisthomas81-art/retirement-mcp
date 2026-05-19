@@ -567,6 +567,17 @@ async def api_ledger_dashboard(request: Request):
             data["metrics"]["COAST FI"] = coast_fi
             if coast_age is not None:
                 data["metrics"]["COAST AGE"] = coast_age
+            data["metrics"]["_coast_debug"] = {
+                "coast_base": coast_base,
+                "engine_bal": engine_bal,
+                "annual_contrib": annual_contrib,
+                "current_age": current_age,
+                "coast_fi": coast_fi,
+                "coast_age": coast_age,
+                "visible_count": len(visible),
+                "visible_goals": [lv.get("goal") for lv in visible],
+                "plan_fi": plan_fi,
+            }
             if len(visible) >= 6:
                 visible[5]["goal"]     = coast_fi
                 visible[5]["computed"] = True
