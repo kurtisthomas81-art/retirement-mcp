@@ -2377,7 +2377,7 @@ async function refreshPortfolio() {
   const status = document.getElementById('portRefreshStatus');
   const el     = document.getElementById('portTable');
   el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Fetching live prices\u2026</div>';
-  status.textContent = 'Fetching live prices (may take ~5s for all holdings)\u2026';
+  status.textContent = 'Fetching live prices \u2014 AV free tier paces at 5 calls/min, allow ~2 minutes\u2026';
   try {
     const r = await fetch('/api/portfolio/refresh', {method: 'POST'});
     const d = await r.json();

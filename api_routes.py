@@ -571,7 +571,7 @@ async def api_portfolio_refresh(request: Request):
                     h["gain_loss"] = None; h["gain_loss_pct"] = None
             except Exception as ex:
                 h["live_price"] = None; h["error"] = str(ex)
-            time.sleep(0.3)  # inside sync thread — asyncio.sleep not available here
+            time.sleep(13)  # AV free tier: 5 calls/min = 1 per 12s; 13s gives margin
         total_value     = sum(h.get("live_value") or 0 for h in holdings)
         total_cost      = sum((h.get("avg_cost") or 0) * h["shares"] for h in holdings)
         total_gain_loss = total_value - total_cost
