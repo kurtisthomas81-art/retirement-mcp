@@ -417,6 +417,9 @@ def run_monte_carlo(params, seed=None):
     cap_sg   = float(g("cap_slowgo", 0.05))
     cap_ng   = float(g("cap_nogo", 0.02))
 
+    use_super_catchup    = bool(g("use_super_catchup", False))
+    super_catchup_annual = float(g("super_catchup_annual", 11250))
+
     use_rat  = bool(g("use_ratchet", False))
     rat_ann  = float(g("ratchet_boost_monthly", 1000)) * 12
 
@@ -541,6 +544,9 @@ def run_monte_carlo(params, seed=None):
         # ── Accumulation phase ────────────────────────────────────────────────
         if age < target_age:
             c = contrib * ((1 + wage_gr) ** yp)
+            # SECURE 2.0 super catch-up: ages 60–63, optional 2-yr sprint pre-retirement
+            if use_super_catchup and (target_age - 2) <= age <= (target_age - 1):
+                c = c + super_catchup_annual * ((1 + wage_gr) ** yp)
             tent_eligible = (age >= target_age - 4) & (ret > mu) & (sg < full_moat)
             excess = eng * ret - eng * mu
             sk = np.where(tent_eligible & (excess > 0),

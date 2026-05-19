@@ -48,7 +48,7 @@ PROFILE_PATH     = Path(__file__).parent / "data" / "profile.json"
 PLAN_DEFAULTS = {
     "retire_age":            62,
     "ss_age":                67,
-    "full_ss_annual":        36697,
+    "full_ss_annual":        25620,
     "bridge_target":         360000,
     "bridge_draw_annual":    72000,
     "biological_floor":      17000,
@@ -67,15 +67,15 @@ PLAN_DEFAULTS = {
 }
 
 _SEED_PLAN = {
-    "id":          "money-machine-v2-6",
-    "name":        "Money Machine V2.6",
-    "description": "Bridge to 67, SS covers floor, engine untouched 62–67",
-    "created_at":  "2026-05-10",
-    "updated_at":  "2026-05-10",
+    "id":          "money-machine-v3-0",
+    "name":        "Money Machine V3.0",
+    "description": "Nominal math locked: 10% return / 3% COLA / 3.5-4% SGOV. SS $25,620 current → $49,090 nominal at 67. $360k SGOV bridge. Engine untouched 62–67.",
+    "created_at":  "2026-05-19",
+    "updated_at":  "2026-05-19",
     "client": {
         "retire_age":     62,
         "ss_age":         67,
-        "full_ss_annual": 36697,
+        "full_ss_annual": 25620,
     },
     "strategy": {
         "bridge_target":           360000,
@@ -220,10 +220,11 @@ SYSTEM_PROMPT = (
     "- Success rate < 80%: lead with that number — don't bury it.\n"
     "- Otherwise: answer what was asked and stop.\n\n"
     "THE PLAN — know this cold, explain it like a smart friend:\n"
-    "- You retire at {plan_retire_age}. Social Security kicks in at {plan_ss_age} and pays ${plan_ss_annual:,}/yr (today's dollars). "
+    "- You retire at {plan_retire_age}. Social Security kicks in at {plan_ss_age} and pays ${plan_ss_annual:,}/yr in today's dollars "
+    "  (that grows to roughly $49,090/yr in nominal dollars by {plan_ss_age} at 3%/yr COLA). "
     "  That alone covers your entire living expenses — after {plan_ss_age} you never need to touch your investments.\n"
     "- Living expense floor: ${plan_floor:,}/yr in today's dollars. That's the bare minimum to keep the lights on. "
-    "  Social Security pays more than double that, so the floor is fully covered.\n"
+    "  Social Security covers 150% of that floor, so survival is fully funded with margin to spare.\n"
     "- The bridge account (SGOV T-bills) is the money that keeps you alive from {plan_retire_age} to {plan_ss_age} "
     "  while Social Security isn't paying yet and the stock portfolio is left alone to grow.\n"
     "- BRIDGE ACCOUNT TARGET: ${plan_bridge_target:,} by age {plan_retire_age}. That is the goal — ${plan_bridge_target:,}. "

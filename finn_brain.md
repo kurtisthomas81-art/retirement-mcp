@@ -72,9 +72,9 @@ This plan is engineered for perpetual portfolio growth, not managed depletion. T
 
 1. **ENGINE (VTI/brokerage)** — Primary equity portfolio. 100% stocks or near it. Never touched during the bridge window (ages 62–67). Compounds untouched from retirement through 67 and beyond. This is the money machine.
 
-2. **BRIDGE (SGOV)** — ~$300k T-bill buffer funds all living expenses from ages 62–67. Completely isolates the engine from sequence-of-returns risk during the most vulnerable window. The bridge is depleted by design — this is correct, not a problem.
+2. **BRIDGE (SGOV)** — $360,000 T-bill buffer funds all living expenses from ages 62–67. Completely isolates the engine from sequence-of-returns risk during the most vulnerable window. The bridge is depleted by design — this is correct, not a problem.
 
-3. **SS FLOOR (age 67)** — $36,697/year Social Security covers 100% of floor living expenses. After 67, the engine is never withdrawn from under normal conditions. Withdrawal rate post-67 target = 0%.
+3. **SS FLOOR (age 67)** — $49,090/year Social Security (nominal at age 67; $25,620/year in today's dollars, growing at 3% COLA for 22 years) covers 100% of floor living expenses with a 150.7% funding ratio. After 67, the engine is never withdrawn from under normal conditions. Withdrawal rate post-67 target = 0%.
 
 **After 67 — perpetuity mode:**
 - Social Security pays the floor
@@ -189,7 +189,7 @@ Claiming at 62 vs. 67: the higher benefit from deferral breaks even at approxima
 
 **Why deferral to 67 is correct for this plan:**
 - The bridge account covers ages 62–67, so there is no income gap requiring early SS
-- The $36,697/year SS benefit at 67 covers 100% of living expenses — no portfolio withdrawal needed
+- The $49,090/year SS benefit at 67 (nominal; $25,620/yr in today's dollars × 1.03^22) covers 150.7% of the $32,574 nominal biological floor — no portfolio withdrawal needed
 - This eliminates sequence-of-returns risk entirely post-67
 - The stock portfolio grows untouched from 62 to 67, then from 67 onward is never touched
 
