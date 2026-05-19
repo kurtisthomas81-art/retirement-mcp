@@ -308,7 +308,7 @@ RULES_2026 = {
     "roth_phaseout_single_high": 168000,
     "roth_phaseout_mfj_low": 242000,
     "roth_phaseout_mfj_high": 252000,
-    "aca_cliff_magi_single": 60240,
+    "aca_cliff_magi_single": 62600,
     "irmaa_tier1_single": 106000,
     "irmaa_tier1_mfj": 212000,
     "year": 2026,

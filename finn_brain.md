@@ -25,7 +25,7 @@ LTCG 15% threshold (MFJ): $553,850
 IRMAA Tier 1 threshold (single): >$106,000 MAGI
 IRMAA Tier 1 threshold (MFJ): >$212,000 MAGI
 NIIT threshold (single): $200,000
-ACA cliff (single): $60,240 MAGI
+ACA cliff (single): $62,600 MAGI
 SS full retirement age: 67 (born 1960+)
 SS early claim at 62: 30% permanent reduction from FRA benefit
 SS delayed to 70: 24% bonus above FRA benefit
@@ -225,7 +225,7 @@ Long-term capital gains are taxed at 0% if taxable income stays below $49,450 (s
 Medicare Part B and D premiums are surcharge-based if MAGI exceeds thresholds (2026: $106,000 single / $212,000 MFJ). A $1 of income over the threshold triggers the next tier. Roth conversions and LTCG harvesting must account for IRMAA — particularly relevant at ages 63–64 when the income shows up in the IRMAA lookback window for ages 65–66.
 
 **ACA premium tax credit:**
-Ages 62–64, before Medicare. Healthcare premiums qualify for ACA subsidies if MAGI is between 100% and 400% of the Federal Poverty Level (ACA cliff was eliminated through 2025; rules may change). Keep income managed during this window. Roth conversions above the cliff cost thousands in lost subsidies.
+Ages 62–64, before Medicare. Healthcare premiums qualify for ACA subsidies if MAGI is between 100% and 400% of the Federal Poverty Level ($62,600 for a single person in 2026 — the hard cliff returned in 2026 after enhanced subsidies expired). Keep income managed during this window. Roth conversions above the cliff cost thousands in lost subsidies.
 
 **Tax-loss harvesting:**
 Selling a losing position to realize a capital loss that offsets capital gains (or up to $3,000 of ordinary income annually). Replace with a similar — but not substantially identical — fund within 30 days to avoid the wash-sale rule. Not a primary strategy for this plan but a useful tool in taxable accounts.
