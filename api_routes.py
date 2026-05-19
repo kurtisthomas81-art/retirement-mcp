@@ -510,6 +510,31 @@ async def api_ledger_dashboard(request: Request):
         data = await asyncio.to_thread(excel_reader.read_dashboard_data)
         if "error" in data:
             return JSONResponse(data, status_code=503)
+
+        from datetime import date as _date
+        plan    = config.load_active_plan()
+        profile = config.load_profile()
+
+        # FI target override: pin to nominal value from plan if set, otherwise use Excel
+        plan_fi = plan.get("fi_target", 0) or 0
+        if plan_fi > 0:
+            data.setdefault("metrics", {})["FI TARGET (Age 62)"] = plan_fi
+
+        # Compute real Coast FI = FI_Target / (1 + r)^(65 - current_age)
+        fi_target_val = float(data.get("metrics", {}).get("FI TARGET (Age 62)", 0) or 0)
+        if fi_target_val > 0:
+            dob = _date.fromisoformat(profile["dob"])
+            today = _date.today()
+            current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            mean_ret = plan.get("mean_return", 0.10)
+            years    = max(0, 65 - current_age)
+            coast_fi = round(fi_target_val / (1 + mean_ret) ** years)
+            data["metrics"]["COAST FI"] = coast_fi
+            levels = data.get("freedom_levels", [])
+            if len(levels) >= 6:
+                levels[5]["goal"]     = coast_fi
+                levels[5]["computed"] = True
+
         return JSONResponse(data)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)

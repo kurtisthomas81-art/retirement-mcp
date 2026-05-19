@@ -1825,7 +1825,7 @@ async function loadHome() {
       const cardCls = isDone ? 'done' : isNext ? 'next' : '';
       const amtStr  = lv.goal ? fm(lv.goal) : (lv.goal_text || '—');
       const coastBadge = idx === 5
-        ? `<span style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;background:#cd853f22;color:#cd853f;border:1px solid #cd853f55;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;">COAST FI</span>`
+        ? `<span title="FI Target ÷ (1 + 10%)^(65 − current age) — computed, not from Excel" style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;background:#cd853f22;color:#cd853f;border:1px solid #cd853f55;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;cursor:help;">COAST FI ⓘ</span>`
         : '';
       let statusStr, progressBar = '';
       if (isDone) {
@@ -1873,7 +1873,7 @@ async function loadHome() {
       setHtml('ov-coast-fi-bar', `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
         <div style="flex:1;">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px;">
-            <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;">COAST FI — LVL 6</span>
+            <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;" title="FI Target ÷ (1 + 10%)^(65 − age) — the balance needed today so the market alone carries you to Full FI by 65">COAST FI — LVL 6 ⓘ</span>
             <span style="font-family:var(--font-mono);color:${barColor};">${fm(lnw)} / ${fm(coastGoal)}</span>
           </div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
