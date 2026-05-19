@@ -531,10 +531,12 @@ async def api_ledger_dashboard(request: Request):
             years    = max(0, 65 - current_age)
             coast_fi = round(fi_target_val / (1 + mean_ret) ** years)
             data["metrics"]["COAST FI"] = coast_fi
+            # Mirror the frontend filter: skip "road to coast" rows, then override index 5
             levels = data.get("freedom_levels", [])
-            if len(levels) >= 6:
-                levels[5]["goal"]     = coast_fi
-                levels[5]["computed"] = True
+            visible = [lv for lv in levels if not re.search(r'road.to.coast', lv.get("name", ""), re.I)]
+            if len(visible) >= 6:
+                visible[5]["goal"]     = coast_fi
+                visible[5]["computed"] = True
 
         return JSONResponse(data)
     except Exception as e:
