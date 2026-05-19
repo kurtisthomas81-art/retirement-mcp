@@ -524,9 +524,25 @@ async def api_ledger_dashboard(request: Request):
             data.setdefault("metrics", {})["FI TARGET (Age 62)"] = plan_fi
 
         # Compute Coast FI: project forward with contributions to find when portfolio
-        # can stop contributing and still reach FI_Target by 65 via compounding alone.
-        fi_target_val = float(data.get("metrics", {}).get("FI TARGET (Age 62)", 0) or 0)
-        if fi_target_val > 0:
+        # can stop contributing and still reach Full FI by 65 via compounding alone.
+        # Use plan fi_target if set; otherwise use last visible freedom level goal
+        # (the Full FI level) rather than the Excel "FI TARGET (Age 62)" metric cell,
+        # which is a nominal inflated value and would cause the loop to never cross.
+        visible = [lv for lv in data.get("freedom_levels", [])
+                   if not re.search(r'road.to.coast', lv.get("name", ""), re.I)]
+
+        coast_base = float(plan_fi) if plan_fi > 0 else 0.0
+        if not coast_base:
+            # Last visible level after the Coast FI slot (index 5) = Full FI
+            for lv in visible[6:]:
+                g = lv.get("goal")
+                if g and isinstance(g, (int, float)) and g > 0:
+                    coast_base = float(g)
+                    break
+        if not coast_base:
+            coast_base = float(data.get("metrics", {}).get("FI TARGET (Age 62)", 0) or 0)
+
+        if coast_base > 0:
             dob = _date.fromisoformat(profile["dob"])
             today = _date.today()
             current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
@@ -539,20 +555,18 @@ async def api_ledger_dashboard(request: Request):
             if annual_contrib > 0:
                 bal = engine_bal
                 for age in range(current_age, 65):
-                    threshold = fi_target_val / (1 + mean_ret) ** (65 - age)
+                    threshold = coast_base / (1 + mean_ret) ** (65 - age)
                     if bal >= threshold:
                         coast_fi  = round(threshold)
                         coast_age = age
                         break
                     bal = bal * (1 + mean_ret) + annual_contrib
             if coast_fi is None:
-                coast_fi = round(fi_target_val / (1 + mean_ret) ** max(0, 65 - current_age))
+                coast_fi = round(coast_base / (1 + mean_ret) ** max(0, 65 - current_age))
 
             data["metrics"]["COAST FI"] = coast_fi
             if coast_age is not None:
                 data["metrics"]["COAST AGE"] = coast_age
-            visible = [lv for lv in data.get("freedom_levels", [])
-                       if not re.search(r'road.to.coast', lv.get("name", ""), re.I)]
             if len(visible) >= 6:
                 visible[5]["goal"]     = coast_fi
                 visible[5]["computed"] = True
