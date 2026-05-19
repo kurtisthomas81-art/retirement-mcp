@@ -627,15 +627,19 @@ def run_monte_carlo(params, seed=None):
                             cv_arr[ti] = min(cust_conv, trad[ti])
                         else:
                             cv_arr[ti] = compute_conversion_amount(trad[ti], 0, tgt_bkt, yo, infl, filing)
-                        draw_ti = float(draw[ti]) if hasattr(draw, '__len__') else float(draw)
-                        # ACA cliff: restrict conversions at ages 62–64 to stay below subsidy cliff
+                        # ACA cliff: only SGOV interest counts as MAGI — principal withdrawals
+                        # are return of basis and non-taxable. Cliff is anchored to its
+                        # retirement-entry nominal value (COLA'd from today to age 62).
                         if use_aca_cliff and age < 65:
-                            headroom = max(0.0, aca_cliff_magi * float(infl_acc[ti]) - draw_ti)
+                            sgov_interest_ti = float(br_moat[ti]) * syld
+                            cliff_at_ret = aca_cliff_magi * float(infl_acc_at_ret[ti])
+                            headroom = max(0.0, cliff_at_ret - sgov_interest_ti)
                             if cv_arr[ti] > headroom:
                                 cv_arr[ti] = headroom
                                 arrays["aca_mod_arr"][ti] = True
                         # Medicare Blast: at ages 65–66, expand conversions toward IRMAA Tier 1 ceiling
                         elif use_irmaa_blast and 65 <= age <= 66:
+                            draw_ti = float(draw[ti]) if hasattr(draw, '__len__') else float(draw)
                             headroom = max(0.0, irmaa_t1_magi * float(infl_acc[ti]) - draw_ti)
                             irmaa_target = min(float(trad[ti]), headroom)
                             if irmaa_target > cv_arr[ti]:

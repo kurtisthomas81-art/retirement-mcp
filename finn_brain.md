@@ -227,6 +227,8 @@ Medicare Part B and D premiums are surcharge-based if MAGI exceeds thresholds (2
 **ACA premium tax credit:**
 Ages 62–64, before Medicare. Healthcare premiums qualify for ACA subsidies if MAGI is between 100% and 400% of the Federal Poverty Level ($62,600 for a single person in 2026 — the hard cliff returned in 2026 after enhanced subsidies expired). Keep income managed during this window. Roth conversions above the cliff cost thousands in lost subsidies.
 
+Key MAGI mechanics for the bridge strategy: SGOV principal withdrawals are return of basis — non-taxable, not counted in MAGI. Only the interest yield (~4% of balance) counts. On a $360k starting bridge balance, SGOV interest income is ~$14,400/yr at retirement, leaving the majority of the cliff as headroom for Roth conversions. The cliff itself grows with COLA each year, so by retirement (age 62 in 2043) the nominal cliff will be approximately $103,000. With ~$14k of SGOV interest as the only other MAGI, Roth conversion headroom is roughly $89,000/yr — far more than the $72k draw would imply if treated as fully taxable income.
+
 **Tax-loss harvesting:**
 Selling a losing position to realize a capital loss that offsets capital gains (or up to $3,000 of ordinary income annually). Replace with a similar — but not substantially identical — fund within 30 days to avoid the wash-sale rule. Not a primary strategy for this plan but a useful tool in taxable accounts.
 
