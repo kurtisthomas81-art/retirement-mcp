@@ -1866,15 +1866,17 @@ async function loadHome() {
 
     // ── Coast FI progress bar ──
     const coastGoal = levels.length >= 6 && levels[5].goal ? levels[5].goal : null;
-    const coastPct  = coastGoal && lnw ? Math.min(lnw / coastGoal * 100, 100) : 0;
-    const coastDone = coastGoal && lnw >= coastGoal;
+    const engineBal = (d.mc_prefill && d.mc_prefill.engine_balance) || lnw;
+    const coastPct  = coastGoal ? Math.min(engineBal / coastGoal * 100, 100) : 0;
+    const coastDone = coastGoal && engineBal >= coastGoal;
+    const coastAge  = m['COAST AGE'] ? ` — coast by age ${m['COAST AGE']}` : '';
     if (coastGoal) {
       const barColor = coastDone ? '#4ade80' : 'var(--accent)';
       setHtml('ov-coast-fi-bar', `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface3);border-radius:6px;border:1px solid var(--border);">
         <div style="flex:1;">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px;">
-            <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;" title="FI Target ÷ (1 + 10%)^(65 − age) — the balance needed today so the market alone carries you to Full FI by 65">COAST FI — LVL 6 ⓘ</span>
-            <span style="font-family:var(--font-mono);color:${barColor};">${fm(lnw)} / ${fm(coastGoal)}</span>
+            <span style="color:var(--muted);font-weight:600;letter-spacing:0.05em;" title="Balance at which you can stop contributing and the market carries you to Full FI by 65">COAST FI — LVL 6${coastAge} ⓘ</span>
+            <span style="font-family:var(--font-mono);color:${barColor};">${fm(engineBal)} / ${fm(coastGoal)}</span>
           </div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
             <div style="height:100%;width:${coastPct.toFixed(0)}%;background:${barColor};border-radius:2px;transition:width 0.6s ease;"></div>
@@ -4803,8 +4805,9 @@ function renderPlansList(d) {
             ${pf('Retire Age',        'retire_age',            cl.retire_age            ?? 62,    'number')}
             ${pf('SS Claim Age',      'ss_age',                cl.ss_age                ?? 67,    'number')}
             ${pf('SS Annual ($)',      'full_ss_annual',        cl.full_ss_annual         ?? 36697, 'number')}
-            ${pf('Full FI Target ($)','fi_target',             st.fi_target              ?? 0,     'number')}
-            ${pf('Bridge Target ($)', 'bridge_target',         st.bridge_target          ?? 360000,'number')}
+            ${pf('Full FI Target ($)',    'fi_target',                    st.fi_target                    ?? 0,     'number')}
+            ${pf('Annual Contribution ($)','annual_engine_contribution', st.annual_engine_contribution  ?? 0,     'number')}
+            ${pf('Bridge Target ($)',     'bridge_target',               st.bridge_target               ?? 360000,'number')}
             ${pf('Bridge Draw/yr ($)','bridge_draw_annual',    st.bridge_draw_annual     ?? 72000, 'number')}
             ${pf('Floor/yr ($)',      'biological_floor',      st.biological_floor       ?? 17000, 'number')}
             ${pf('Ratchet Trigger ×', 'ratchet_multiplier',   st.ratchet_multiplier     ?? 1.5,   'number', '0.1')}
@@ -4875,8 +4878,9 @@ async function saveActivePlan(e, planId) {
     retire_age:            get('retire_age'),
     ss_age:                get('ss_age'),
     full_ss_annual:        get('full_ss_annual'),
-    fi_target:             get('fi_target'),
-    bridge_target:         get('bridge_target'),
+    fi_target:                    get('fi_target'),
+    annual_engine_contribution:   get('annual_engine_contribution'),
+    bridge_target:                get('bridge_target'),
     bridge_draw_annual:    get('bridge_draw_annual'),
     biological_floor:      get('biological_floor'),
     ratchet_multiplier:    get('ratchet_multiplier'),

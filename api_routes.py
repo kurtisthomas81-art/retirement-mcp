@@ -334,8 +334,9 @@ async def api_plans_create(request: Request):
             "full_ss_annual": int(body.get("full_ss_annual", 36697)),
         },
         "strategy": {
-            "fi_target":               int(body.get("fi_target",             0)),
-            "bridge_target":           int(body.get("bridge_target",        360000)),
+            "fi_target":                  int(body.get("fi_target",                    0)),
+            "annual_engine_contribution": int(body.get("annual_engine_contribution",   0)),
+            "bridge_target":              int(body.get("bridge_target",           360000)),
             "bridge_draw_annual":      int(body.get("bridge_draw_annual",   72000)),
             "biological_floor":        int(body.get("biological_floor",     17000)),
             "ratchet_multiplier":      float(body.get("ratchet_multiplier", 1.5)),
@@ -381,7 +382,8 @@ async def api_plans_update(request: Request):
                 if "description" in body: p["description"] = str(body["description"])
                 for section, keys in [
                     ("client",   ["retire_age", "ss_age", "full_ss_annual"]),
-                    ("strategy", ["fi_target", "bridge_target", "bridge_draw_annual", "biological_floor",
+                    ("strategy", ["fi_target", "annual_engine_contribution",
+                                  "bridge_target", "bridge_draw_annual", "biological_floor",
                                   "ratchet_multiplier", "withdrawal_rate_post_ss"]),
                     ("market",   ["mean_return", "volatility", "sgov_yield",
                                   "inflation_rate", "dividend_yield"]),
@@ -521,19 +523,36 @@ async def api_ledger_dashboard(request: Request):
         if plan_fi > 0:
             data.setdefault("metrics", {})["FI TARGET (Age 62)"] = plan_fi
 
-        # Compute real Coast FI = FI_Target / (1 + r)^(65 - current_age)
+        # Compute Coast FI: project forward with contributions to find when portfolio
+        # can stop contributing and still reach FI_Target by 65 via compounding alone.
         fi_target_val = float(data.get("metrics", {}).get("FI TARGET (Age 62)", 0) or 0)
         if fi_target_val > 0:
             dob = _date.fromisoformat(profile["dob"])
             today = _date.today()
             current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-            mean_ret = plan.get("mean_return", 0.10)
-            years    = max(0, 65 - current_age)
-            coast_fi = round(fi_target_val / (1 + mean_ret) ** years)
+            mean_ret      = plan.get("mean_return", 0.10)
+            annual_contrib = plan.get("annual_engine_contribution", 0) or 0
+            engine_bal    = float(data.get("mc_prefill", {}).get("engine_balance", 0) or 0)
+
+            coast_fi  = None
+            coast_age = None
+            if annual_contrib > 0:
+                bal = engine_bal
+                for age in range(current_age, 65):
+                    threshold = fi_target_val / (1 + mean_ret) ** (65 - age)
+                    if bal >= threshold:
+                        coast_fi  = round(threshold)
+                        coast_age = age
+                        break
+                    bal = bal * (1 + mean_ret) + annual_contrib
+            if coast_fi is None:
+                coast_fi = round(fi_target_val / (1 + mean_ret) ** max(0, 65 - current_age))
+
             data["metrics"]["COAST FI"] = coast_fi
-            # Mirror the frontend filter: skip "road to coast" rows, then override index 5
-            levels = data.get("freedom_levels", [])
-            visible = [lv for lv in levels if not re.search(r'road.to.coast', lv.get("name", ""), re.I)]
+            if coast_age is not None:
+                data["metrics"]["COAST AGE"] = coast_age
+            visible = [lv for lv in data.get("freedom_levels", [])
+                       if not re.search(r'road.to.coast', lv.get("name", ""), re.I)]
             if len(visible) >= 6:
                 visible[5]["goal"]     = coast_fi
                 visible[5]["computed"] = True

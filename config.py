@@ -49,7 +49,8 @@ PLAN_DEFAULTS = {
     "retire_age":            62,
     "ss_age":                67,
     "full_ss_annual":        25620,
-    "fi_target":             0,        # 0 = read from Excel; >0 = locked nominal override
+    "fi_target":                  0,        # 0 = read from Excel; >0 = locked nominal override
+    "annual_engine_contribution": 0,        # yearly $ added to engine portfolio; 0 = use static coast formula
     "bridge_target":         360000,
     "bridge_draw_annual":    72000,
     "biological_floor":      17000,
@@ -79,7 +80,8 @@ _SEED_PLAN = {
         "full_ss_annual": 25620,
     },
     "strategy": {
-        "fi_target":               0,
+        "fi_target":                  0,
+        "annual_engine_contribution": 0,
         "bridge_target":           360000,
         "bridge_draw_annual":      72000,
         "biological_floor":        17000,
