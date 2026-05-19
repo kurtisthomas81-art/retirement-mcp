@@ -1212,12 +1212,7 @@
 
     <!-- Refresh bar -->
     <div class="port-refresh-bar">
-      <div class="field" style="min-width:220px;">
-        <label>Alpha Vantage API Key</label>
-        <input id="portApiKey" type="password" placeholder="your key">
-      </div>
       <button onclick="refreshPortfolio()">Refresh Live Prices</button>
-      <div class="key-status" id="portKeyStatus"></div>
     </div>
     <div id="portRefreshStatus" style="font-size:0.72rem;color:var(--muted2);margin-top:6px;"></div>
   </div>
@@ -2224,7 +2219,6 @@ async function uploadLedger(input) {
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────
-const PORT_KEY_STORE = 'retAdv_avKey';
 
 function acctType(section) {
   const s = section.toLowerCase();
@@ -2360,48 +2354,32 @@ function buildPortTable(holdings, priceField, valueField) {
 
 async function loadPortfolio() {
   portfolioLoaded = true;
-  const savedKey = localStorage.getItem(PORT_KEY_STORE);
   const el = document.getElementById('portTable');
-
-  if (savedKey) {
-    document.getElementById('portApiKey').value = savedKey;
-    document.getElementById('portKeyStatus').innerHTML =
-      '<span class="saved">\u25b6 Auto-refreshing live prices\u2026</span>';
-    await refreshPortfolio();
-  } else {
-    el.innerHTML = `<div class="skeleton-wrap">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;">
-        <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
-        <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
-      </div>
-      <div class="skeleton sk-chart" style="margin-top:8px;"></div>
-    </div>`;
-    try {
-      const r = await fetch('/api/portfolio');
-      const d = await r.json();
-      if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
-      el.innerHTML = buildPortTable(d.holdings, 'cached_price', 'cached_value');
-      document.getElementById('ps_asof').textContent = 'Cached \u2014 add API key to enable live prices';
-    } catch(e) {
-      el.innerHTML = `<span class="err">Error: ${e.message}</span>`;
-    }
+  el.innerHTML = `<div class="skeleton-wrap">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;">
+      <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
+      <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
+    </div>
+    <div class="skeleton sk-chart" style="margin-top:8px;"></div>
+  </div>`;
+  try {
+    const r = await fetch('/api/portfolio');
+    const d = await r.json();
+    if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
+    el.innerHTML = buildPortTable(d.holdings, 'cached_price', 'cached_value');
+    document.getElementById('ps_asof').textContent = 'Cached from ledger';
+  } catch(e) {
+    el.innerHTML = `<span class="err">Error: ${e.message}</span>`;
   }
 }
 
 async function refreshPortfolio() {
-  const key    = document.getElementById('portApiKey').value.trim();
   const status = document.getElementById('portRefreshStatus');
   const el     = document.getElementById('portTable');
-  if (!key) { status.innerHTML = '<span class="err">Enter your Alpha Vantage API key.</span>'; return; }
-  localStorage.setItem(PORT_KEY_STORE, key);
-  document.getElementById('portKeyStatus').innerHTML = '<span class="saved">\u2713 API key saved</span>';
   el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Fetching live prices\u2026</div>';
   status.textContent = 'Fetching live prices (may take ~5s for all holdings)\u2026';
   try {
-    const r = await fetch('/api/portfolio/refresh', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({api_key: key})
-    });
+    const r = await fetch('/api/portfolio/refresh', {method: 'POST'});
     const d = await r.json();
     if (d.error) { status.innerHTML = `<span class="err">${d.error}</span>`; return; }
     el.innerHTML = buildPortTable(d.holdings, 'live_price', 'live_value');

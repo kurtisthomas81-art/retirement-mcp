@@ -544,13 +544,8 @@ async def api_portfolio(request: Request):
 
 
 async def api_portfolio_refresh(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    api_key = body.get("api_key", "").strip()
-    if not api_key:
-        return JSONResponse({"error": "API key required"}, status_code=400)
+    if not config.AV_KEY:
+        return JSONResponse({"error": "AV_KEY not set in server .env"}, status_code=503)
 
     def _refresh_logic():
         holdings = excel_reader.read_portfolio_data()
@@ -565,7 +560,7 @@ async def api_portfolio_refresh(request: Request):
                 h["proxy_note"]    = "Voya proxy — cached only"
                 continue
             try:
-                price = excel_reader.fetch_av_price(h["ticker"], api_key, h["is_crypto"])
+                price = excel_reader.fetch_av_price(h["ticker"], config.AV_KEY, h["is_crypto"])
                 h["live_price"] = price
                 h["live_value"] = round(price * h["shares"], 2) if price else None
                 cost_basis = (h["avg_cost"] or 0) * h["shares"]
@@ -606,13 +601,14 @@ async def api_stock_price(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    ticker  = body.get("ticker", "").strip().upper()
-    api_key = body.get("api_key", "").strip()
-    if not ticker or not api_key:
-        return JSONResponse({"error": "ticker and api_key are required"}, status_code=400)
+    ticker = body.get("ticker", "").strip().upper()
+    if not ticker:
+        return JSONResponse({"error": "ticker is required"}, status_code=400)
+    if not config.AV_KEY:
+        return JSONResponse({"error": "AV_KEY not set in server .env"}, status_code=503)
     try:
         from urllib.parse import quote as urlquote
-        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(ticker)}&apikey={api_key}"
+        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(ticker)}&apikey={config.AV_KEY}"
         r    = requests.get(url, timeout=10)
         data = r.json()
         quote      = data.get("Global Quote", {})

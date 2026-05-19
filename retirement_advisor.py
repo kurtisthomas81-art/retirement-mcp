@@ -54,21 +54,34 @@ RMD TABLE (age → divisor, IRS Pub 590-B): {RMD_TABLE}
 # ── MCP tools ─────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def get_stock_price(ticker: str, api_key: str) -> str:
-    """Gets the current price for any stock ticker."""
+def get_stock_price(ticker: str) -> str:
+    """Gets the current price for a stock ticker. Reads from portfolio cache first to conserve API calls; falls back to Alpha Vantage for tickers not in the portfolio."""
     import requests
     from urllib.parse import quote as urlquote
+    symbol = ticker.strip().upper()
     try:
-        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(ticker)}&apikey={api_key}"
+        holdings = excel_reader.read_portfolio_data()
+        if isinstance(holdings, list):
+            for h in holdings:
+                if h.get("ticker", "").upper() == symbol:
+                    price = h.get("cached_price")
+                    if price:
+                        return f"Current price for {symbol}: ${price:.2f} (from portfolio cache)"
+    except Exception:
+        pass
+    if not config.AV_KEY:
+        return f"No cached price found for {symbol} and AV_KEY is not configured on the server."
+    try:
+        url  = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={urlquote(symbol)}&apikey={config.AV_KEY}"
         r    = requests.get(url, timeout=10)
         data = r.json()
         price = data.get("Global Quote", {}).get("05. price")
         if not price:
             note = data.get("Note") or data.get("Information") or "No data returned"
-            return f"Error fetching {ticker}: {note}"
-        return f"Current price for {ticker}: ${price}"
+            return f"Error fetching {symbol}: {note}"
+        return f"Current price for {symbol}: ${float(price):.2f} (live from Alpha Vantage)"
     except Exception as e:
-        return f"Error fetching {ticker}: {e}"
+        return f"Error fetching {symbol}: {e}"
 
 
 @mcp.tool()
