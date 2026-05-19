@@ -4803,6 +4803,7 @@ function renderPlansList(d) {
             ${pf('Retire Age',        'retire_age',            cl.retire_age            ?? 62,    'number')}
             ${pf('SS Claim Age',      'ss_age',                cl.ss_age                ?? 67,    'number')}
             ${pf('SS Annual ($)',      'full_ss_annual',        cl.full_ss_annual         ?? 36697, 'number')}
+            ${pf('Full FI Target ($)','fi_target',             st.fi_target              ?? 0,     'number')}
             ${pf('Bridge Target ($)', 'bridge_target',         st.bridge_target          ?? 360000,'number')}
             ${pf('Bridge Draw/yr ($)','bridge_draw_annual',    st.bridge_draw_annual     ?? 72000, 'number')}
             ${pf('Floor/yr ($)',      'biological_floor',      st.biological_floor       ?? 17000, 'number')}
@@ -4874,6 +4875,7 @@ async function saveActivePlan(e, planId) {
     retire_age:            get('retire_age'),
     ss_age:                get('ss_age'),
     full_ss_annual:        get('full_ss_annual'),
+    fi_target:             get('fi_target'),
     bridge_target:         get('bridge_target'),
     bridge_draw_annual:    get('bridge_draw_annual'),
     biological_floor:      get('biological_floor'),

@@ -334,6 +334,7 @@ async def api_plans_create(request: Request):
             "full_ss_annual": int(body.get("full_ss_annual", 36697)),
         },
         "strategy": {
+            "fi_target":               int(body.get("fi_target",             0)),
             "bridge_target":           int(body.get("bridge_target",        360000)),
             "bridge_draw_annual":      int(body.get("bridge_draw_annual",   72000)),
             "biological_floor":        int(body.get("biological_floor",     17000)),
@@ -380,7 +381,7 @@ async def api_plans_update(request: Request):
                 if "description" in body: p["description"] = str(body["description"])
                 for section, keys in [
                     ("client",   ["retire_age", "ss_age", "full_ss_annual"]),
-                    ("strategy", ["bridge_target", "bridge_draw_annual", "biological_floor",
+                    ("strategy", ["fi_target", "bridge_target", "bridge_draw_annual", "biological_floor",
                                   "ratchet_multiplier", "withdrawal_rate_post_ss"]),
                     ("market",   ["mean_return", "volatility", "sgov_yield",
                                   "inflation_rate", "dividend_yield"]),
