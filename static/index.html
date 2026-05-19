@@ -1564,6 +1564,7 @@ function renderPlanNarrative(text) {
 // ── Tab switching ──────────────────────────────────────────────────────────
 let mcPrefilled = false;
 let portfolioLoaded = false;
+let _portNonProxyCount = 0;
 let rulesLoaded = false;
 let roadmapLoaded = false;
 let transactionsLoaded = false;
@@ -2366,6 +2367,7 @@ async function loadPortfolio() {
     const r = await fetch('/api/portfolio');
     const d = await r.json();
     if (d.error) { el.innerHTML = `<span class="err">${d.error}</span>`; return; }
+    _portNonProxyCount = d.holdings.filter(h => !h.is_proxy).length;
     el.innerHTML = buildPortTable(d.holdings, 'cached_price', 'cached_value');
     document.getElementById('ps_asof').textContent = 'Cached from ledger';
   } catch(e) {
@@ -2376,17 +2378,47 @@ async function loadPortfolio() {
 async function refreshPortfolio() {
   const status = document.getElementById('portRefreshStatus');
   const el     = document.getElementById('portTable');
-  el.innerHTML = '<div style="color:var(--muted2);font-size:0.8rem;">Fetching live prices\u2026</div>';
-  status.textContent = 'Fetching live prices \u2014 AV free tier paces at 5 calls/min, allow ~2 minutes\u2026';
+  const count  = _portNonProxyCount || 8;
+  const totalMs = count * 13000;
+  const startTs = Date.now();
+
+  // progress bar markup
+  status.innerHTML = `
+    <div style="margin-top:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted2);margin-bottom:4px;">
+        <span id="prg_label">Fetching live prices\u2026</span>
+        <span id="prg_eta"></span>
+      </div>
+      <div style="background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;">
+        <div id="prg_bar" style="height:100%;width:0%;background:var(--gold);border-radius:4px;transition:width 0.5s linear;"></div>
+      </div>
+    </div>`;
+
+  const timer = setInterval(() => {
+    const elapsed = Date.now() - startTs;
+    const pct     = Math.min(95, (elapsed / totalMs) * 100);
+    const remSec  = Math.max(0, Math.round((totalMs - elapsed) / 1000));
+    const bar     = document.getElementById('prg_bar');
+    const eta     = document.getElementById('prg_eta');
+    if (bar) bar.style.width = pct + '%';
+    if (eta) eta.textContent = remSec > 0 ? `~${remSec}s remaining` : 'finishing\u2026';
+  }, 500);
+
   try {
     const r = await fetch('/api/portfolio/refresh', {method: 'POST'});
     const d = await r.json();
+    clearInterval(timer);
     if (d.error) { status.innerHTML = `<span class="err">${d.error}</span>`; return; }
     el.innerHTML = buildPortTable(d.holdings, 'live_price', 'live_value');
     const now = new Date().toLocaleTimeString();
     document.getElementById('ps_asof').textContent = 'Live \u2014 ' + now;
-    status.innerHTML = `<span class="saved">\u2713 Prices updated at ${now}</span>`;
+    const bar = document.getElementById('prg_bar');
+    if (bar) bar.style.width = '100%';
+    setTimeout(() => {
+      status.innerHTML = `<span class="saved">\u2713 Prices updated at ${now}</span>`;
+    }, 400);
   } catch(e) {
+    clearInterval(timer);
     status.innerHTML = `<span class="err">Error: ${e.message}</span>`;
   }
 }
