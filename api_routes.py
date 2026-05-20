@@ -145,9 +145,6 @@ def _build_context_string(sim_data, dashboard_data):
             lines.append("  Wealth percentiles (P10 / P50 / P90):")
             for m in ms:
                 lines.append(f"    Age {m['age']}: ${m['p10']:,.0f} / ${m['p50']:,.0f} / ${m['p90']:,.0f}")
-        rs = sim_data.get("ratchet_stats")
-        if rs:
-            lines.append(f"  Abundance ratchet Tier 1 (150%): {rs.get('tier1_pct')}% of trials, median age {rs.get('median_tier1_age')}")
         ls = sim_data.get("lifetime_spend")
         if ls:
             lines.append(f"  Lifetime spend P50: ${ls.get('p50_total', 0):,.0f} "
@@ -350,11 +347,13 @@ async def api_plans_create(request: Request):
             "dividend_yield": float(body.get("dividend_yield", 0.015)),
         },
         "risk": {
-            "gk_trigger":        float(body.get("gk_trigger",        0.20)),
-            "gk_cut_rate":       float(body.get("gk_cut_rate",       0.50)),
-            "bear_streak_years": int(body.get("bear_streak_years",   3)),
-            "bear_streak_cut":   float(body.get("bear_streak_cut",   0.25)),
-            "portfolio_cap":     int(body.get("portfolio_cap",       5000000)),
+            "hwm_infl_rate":  float(body.get("hwm_infl_rate",  0.030)),
+            "max_wr_gogo":    float(body.get("max_wr_gogo",    0.035)),
+            "max_wr_slowgo":  float(body.get("max_wr_slowgo",  0.025)),
+            "max_wr_nogo":    float(body.get("max_wr_nogo",    0.015)),
+            "euph_trig":      float(body.get("euph_trig",      0.20)),
+            "euph_bonus_pct": float(body.get("euph_bonus_pct", 0.10)),
+            "portfolio_cap":  int(body.get("portfolio_cap",    5000000)),
         },
     }
     def _do_create():
@@ -387,8 +386,8 @@ async def api_plans_update(request: Request):
                                   "ratchet_multiplier", "withdrawal_rate_post_ss"]),
                     ("market",   ["mean_return", "volatility", "sgov_yield",
                                   "inflation_rate", "dividend_yield"]),
-                    ("risk",     ["gk_trigger", "gk_cut_rate", "bear_streak_years",
-                                  "bear_streak_cut", "portfolio_cap"]),
+                    ("risk",     ["hwm_infl_rate", "max_wr_gogo", "max_wr_slowgo",
+                                  "max_wr_nogo", "euph_trig", "euph_bonus_pct", "portfolio_cap"]),
                 ]:
                     if section not in p:
                         p[section] = {}

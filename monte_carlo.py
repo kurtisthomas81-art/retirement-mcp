@@ -164,9 +164,6 @@ def _init_arrays(n_trials):
         "conv_tx_arr":    np.zeros(n_trials),
         "shadow_tx_arr":  np.zeros(n_trials),
         "dd_arr":         np.zeros(n_trials),
-        "rat_t1_age_arr": np.zeros(n_trials),
-        "rat_t2_age_arr": np.zeros(n_trials),
-        "rat_t3_age_arr": np.zeros(n_trials),
         "ph_peak_arr":    np.zeros(n_trials),
         "ph_harv_arr":    np.zeros(n_trials),
         "ph_drawn_arr":   np.zeros(n_trials),
@@ -178,7 +175,7 @@ def _init_arrays(n_trials):
 
 
 def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths, moat_paths,
-                        bridge_years, arrays, use_rat, use_ph,
+                        bridge_years, arrays, use_ph,
                         spend_paths=None, ss_inc_paths=None,
                         survival_floor=0.0, infl=0.03, rng=None):
     term_vals     = np.maximum(0.0, all_paths[:, end_age - current_age])
@@ -237,20 +234,6 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
         "spend_ratio": round(float(np.median(total_spend_arr)) / med_spt * 100, 1) if med_spt > 0 else 0.0,
     }
 
-    ratchet_stats = None
-    if use_rat:
-        t1 = arrays["rat_t1_age_arr"][arrays["rat_t1_age_arr"] > 0]
-        t2 = arrays["rat_t2_age_arr"][arrays["rat_t2_age_arr"] > 0]
-        t3 = arrays["rat_t3_age_arr"][arrays["rat_t3_age_arr"] > 0]
-        ratchet_stats = {
-            "tier1_pct":        round(float(len(t1) / n_trials * 100), 1),
-            "tier2_pct":        round(float(len(t2) / n_trials * 100), 1),
-            "tier3_pct":        round(float(len(t3) / n_trials * 100), 1),
-            "median_tier1_age": round(float(np.median(t1))) if len(t1) else None,
-            "median_tier2_age": round(float(np.median(t2))) if len(t2) else None,
-            "median_tier3_age": round(float(np.median(t3))) if len(t3) else None,
-        }
-
     prime_harvest_stats = None
     if use_ph:
         funded = arrays["ph_funded_arr"][arrays["ph_funded_arr"] > 0]
@@ -262,16 +245,6 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
             "median_refills":    round(float(np.median(arrays["ph_refill_arr"])), 1),
             "recycled_pct":      round(float(np.mean(arrays["ph_refill_arr"] >= 1) * 100), 1),
         }
-
-    ratchet_paths = None
-    if use_rat:
-        ph3_ages = list(range(target_age, end_age + 1))
-        t1_cum, t2_cum, t3_cum = [], [], []
-        for a in ph3_ages:
-            t1_cum.append(round(float(np.sum((arrays["rat_t1_age_arr"] > 0) & (arrays["rat_t1_age_arr"] <= a)) / n_trials * 100), 1))
-            t2_cum.append(round(float(np.sum((arrays["rat_t2_age_arr"] > 0) & (arrays["rat_t2_age_arr"] <= a)) / n_trials * 100), 1))
-            t3_cum.append(round(float(np.sum((arrays["rat_t3_age_arr"] > 0) & (arrays["rat_t3_age_arr"] <= a)) / n_trials * 100), 1))
-        ratchet_paths = {"ages": ph3_ages, "t1": t1_cum, "t2": t2_cum, "t3": t3_cum}
 
     # Per-year spending bands (floor + discretionary, per trial per age)
     sp_bands = None
@@ -304,8 +277,6 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
         "ruin_by_age":         ruin_by_age,
         "ss_histogram":        ss_hist,
         "lifetime_spend":      lifetime_spend,
-        "ratchet_stats":       ratchet_stats,
-        "ratchet_paths":       ratchet_paths,
         "spend_scenarios":     spend_scenarios,
         "spend_bands":         sp_bands,
         "ss_line":             ss_line,
@@ -376,11 +347,12 @@ def run_monte_carlo(params, seed=None):
     tax_risk_mid  = float(g("tax_risk_mid", 0.40))
     tax_risk_late = float(g("tax_risk_late", 0.60))
 
-    gogo_e  = float(g("gogo_e", 0.25));   gogo_n  = float(g("gogo_n", 0.15))
-    slgo_e  = float(g("slowgo_e", 0.20)); slgo_n  = float(g("slowgo_n", 0.10))
-    nogo_e  = float(g("nogo_e", 0.10));   nogo_n  = float(g("nogo_n", 0.05))
-    euph_off  = float(g("euphoric_offset", 0.03))
-    euph_trig = mu + euph_off
+    euph_trig      = float(g("euph_trig",      0.20))
+    hwm_infl_rate  = float(g("hwm_infl_rate",  0.030))
+    max_wr_gogo    = float(g("max_wr_gogo",    0.035))
+    max_wr_slowgo  = float(g("max_wr_slowgo",  0.025))
+    max_wr_nogo    = float(g("max_wr_nogo",    0.015))
+    euph_bonus_pct = float(g("euph_bonus_pct", 0.10))
 
     use_gf      = bool(g("use_gogo_floor", False))
     gogo_fl_ann = float(g("gogo_floor_monthly", 1000)) * 12
@@ -407,11 +379,6 @@ def run_monte_carlo(params, seed=None):
     use_mr   = bool(g("use_mean_reversion", False))
     mr_str   = float(g("mean_reversion_strength", 0.15))
 
-    gk_trig  = float(g("gk_trigger", 0.20))
-    gk_cut   = float(g("gk_cut_rate", 0.50))
-    bear_yrs = int(g("bear_streak_years", 3))
-    bear_cut = float(g("bear_streak_cut", 0.25))
-
     p_cap   = float(g("portfolio_cap", 5_000_000))
     cap_infl = float(g("cap_inflation", 0.03))
     cap_gg   = float(g("cap_gogo", 0.10))
@@ -421,13 +388,6 @@ def run_monte_carlo(params, seed=None):
     use_super_catchup    = bool(g("use_super_catchup", False))
     super_catchup_annual = float(g("super_catchup_annual", 11250))
 
-    use_rat  = bool(g("use_ratchet", False))
-    rat_ann  = float(g("ratchet_boost_monthly", 1000)) * 12
-
-    use_wf  = bool(g("use_wealth_floor", False))
-    wf_rate = float(g("wealth_floor_rate", 0.03))
-    use_eb  = bool(g("use_euphoric_bonus", False))
-    eb_rate = float(g("euphoric_bonus_rate", 0.02))
     use_mort = bool(g("use_mortality_weighting", True))
     use_res  = bool(g("use_residual_draw", False))
     res_ann  = float(g("residual_draw_monthly", 500)) * 12
@@ -467,7 +427,6 @@ def run_monte_carlo(params, seed=None):
     infl_acc      = np.ones(n_trials)
     infl_acc_at_ret = np.zeros(n_trials)  # infl_acc snapshot at retirement entry
     cum_dev  = np.zeros(n_trials)
-    cdn      = np.zeros(n_trials, dtype=np.int32)
     ath      = np.full(n_trials, engine0)
     eng_ret  = np.zeros(n_trials)
     br_moat  = np.zeros(n_trials)
@@ -475,10 +434,6 @@ def run_monte_carlo(params, seed=None):
     ss_ben   = np.zeros(n_trials)
     ripcord  = np.zeros(n_trials, dtype=bool)
     breached = np.zeros(n_trials, dtype=bool)
-    rat_tiers     = np.zeros(n_trials, dtype=np.int32)
-    rat_t1_fired  = np.zeros(n_trials, dtype=bool)
-    rat_t2_fired  = np.zeros(n_trials, dtype=bool)
-    rat_t3_fired  = np.zeros(n_trials, dtype=bool)
     ph3_peak      = np.zeros(n_trials)
     ph_total_harv = np.zeros(n_trials)
     ph_total_drawn = np.zeros(n_trials)
@@ -533,7 +488,6 @@ def run_monte_carlo(params, seed=None):
         else:
             ret = np.where(shock_mask[:, ai], tail_ret, raw)
         cum_dev = (cum_dev + ret - mu) * 0.9
-        cdn = np.where(ret < 0, cdn + 1, np.zeros(n_trials, dtype=np.int32))
 
         if use_si:
             sh = np.where(ret < 0, np.abs(ret) * stag_corr, 0.0)
@@ -673,24 +627,10 @@ def run_monte_carlo(params, seed=None):
         eng = np.where(at_ss, eng + br_moat, eng)
         br_moat = np.where(at_ss, 0.0, br_moat)
 
-        # ── Spending smile phase ──────────────────────────────────────────────
+        # ── Dynamic Decumulation Protocol ─────────────────────────────────────
         s_eng = eng.copy()
-        if use_rat and np.any(eng_ret > 0):
-            ratio = np.where(eng_ret > 0, eng / eng_ret, 0.0)
-            fire1 = ~rat_t1_fired & (rat_tiers == 0) & (ratio >= 1.5)
-            fire2 = ~rat_t2_fired & (rat_tiers == 1) & (ratio >= 2.0)
-            fire3 = ~rat_t3_fired & (rat_tiers == 2) & (ratio >= 2.5)
-            rat_tiers = np.where(fire1, 1, np.where(fire2, 2, np.where(fire3, 3, rat_tiers)))
-            rat_t1_fired = rat_t1_fired | fire1
-            rat_t2_fired = rat_t2_fired | fire2
-            rat_t3_fired = rat_t3_fired | fire3
-            arrays["rat_t1_age_arr"] = np.where(fire1, age, arrays["rat_t1_age_arr"])
-            arrays["rat_t2_age_arr"] = np.where(fire2, age, arrays["rat_t2_age_arr"])
-            arrays["rat_t3_age_arr"] = np.where(fire3, age, arrays["rat_t3_age_arr"])
-
         divs  = s_eng * divyld
         eng   = eng * (1 + ret)
-        ath   = np.maximum(ath, eng)
         mgain = eng - s_eng
 
         if use_ph:
@@ -732,40 +672,40 @@ def run_monte_carlo(params, seed=None):
                 ph_was_drawn = ph_was_drawn | (ph_d2 > 0)
             eng = np.maximum(0.0, eng - rgap)
 
-        er = np.where(age <= 75, gogo_e, np.where(age <= 85, slgo_e, nogo_e))
-        nr = np.where(age <= 75, gogo_n, np.where(age <= 85, slgo_n, nogo_n))
+        # ── Drawdown tracking ─────────────────────────────────────────────────
+        dd = np.where(ath > 0, np.maximum(0.0, (ath - eng) / ath), 0.0)
+        max_dd = np.maximum(max_dd, dd)
+
+        # ── Crest Line from trailing HWM ──────────────────────────────────────
+        hwm_c = ath * (1 + hwm_infl_rate)
+        above_crest = eng > hwm_c
+
+        # ── Phase-adjusted SWR ceiling ────────────────────────────────────────
+        max_wr_phase = np.where(age <= 75, max_wr_gogo,
+                       np.where(age <= 85, max_wr_slowgo, max_wr_nogo))
         if use_mort:
             mm = mortality_mult(age)
-            er = er * mm; nr = nr * mm
+            max_wr_phase = max_wr_phase * mm
 
-        euph_vec = ret >= euph_trig
-        skim = np.where(euph_vec & (mgain > 0), mgain * er,
-               np.where((ret > 0) & (mgain > 0), mgain * nr, 0.0))
-        skim = np.minimum(skim, eng)
+        # ── Standard skim: exact excess over crest, capped at phase ceiling ───
+        excess_crest  = np.where(above_crest, eng - hwm_c, 0.0)
+        standard_skim = np.where(above_crest,
+                            np.minimum(excess_crest, eng * max_wr_phase),
+                            0.0)
 
-        dd = np.where(ath > 0, (ath - eng) / ath, 0.0)
-        max_dd = np.maximum(max_dd, dd)
-        gk_active   = dd > gk_trig
-        bear_active = cdn >= bear_yrs
-        skim = np.where(gk_active  & (skim > 0), skim * (1 - gk_cut),  skim)
-        skim = np.where(bear_active & (skim > 0), skim * (1 - bear_cut), skim)
+        # ── Euphoria Tranche: additive bonus, no ceiling ──────────────────────
+        euph_vec      = ret >= euph_trig
+        euph_excess_r = np.maximum(0.0, ret - euph_trig)
+        euph_bonus    = np.where(euph_vec,
+                            s_eng * euph_excess_r * euph_bonus_pct,
+                            0.0)
 
-        if use_rat:
-            rf = rat_tiers * rat_ann * ((1 + infl) ** (age - target_age))
-            skim = np.where((rat_tiers > 0) & (ret > 0), np.maximum(skim, np.minimum(rf, eng)), skim)
-        if use_wf:
-            wf = s_eng * wf_rate
-            wf = np.where(gk_active, wf * (1 - gk_cut), wf)
-            wf = np.where(bear_active, wf * (1 - bear_cut), wf)
-            skim = np.where(ret > 0, np.maximum(skim, np.minimum(wf, eng)), skim)
-        if use_eb:
-            bn = s_eng * eb_rate
-            bn = np.where(gk_active, bn * (1 - gk_cut), bn)
-            bn = np.where(bear_active, bn * (1 - bear_cut), bn)
-            bn = np.minimum(bn, np.maximum(0.0, eng - skim))
-            skim = np.where(euph_vec, skim + bn, skim)
+        skim = np.minimum(standard_skim + euph_bonus, eng)
 
+        # ── Apply skim; stamp trailing HWM post-withdrawal ────────────────────
         eng -= skim
+        ath  = np.maximum(ath, eng)
+
         tot_gg = np.where(age <= 75, tot_gg + skim, tot_gg)
         tot_sg = np.where((age > 75) & (age <= 85), tot_sg + skim, tot_sg)
         tot_ng = np.where(age > 85, tot_ng + skim, tot_ng)
@@ -781,8 +721,6 @@ def run_monte_carlo(params, seed=None):
         nc   = p_cap * ((1 + cap_infl) ** (age - target_age))
         over_cap = eng > nc
         hc   = np.where(over_cap, (eng - nc) * cr, 0.0)
-        hc   = np.where(gk_active, hc * (1 - gk_cut), hc)
-        hc   = np.where(bear_active, hc * (1 - bear_cut), hc)
         eng -= hc
         tot_gg = np.where(over_cap & (age <= 75), tot_gg + hc, tot_gg)
         tot_sg = np.where(over_cap & (age > 75) & (age <= 85), tot_sg + hc, tot_sg)
@@ -866,7 +804,7 @@ def run_monte_carlo(params, seed=None):
 
     return _aggregate_results(
         t0, n_trials, current_age, target_age, end_age,
-        all_paths, moat_paths, bridge_years, arrays, use_rat, use_ph,
+        all_paths, moat_paths, bridge_years, arrays, use_ph,
         spend_paths=spend_paths, ss_inc_paths=ss_inc_paths,
         survival_floor=survival_floor, infl=infl,
     )
