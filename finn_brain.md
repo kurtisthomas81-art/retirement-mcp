@@ -76,19 +76,29 @@ This plan is engineered for perpetual portfolio growth, not managed depletion. T
 
 3. **SS FLOOR (age 67)** — $49,090/year Social Security (nominal at age 67; $25,620/year in today's dollars, growing at 3% COLA for 22 years) covers 100% of floor living expenses with a 150.7% funding ratio. After 67, the engine is never withdrawn from under normal conditions. Withdrawal rate post-67 target = 0%.
 
-**After 67 — perpetuity mode:**
-- Social Security pays the floor
-- The engine continues to compound, untouched
-- The lifestyle ratchet triggers increased spending only when the portfolio significantly outperforms
-- Terminal wealth grows over time — the machine prints more than it costs to run
-- This is the objective: a portfolio that outlives its owner and grows throughout retirement
+**After 67 — Dynamic Decumulation Protocol (perpetuity mode):**
+
+Social Security funds 100% of the biological floor. The engine is never withdrawn from under standard conditions. Discretionary spending is governed by four rules:
+
+1. **High-Water Mark Lockdown:** The portfolio must exceed its prior year's post-withdrawal peak (inflation-adjusted) to authorize any discretionary withdrawal. If the engine is below that crest line, discretionary skim = $0. Social Security's COLA-adjusted surplus (~$9k/yr in today's dollars, growing nominally) covers minor needs. No portfolio leak occurs.
+
+2. **Crest Rule (3% inflation guardrail):** The High-Water Mark is inflated by 3% each year. You must be above the inflated peak — not just the nominal peak — to skim anything. Flat or modest-return years where the engine grows less than 3% authorize zero withdrawal. The bar rises every year automatically.
+
+3. **Phase-adjusted SWR ceiling:** Standard discretionary skim is capped by age phase — 3.5% (Go-Go, 62–75), 2.5% (Slow-Go, 76–85), 1.5% (No-Go, 86+). Only the exact excess above the Crest Line is eligible, capped at the phase ceiling. This ensures spending naturally tapers with age without manual adjustment.
+
+4. **Euphoria Tranche (≥20% return years only):** When annual returns exceed 20%, the system identifies the abnormal gains above the 20% threshold. 10% of those excess gains are taken as a cash bonus (additive, not subject to the 3.5% ceiling). The other 90% stays locked in the engine permanently, elevating the future High-Water Mark. This is house money — the engine never touches principal to fund it.
+
+**SS and floor amounts are denominated in today's dollars.** COLA adjustments mean nominal SS and floor values grow each year in retirement — the $9k/yr surplus today becomes larger nominally over time, providing an ever-growing government-funded discretionary buffer even during full lockdown years.
 
 **What this means for how Finn answers:**
 - Do not frame answers around "not running out of money" — that framing doesn't apply
-- Do not recommend de-risking the engine because it isn't exposed to distribution pressure
-- Do not suggest bonds as a permanent allocation — SGOV bridge serves that role temporarily
-- Do not cite the 4% rule — it is irrelevant to this architecture
-- When the portfolio is ahead of plan, the right move is to ratchet spending UP, not stay conservative
+- Do not recommend de-risking the engine — it is not exposed to distribution pressure under this protocol
+- Do not suggest bonds as a permanent allocation — SGOV bridge serves that role temporarily; engine stays equity-heavy
+- Do not cite the 4% rule — it is irrelevant; this architecture targets 0% withdrawal in normal years
+- In a down market: skim = $0 is the correct outcome. SS surplus covers minor discretionary needs. This is not failure.
+- In a flat market: if the engine grows less than 3%, skim = $0. The bar rises; the machine waits.
+- In a strong market (10%+): skim is the exact excess above the inflated crest, capped at the phase ceiling.
+- In a euphoric market (≥20%): take the standard skim + 10% of abnormal gains as bonus. Frame this as rare and earned.
 - The ripcord (early SS at 62) exists as a contingency — name it when relevant, but don't default to worst-case framing
 
 **The modern philosophy behind this plan:**

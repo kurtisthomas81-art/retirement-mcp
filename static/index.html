@@ -2628,9 +2628,8 @@ async function runMC() {
     sim_size: simSize,
     return_model: returnModel,
     wage_growth: 0.02, dividend_yield: 0.015, ss_age: 67,
-    gogo_e: 0.25, gogo_n: 0.15, slowgo_e: 0.20, slowgo_n: 0.10, nogo_e: 0.10, nogo_n: 0.05,
-    euphoric_offset: 0.03,
-    gk_trigger: 0.20, gk_cut_rate: 0.50, bear_streak_years: 3, bear_streak_cut: 0.25,
+    euph_trig: 0.20, hwm_infl_rate: 0.03,
+    max_wr_gogo: 0.035, max_wr_slowgo: 0.025, max_wr_nogo: 0.015, euph_bonus_pct: 0.10,
     portfolio_cap: 5000000, cap_inflation: 0.03, cap_gogo: 0.10, cap_slowgo: 0.05, cap_nogo: 0.02,
     tent_skim_rate: 0.50, phase3_moat_years: 2,
   };
@@ -3180,54 +3179,36 @@ function renderMCResults(d) {
     }, 110);
   }
 
-  // Ratchet stats panel + cumulative line chart
-  const rs = d.ratchet_stats;
-  if (rs) {
-    const tierRow = (tier, pct, age) =>
-      `<div class="stat-card"><div class="sc-label">Tier ${tier} (${tier === 1 ? '150' : tier === 2 ? '200' : '250'}%)</div>` +
-      `<div class="sc-value" style="font-size:1rem;">${pct}%</div>` +
-      `<div class="sc-sub">${age ? 'median age ' + age : 'never reached'}</div></div>`;
+  // ── Euphoria Tranche card ────────────────────────────────────────────────
+  const et = d.euphoria_stats;
+  if (et && et.p90_bonus > 0) {
     document.getElementById('mc_t1').insertAdjacentHTML('beforeend',
       `<div class="panel" style="margin-top:14px;padding:16px 18px;">
-         <h2>Abundance Ratchet</h2>
+         <h2>&#9889; Euphoria Tranche</h2>
+         <p style="color:var(--muted);font-size:0.78rem;margin:2px 0 12px;line-height:1.5;">
+           House money captured when returns exceed 20%. The engine keeps 90% of every abnormal gain permanently locked in;
+           you take a 10% cash bonus on top of your standard skim. These totals represent <em>lifetime</em> euphoria bonuses
+           across your full retirement horizon.
+         </p>
          <div class="mc-stats-strip">
-           ${tierRow(1, rs.tier1_pct, rs.median_tier1_age)}
-           ${tierRow(2, rs.tier2_pct, rs.median_tier2_age)}
-           ${tierRow(3, rs.tier3_pct, rs.median_tier3_age)}
+           <div class="stat-card accent-amber">
+             <div class="sc-label">Median Lifetime Bonus</div>
+             <div class="sc-value" style="font-size:1rem;">${fm(et.p50_bonus)}</div>
+             <div class="sc-sub">P50 across all trials</div>
+           </div>
+           <div class="stat-card accent-amber">
+             <div class="sc-label">Bull Case Bonus</div>
+             <div class="sc-value" style="font-size:1rem;">${fm(et.p90_bonus)}</div>
+             <div class="sc-sub">P90 — generational bull run</div>
+           </div>
+           <div class="stat-card">
+             <div class="sc-label">Euphoria Fire Rate</div>
+             <div class="sc-value" style="font-size:1rem;">${et.fire_rate}%</div>
+             <div class="sc-sub">of trials had ≥1 ≥20% year</div>
+           </div>
          </div>
-         <canvas id="ratchetPathChart" style="max-height:180px;margin-top:14px;"></canvas>
        </div>`
     );
-    if (d.ratchet_paths) {
-      setTimeout(() => {
-        const ctx = document.getElementById('ratchetPathChart');
-        if (!ctx) return;
-        const rp = d.ratchet_paths;
-        if (window._ratchetChart) window._ratchetChart.destroy();
-        window._ratchetChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: rp.ages,
-            datasets: [
-              { label: 'Tier 1 (150%)', data: rp.t1, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
-              { label: 'Tier 2 (200%)', data: rp.t2, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
-              { label: 'Tier 3 (250%)', data: rp.t3, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
-            ]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { labels: { color: '#8899b8', font: { size: 10 } } },
-              tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + '% of trials' } }
-            },
-            scales: {
-              x: { ticks: { color: '#526070', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-              y: { min: 0, max: 100, ticks: { color: '#526070', font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
-            }
-          }
-        });
-      }, 100);
-    }
   }
 
   // Prime Harvest stats panel
@@ -3323,7 +3304,7 @@ function renderMCResults(d) {
   if (s.median_drawdown > 40)  notes.push(`Median max drawdown ${s.median_drawdown}% — expect significant paper losses in adverse scenarios.`);
   if (s.tax_savings > 0)       goods.push(`Roth conversions save ~${fm(s.tax_savings)} median lifetime taxes vs. no-conversion baseline.`);
   if (pct >= 90)               goods.push(`At ${pct}% confidence your plan comfortably clears the institutional 90% solvency target.`);
-  if (d.ratchet_stats && d.ratchet_stats.tier1_pct > 50) goods.push(`${d.ratchet_stats.tier1_pct}% of futures trigger Tier 1 abundance ratchet (150%) — strong upside engagement.`);
+  if (d.euphoria_stats && d.euphoria_stats.fire_rate > 50) goods.push(`Euphoria Tranche fires in ${d.euphoria_stats.fire_rate}% of trials — strong bull-market bonus capture across the retirement horizon.`);
 
   const alertsHTML = [
     ...warns.map(w => `<div class="pd-warn">\u26a0\ufe0f ${w}</div>`),
@@ -3340,12 +3321,12 @@ function renderMCResults(d) {
     ${s.conv_tax_paid > 0 ? `Roth conversion activity costs ${fm(s.conv_tax_paid)} median in total taxes but repositions assets out of RMD exposure.` : ''}
   `.replace(/\s+/g, ' ').trim();
 
-  const rasHTML = d.ratchet_stats ? `
+  const rasHTML = d.euphoria_stats && d.euphoria_stats.p90_bonus > 0 ? `
     <div class="pd-section">
-      <h3>Abundance Ratchet</h3>
-      <div class="pd-row"><span class="pd-key">Tier 1 (150% of retirement portfolio)</span><span class="pd-val">${d.ratchet_stats.tier1_pct}% of trials ${d.ratchet_stats.median_tier1_age ? '— median age ' + d.ratchet_stats.median_tier1_age : ''}</span></div>
-      <div class="pd-row"><span class="pd-key">Tier 2 (200%)</span><span class="pd-val">${d.ratchet_stats.tier2_pct}% of trials ${d.ratchet_stats.median_tier2_age ? '— median age ' + d.ratchet_stats.median_tier2_age : ''}</span></div>
-      <div class="pd-row"><span class="pd-key">Tier 3 (250%)</span><span class="pd-val">${d.ratchet_stats.tier3_pct}% of trials ${d.ratchet_stats.median_tier3_age ? '— median age ' + d.ratchet_stats.median_tier3_age : ''}</span></div>
+      <h3>Euphoria Tranche</h3>
+      <div class="pd-row"><span class="pd-key">Median lifetime bonus</span><span class="pd-val">${fm(d.euphoria_stats.p50_bonus)}</span></div>
+      <div class="pd-row"><span class="pd-key">Bull case bonus (P90)</span><span class="pd-val">${fm(d.euphoria_stats.p90_bonus)}</span></div>
+      <div class="pd-row"><span class="pd-key">Euphoria fire rate</span><span class="pd-val">${d.euphoria_stats.fire_rate}% of trials had ≥1 year ≥20% return</span></div>
     </div>` : '';
 
   const phHTML = d.prime_harvest_stats ? `
@@ -3636,9 +3617,8 @@ function getParams() {
     tax_risk_mid:         +(document.getElementById('mc_tax_mid')?.value || 40) / 100,
     tax_risk_late:        +(document.getElementById('mc_tax_late')?.value || 60) / 100,
     trials: trials, seq_shock_year: seq_yr,
-    ss_age: 67, ss_haircut_pct: 0.21, phase3_moat_years: 2, euphoric_offset: 0.03,
-    gogo_e:0.25, gogo_n:0.15, slowgo_e:0.20, slowgo_n:0.10, nogo_e:0.10, nogo_n:0.05,
-    gk_trigger:0.20, gk_cut_rate:0.50, bear_streak_years:3, bear_streak_cut:0.25,
+    ss_age: 67, ss_haircut_pct: 0.21, phase3_moat_years: 2,
+    euph_trig:0.20, hwm_infl_rate:0.03, max_wr_gogo:0.035, max_wr_slowgo:0.025, max_wr_nogo:0.015, euph_bonus_pct:0.10,
     portfolio_cap:5000000, cap_inflation:0.03, cap_gogo:0.10, cap_slowgo:0.05, cap_nogo:0.02,
     tent_skim_rate:0.50, dividend_yield:0.015, wage_growth:0.02,
     tail_shock_return:-0.25, tail_shock_count:1,
@@ -4930,10 +4910,13 @@ function renderPlansList(d) {
           </div>
           <div>
             <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Risk Controls</div>
-            ${pf('Ripcord Trigger %', 'gk_trigger_pct',      (ri.gk_trigger        ?? 0.20)*100,'number','1')}
-            ${pf('Ripcord Cut %',     'gk_cut_rate_pct',     (ri.gk_cut_rate       ?? 0.50)*100,'number','1')}
-            ${pf('Bear Streak (yrs)', 'bear_streak_years',    ri.bear_streak_years  ?? 3,        'number')}
-            ${pf('Portfolio Cap ($)', 'portfolio_cap',        ri.portfolio_cap      ?? 5000000,  'number')}
+            ${pf('HWM Inflation %',    'hwm_infl_rate_pct',   (ri.hwm_infl_rate  ?? 0.03)*100,  'number','0.1')}
+            ${pf('Max WR Go-Go %',    'max_wr_gogo_pct',     (ri.max_wr_gogo    ?? 0.035)*100,  'number','0.1')}
+            ${pf('Max WR Slow-Go %',  'max_wr_slowgo_pct',   (ri.max_wr_slowgo  ?? 0.025)*100,  'number','0.1')}
+            ${pf('Max WR No-Go %',    'max_wr_nogo_pct',     (ri.max_wr_nogo    ?? 0.015)*100,  'number','0.1')}
+            ${pf('Euphoria Trigger %','euph_trig_pct',       (ri.euph_trig      ?? 0.20)*100,   'number','1')}
+            ${pf('Euphoria Bonus %',  'euph_bonus_pct_f',    (ri.euph_bonus_pct ?? 0.10)*100,   'number','1')}
+            ${pf('Portfolio Cap ($)', 'portfolio_cap',        ri.portfolio_cap   ?? 5000000,     'number')}
           </div>
         </div>
         <div style="display:flex;gap:10px;">
@@ -4997,9 +4980,12 @@ async function saveActivePlan(e, planId) {
     volatility:            get('volatility_pct')     / 100,
     sgov_yield:            get('sgov_yield_pct')     / 100,
     inflation_rate:        get('inflation_rate_pct') / 100,
-    gk_trigger:            get('gk_trigger_pct')     / 100,
-    gk_cut_rate:           get('gk_cut_rate_pct')    / 100,
-    bear_streak_years:     get('bear_streak_years'),
+    hwm_infl_rate:         get('hwm_infl_rate_pct')  / 100,
+    max_wr_gogo:           get('max_wr_gogo_pct')    / 100,
+    max_wr_slowgo:         get('max_wr_slowgo_pct')  / 100,
+    max_wr_nogo:           get('max_wr_nogo_pct')    / 100,
+    euph_trig:             get('euph_trig_pct')      / 100,
+    euph_bonus_pct:        get('euph_bonus_pct_f')   / 100,
     portfolio_cap:         get('portfolio_cap'),
   };
   const st = document.getElementById('planSaveStatus');
@@ -5058,10 +5044,12 @@ async function duplicatePlan(planId) {
     sgov_yield:            mk.sgov_yield,
     inflation_rate:        mk.inflation_rate,
     dividend_yield:        mk.dividend_yield,
-    gk_trigger:            ri.gk_trigger,
-    gk_cut_rate:           ri.gk_cut_rate,
-    bear_streak_years:     ri.bear_streak_years,
-    bear_streak_cut:       ri.bear_streak_cut,
+    hwm_infl_rate:         ri.hwm_infl_rate,
+    max_wr_gogo:           ri.max_wr_gogo,
+    max_wr_slowgo:         ri.max_wr_slowgo,
+    max_wr_nogo:           ri.max_wr_nogo,
+    euph_trig:             ri.euph_trig,
+    euph_bonus_pct:        ri.euph_bonus_pct,
     portfolio_cap:         ri.portfolio_cap,
   };
   const r = await fetch('/api/plans', {

@@ -169,6 +169,7 @@ def _init_arrays(n_trials):
         "ph_drawn_arr":   np.zeros(n_trials),
         "ph_refill_arr":  np.zeros(n_trials),
         "ph_funded_arr":  np.zeros(n_trials),
+        "euph_arr":       np.zeros(n_trials),
         "aca_mod_arr":    np.zeros(n_trials, dtype=bool),
         "irmaa_mod_arr":  np.zeros(n_trials, dtype=bool),
     }
@@ -234,6 +235,13 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
         "spend_ratio": round(float(np.median(total_spend_arr)) / med_spt * 100, 1) if med_spt > 0 else 0.0,
     }
 
+    euph_arr = arrays["euph_arr"]
+    euphoria_stats = {
+        "p50_bonus": round(float(np.median(euph_arr))),
+        "p90_bonus": round(float(np.percentile(euph_arr, 90))),
+        "fire_rate": round(float(np.mean(euph_arr > 0) * 100), 1),
+    }
+
     prime_harvest_stats = None
     if use_ph:
         funded = arrays["ph_funded_arr"][arrays["ph_funded_arr"] > 0]
@@ -282,6 +290,7 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
         "ss_line":             ss_line,
         "floor_line":          floor_line,
         "prime_harvest_stats": prime_harvest_stats,
+        "euphoria_stats":      euphoria_stats,
         "stats": {
             "median_arrival":     round(float(np.median(arrays["arrival_arr"]))),
             "median_ss_age":      round(float(np.median(arrays["ss_age_arr"])), 1),
@@ -440,9 +449,10 @@ def run_monte_carlo(params, seed=None):
     ph_refills    = np.zeros(n_trials)
     ph_was_drawn  = np.zeros(n_trials, dtype=bool)
     ph_funded_age = np.zeros(n_trials)
-    tot_gg  = np.zeros(n_trials)
-    tot_sg  = np.zeros(n_trials)
-    tot_ng  = np.zeros(n_trials)
+    tot_gg   = np.zeros(n_trials)
+    tot_sg   = np.zeros(n_trials)
+    tot_ng   = np.zeros(n_trials)
+    tot_euph = np.zeros(n_trials)
     tot_ctx = np.zeros(n_trials)
     tot_shx = np.zeros(n_trials)
     max_dd  = np.zeros(n_trials)
@@ -701,6 +711,7 @@ def run_monte_carlo(params, seed=None):
                             0.0)
 
         skim = np.minimum(standard_skim + euph_bonus, eng)
+        tot_euph += euph_bonus
 
         # ── Apply skim; stamp trailing HWM post-withdrawal ────────────────────
         eng -= skim
@@ -792,6 +803,7 @@ def run_monte_carlo(params, seed=None):
     arrays["gogo_arr"]      = tot_gg
     arrays["slgo_arr"]      = tot_sg
     arrays["nogo_arr"]      = tot_ng
+    arrays["euph_arr"]      = tot_euph
     arrays["conv_tx_arr"]   = tot_ctx
     arrays["shadow_tx_arr"] = tot_shx
     arrays["dd_arr"]        = max_dd
