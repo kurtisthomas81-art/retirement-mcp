@@ -186,6 +186,7 @@ def read_dashboard_data():
         "ss_monthly_62": 0.0, "ss_monthly_67": 0.0, "ss_monthly_70": 0.0,
         "checking_balance": 0.0, "sgov_balance": 0.0, "total_invested": 0.0,
         "monthly_burn": 0.0, "net_monthly_income": 0.0,
+        "trad_401k_balance": 0.0, "roth_401k_balance": 0.0,
     }
     ws_nw = wb["NET_WORTH"]
     for row in ws_nw.iter_rows(min_row=1, values_only=True):
@@ -201,8 +202,10 @@ def read_dashboard_data():
         elif "Monthly Burn"       in c0 and v1 is not None: nw["monthly_burn"]        = float(v1)
         elif "Net Monthly Income" in c0 and v1 is not None: nw["net_monthly_income"]  = float(v1)
         elif "Checking" in c1 and "Ops" in c1 and v2 is not None: nw["checking_balance"] = float(v2)
-        elif "SGOV"         in c1 and v2 is not None: nw["sgov_balance"]   = float(v2)
-        elif "TOTAL INVESTED" in c1 and v2 is not None: nw["total_invested"] = float(v2)
+        elif "SGOV"         in c1 and v2 is not None: nw["sgov_balance"]        = float(v2)
+        elif "TOTAL INVESTED" in c1 and v2 is not None: nw["total_invested"]    = float(v2)
+        elif "401k Trad" in c0 and v1 is not None: nw["trad_401k_balance"]      = float(v1)
+        elif "401k Roth" in c0 and v1 is not None: nw["roth_401k_balance"]      = float(v1)
 
     engine_bal_port = 0.0
     trad_401k_port  = 0.0
@@ -233,11 +236,13 @@ def read_dashboard_data():
 
     wb.close()
 
-    engine_bal = engine_bal_port if engine_bal_port > 0 else max(0.0, nw["total_invested"] - nw["sgov_balance"])
+    engine_bal       = engine_bal_port if engine_bal_port > 0 else max(0.0, nw["total_invested"] - nw["sgov_balance"])
+    trad_401k_final  = nw["trad_401k_balance"] if nw["trad_401k_balance"] > 0 else trad_401k_port
     mc_prefill = {
         "current_age":        None,
         "engine_balance":     round(engine_bal),
-        "trad_401k_balance":  round(trad_401k_port),
+        "trad_401k_balance":  round(trad_401k_final),
+        "roth_401k_balance":  round(nw["roth_401k_balance"]),
         "sgov_balance":       round(nw["sgov_balance"]),
         "checking_balance":   round(nw["checking_balance"]),
         "full_ss_annual":     round(nw["ss_monthly_67"] * 12),

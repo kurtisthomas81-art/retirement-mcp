@@ -1288,6 +1288,8 @@
             <div id="mc_conv_opts" class="mc-row-3" style="display:none">
               <div class="field"><label>Trad 401k ($)</label><input type="number" id="mc_trad" value="0" min="0"></div>
               <div class="field"><label>Roth 401k ($)</label><input type="number" id="mc_roth_401k" value="0" min="0" oninput="splitRoth401k(this.value)" title="Roth 401k balance — shifts this amount from Trad 401k to Engine (already tax-free, no RMDs)"></div>
+              <div class="field"><label>Annual Match ($)</label><input type="number" id="mc_annual_match" value="0" min="0" title="Employer match per year — added to Traditional 401k during accumulation"></div>
+              <div class="field"><label>Annual Roth Contrib ($)</label><input type="number" id="mc_annual_roth_contrib" value="0" min="0" title="Employee Roth 401k contribution per year — grows the tax-free engine bucket during accumulation"></div>
               <div class="field"><label>Target Bracket</label>
                 <select id="mc_tgt_bkt" class="mc-select">
                   <option value="0.12">12%</option>
@@ -1415,6 +1417,7 @@
     <button class="plan-tab" onclick="switchPlanTab('plans', this)">Strategy Plans</button>
     <button class="plan-tab" onclick="switchPlanTab('rules', this)">Rules</button>
     <button class="plan-tab" onclick="switchPlanTab('rothlad', this)">Roth Ladder</button>
+    <button class="plan-tab" onclick="switchPlanTab('401ksetup', this)">401K Setup</button>
     <button class="plan-tab" onclick="switchPlanTab('forecast', this)">Forecast</button>
   </div>
 
@@ -1476,6 +1479,31 @@
         </div>
         <div id="rl_results">
           <div class="rl-result-hint">Enter your Traditional IRA details and click Calculate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-pane: 401K Setup -->
+  <div id="plan-sub-401ksetup" class="plan-sub-pane">
+    <div class="panel">
+      <h2>401k Contribution Setup</h2>
+      <div class="rl-layout">
+        <div class="rl-inputs">
+          <div class="mc-section-title">Current Balances (from Ledger)</div>
+          <div class="mc-row-2">
+            <div class="field"><label>Traditional 401k ($)</label><input type="number" id="k401_trad_bal" value="0" readonly style="opacity:0.7;cursor:default;"></div>
+            <div class="field"><label>Roth 401k ($)</label><input type="number" id="k401_roth_bal" value="0" readonly style="opacity:0.7;cursor:default;"></div>
+          </div>
+          <div style="font-size:0.65rem;color:var(--muted2);margin:4px 0 12px;">Add <strong>401k Trad Balance</strong> and <strong>401k Roth Balance</strong> rows (col A label, col B value) to your NET_WORTH sheet to keep these current.</div>
+          <div class="mc-section-title">Annual Contributions</div>
+          <div class="mc-row-3">
+            <div class="field"><label>Gross Salary ($)</label><input type="number" id="k401_gross" value="0" min="0" oninput="calc401k()"></div>
+            <div class="field"><label>Employee Roth %</label><input type="number" id="k401_roth_pct" value="5" step="0.5" min="0" max="100" oninput="calc401k()"></div>
+            <div class="field"><label>Employer Match %</label><input type="number" id="k401_match_pct" value="4" step="0.5" min="0" max="100" oninput="calc401k()"></div>
+          </div>
+          <div id="k401_calc_output" style="margin:12px 0;padding:10px;background:var(--panel);border-radius:8px;font-size:0.8rem;display:none;"></div>
+          <button class="btn btn-primary" onclick="apply401kToSim()" style="margin-top:8px;">Apply to Simulation &rarr;</button>
         </div>
       </div>
     </div>
@@ -2235,6 +2263,47 @@ async function uploadLedger(input) {
   }
 }
 
+function calc401k() {
+  const gross = parseFloat(document.getElementById('k401_gross').value) || 0;
+  const rPct  = parseFloat(document.getElementById('k401_roth_pct').value) || 0;
+  const mPct  = parseFloat(document.getElementById('k401_match_pct').value) || 0;
+  const rothAnn  = Math.round(gross * rPct / 100);
+  const matchAnn = Math.round(gross * mPct / 100);
+  const out = document.getElementById('k401_calc_output');
+  if (out) {
+    if (gross > 0) {
+      out.style.display = 'block';
+      out.innerHTML = `Employee Roth &rarr; <strong>${fm(rothAnn)}/yr</strong> &nbsp;|&nbsp; Employer Match &rarr; <strong>${fm(matchAnn)}/yr</strong> &nbsp;|&nbsp; Total &rarr; <strong>${fm(rothAnn + matchAnn)}/yr</strong>`;
+    } else {
+      out.style.display = 'none';
+    }
+  }
+  localStorage.setItem('k401_gross',    gross);
+  localStorage.setItem('k401_roth_pct', rPct);
+  localStorage.setItem('k401_match_pct',mPct);
+}
+
+function apply401kToSim() {
+  const gross    = parseFloat(document.getElementById('k401_gross').value) || 0;
+  const rPct     = parseFloat(document.getElementById('k401_roth_pct').value) || 0;
+  const mPct     = parseFloat(document.getElementById('k401_match_pct').value) || 0;
+  const rothAnn  = Math.round(gross * rPct / 100);
+  const matchAnn = Math.round(gross * mPct / 100);
+  const rBal     = parseFloat(document.getElementById('k401_roth_bal').value) || 0;
+  if (rBal > 0) {
+    document.getElementById('mc_roth_401k').value = rBal;
+    splitRoth401k(rBal);
+  }
+  const matchEl = document.getElementById('mc_annual_match');
+  const rcEl    = document.getElementById('mc_annual_roth_contrib');
+  if (matchEl) matchEl.value = matchAnn;
+  if (rcEl)    rcEl.value    = rothAnn;
+  const convCb = document.getElementById('mc_use_conv');
+  if (convCb && !convCb.checked) convCb.click();
+  switchTab('sim', document.querySelector('[data-tab="sim"]'));
+  showToast('401k settings applied to simulation', 'success');
+}
+
 function splitRoth401k(val) {
   const roth = Math.max(0, parseFloat(val) || 0);
   const tradTotal = window._trad401kPrefill || 0;
@@ -2490,8 +2559,23 @@ async function prefillMC() {
     set('mc_full_ss',  p.full_ss_annual);
     if (p.trad_401k_balance > 0) set('mc_trad', p.trad_401k_balance);
     if (p.annual_floor_cost > 0) set('mc_floor', p.annual_floor_cost);
-    window._enginePrefill   = p.engine_balance   || 0;
+    window._enginePrefill   = p.engine_balance    || 0;
     window._trad401kPrefill = p.trad_401k_balance || 0;
+    if (p.roth_401k_balance > 0) {
+      document.getElementById('mc_roth_401k').value = p.roth_401k_balance;
+      splitRoth401k(p.roth_401k_balance);
+    }
+    // populate 401k setup panel balances
+    const t401 = document.getElementById('k401_trad_bal');
+    const r401 = document.getElementById('k401_roth_bal');
+    if (t401 && p.trad_401k_balance > 0) t401.value = p.trad_401k_balance;
+    if (r401 && p.roth_401k_balance > 0) r401.value = p.roth_401k_balance;
+    // restore contribution rates from localStorage and recalculate
+    ['k401_gross','k401_roth_pct','k401_match_pct'].forEach(k => {
+      const v = localStorage.getItem(k); const el = document.getElementById(k);
+      if (v && el) el.value = v;
+    });
+    if (typeof calc401k === 'function') calc401k();
     const filled = ['mc_engine','mc_sgov','mc_checking','mc_full_ss','mc_trad']
       .filter(id => parseFloat(document.getElementById(id).value) > 0);
     if (filled.length > 0) {
@@ -2534,6 +2618,8 @@ async function runMC() {
     use_mortality_weighting: document.getElementById('mc_mort').checked,
     use_conversion:          document.getElementById('mc_use_conv').checked,
     trad_balance:            parseFloat(document.getElementById('mc_trad').value)     || 0,
+    annual_match:            parseFloat(document.getElementById('mc_annual_match').value) || 0,
+    annual_roth_contrib:     parseFloat(document.getElementById('mc_annual_roth_contrib').value) || 0,
     target_bracket:          parseFloat(document.getElementById('mc_tgt_bkt').value)  || 0.12,
     state_tax_rate:          pct('mc_state_tx'),
     use_aca_cliff:           document.getElementById('mc_aca_cliff').checked,

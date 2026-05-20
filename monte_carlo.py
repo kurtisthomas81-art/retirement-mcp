@@ -385,9 +385,10 @@ def run_monte_carlo(params, seed=None):
     use_gf      = bool(g("use_gogo_floor", False))
     gogo_fl_ann = float(g("gogo_floor_monthly", 1000)) * 12
 
-    use_conv  = bool(g("use_conversion", False))
-    trad0     = float(g("trad_balance", 0))
-    ann_match = float(g("annual_match", 0))
+    use_conv         = bool(g("use_conversion", False))
+    trad0            = float(g("trad_balance", 0))
+    ann_match        = float(g("annual_match", 0))
+    ann_roth_contrib = float(g("annual_roth_contrib", 0))
     tgt_bkt   = float(g("target_bracket", 0.12))
     cust_conv = float(g("custom_conv_amt", 0))
     state_tx  = float(g("state_tax_rate", 0.0399))
@@ -551,7 +552,7 @@ def run_monte_carlo(params, seed=None):
             excess = eng * ret - eng * mu
             sk = np.where(tent_eligible & (excess > 0),
                           np.minimum(excess * tent_rate, full_moat - sg), 0.0)
-            eng = eng * (1 + ret) + c - sk
+            eng = eng * (1 + ret) + c + ann_roth_contrib * ((1 + wage_gr) ** yp) - sk
             sg  = sg + sk
             sg  = sg * (1 + syld)
             if use_conv:
