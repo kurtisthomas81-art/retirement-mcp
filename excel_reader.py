@@ -5,6 +5,21 @@ import config
 ENGINE_TICKERS = {"FXAIX", "VTI", "SWPPX", "SPLG", "VXF", "SPDW", "BTC"}
 
 
+def _acct_type(section: str) -> str:
+    s = section.lower()
+    has_roth = "roth" in s or "converted" in s
+    has_401k = "401" in s or "proxy" in s or "voya" in s
+    if has_roth and has_401k:
+        return "401k-roth"
+    if has_401k:
+        return "401k-trad"
+    if has_roth:
+        return "roth-ira"
+    if "crypto" in s or "bitcoin" in s:
+        return "crypto"
+    return "taxable"
+
+
 def _open_ledger():
     path = config.LEDGER_PATH
     if not Path(path).exists():
@@ -70,12 +85,13 @@ def read_portfolio_data():
             shares = 0.0
         avg_cost     = float(row[4]) if len(row) > 4 and isinstance(row[4], (int, float)) else None
         cached_price = float(row[5]) if len(row) > 5 and isinstance(row[5], (int, float)) else None
+        acct_type = _acct_type(current_section)
         is_crypto = ticker_raw.startswith("CURRENCY:")
-        is_proxy  = ("proxy" in current_section.lower() or "401" in current_section.lower()
-                     or "voya" in current_section.lower())
+        is_proxy  = acct_type in ("401k-trad", "401k-roth")
         av_symbol = ticker_raw.replace("MUTF:", "").replace("CURRENCY:", "").split("USD")[0]
         holdings.append({
             "section":      current_section,
+            "account_type": acct_type,
             "ticker":       av_symbol,
             "name":         name,
             "shares":       shares,
@@ -189,12 +205,17 @@ def read_dashboard_data():
         elif "TOTAL INVESTED" in c1 and v2 is not None: nw["total_invested"] = float(v2)
 
     engine_bal_port = 0.0
+    trad_401k_port  = 0.0
     try:
         ws_port = wb["PORTFOLIO"]
+        cur_sec = ""
         for row in ws_port.iter_rows(min_row=2, values_only=True):
             if not row or not any(v is not None for v in row):
                 continue
+            sec_raw    = str(row[0] or "").strip() if len(row) > 0 else ""
             ticker_raw = str(row[1] or "").strip() if len(row) > 1 else ""
+            if sec_raw:
+                cur_sec = sec_raw
             if not ticker_raw:
                 continue
             av_sym = ticker_raw.replace("MUTF:", "").replace("CURRENCY:", "").split("USD")[0]
@@ -203,7 +224,10 @@ def read_dashboard_data():
             shares = float(row[3]) if len(row) > 3 and isinstance(row[3], (int, float)) else 0.0
             cached_price = float(row[5]) if len(row) > 5 and isinstance(row[5], (int, float)) else None
             if shares and cached_price:
-                engine_bal_port += shares * cached_price
+                if _acct_type(cur_sec) == "401k-trad":
+                    trad_401k_port += shares * cached_price
+                else:
+                    engine_bal_port += shares * cached_price
     except Exception:
         pass
 
@@ -213,6 +237,7 @@ def read_dashboard_data():
     mc_prefill = {
         "current_age":        None,
         "engine_balance":     round(engine_bal),
+        "trad_401k_balance":  round(trad_401k_port),
         "sgov_balance":       round(nw["sgov_balance"]),
         "checking_balance":   round(nw["checking_balance"]),
         "full_ss_annual":     round(nw["ss_monthly_67"] * 12),

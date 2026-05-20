@@ -417,10 +417,13 @@
     font-size: 0.58rem; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px;
     border-radius: var(--radius-pill); text-transform: uppercase; white-space: nowrap; min-height: unset;
   }
-  .tag-roth    { background: rgba(74,222,128,0.12);  color: var(--accent); border: 1px solid rgba(74,222,128,0.3); }
-  .tag-taxable { background: rgba(56,189,248,0.08);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
-  .tag-401k    { background: rgba(245,158,11,0.08);  color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
-  .tag-crypto  { background: rgba(167,139,250,0.08); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+  .tag-roth      { background: rgba(74,222,128,0.12);  color: var(--accent); border: 1px solid rgba(74,222,128,0.3); }
+  .tag-roth-ira  { background: rgba(74,222,128,0.12);  color: var(--accent); border: 1px solid rgba(74,222,128,0.3); }
+  .tag-taxable   { background: rgba(56,189,248,0.08);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
+  .tag-401k      { background: rgba(245,158,11,0.08);  color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+  .tag-401k-trad { background: rgba(245,158,11,0.08);  color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+  .tag-401k-roth { background: rgba(16,185,129,0.10);  color: #6ee7b7; border: 1px solid rgba(16,185,129,0.25); }
+  .tag-crypto    { background: rgba(167,139,250,0.08); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
   .port-acct-name  { color: var(--text); font-size: 0.74rem; font-weight: 500; }
   .port-acct-total { color: var(--accent); font-size: 0.92rem; font-weight: 700; font-family: var(--font-mono); }
   .port-htable { width: 100%; border-collapse: collapse; background: rgba(8,13,26,0.5); }
@@ -2233,16 +2236,21 @@ async function uploadLedger(input) {
 
 // ── Portfolio ──────────────────────────────────────────────────────────────
 
-function acctType(section) {
+function acctType(section, apiType) {
+  if (apiType) return apiType;
   const s = section.toLowerCase();
-  if (s.includes('roth') || s.includes('converted')) return 'roth';
-  if (s.includes('401') || s.includes('proxy') || s.includes('voya')) return '401k';
+  const hasRoth = s.includes('roth') || s.includes('converted');
+  const has401k = s.includes('401') || s.includes('proxy') || s.includes('voya');
+  if (hasRoth && has401k) return '401k-roth';
+  if (has401k)            return '401k-trad';
+  if (hasRoth)            return 'roth-ira';
   if (s.includes('crypto') || s.includes('bitcoin')) return 'crypto';
   return 'taxable';
 }
-function acctTypeLabel(section) {
-  const t = acctType(section);
-  return {roth:'ROTH', '401k':'401K', crypto:'CRYPTO', taxable:'TAXABLE'}[t];
+function acctTypeLabel(section, apiType) {
+  const t = acctType(section, apiType);
+  return {'roth-ira':'ROTH IRA', '401k-trad':'401K TRAD', '401k-roth':'401K ROTH',
+          roth:'ROTH IRA', '401k':'401K', crypto:'CRYPTO', taxable:'TAXABLE'}[t] || t.toUpperCase();
 }
 
 function buildPortTable(holdings, priceField, valueField) {
@@ -2267,8 +2275,9 @@ function buildPortTable(holdings, priceField, valueField) {
       grandCount++;
     }
 
-    const type    = acctType(section);
-    const tag     = acctTypeLabel(section);
+    const apiType = rows[0] && rows[0].account_type ? rows[0].account_type : null;
+    const type    = acctType(section, apiType);
+    const tag     = acctTypeLabel(section, apiType);
     const secName = section.replace(/\s*-\s*Money Machine/i,'').replace(/\s*-\s*Bridge Asset [A-Z]/i,'').replace(/\s*-\s*Moat Fund/i,' \u2014 Moat').trim();
 
     html += `
@@ -2468,8 +2477,9 @@ async function prefillMC() {
     set('mc_sgov',     p.sgov_balance);
     set('mc_checking', p.checking_balance);
     set('mc_full_ss',  p.full_ss_annual);
+    if (p.trad_401k_balance > 0) set('mc_trad', p.trad_401k_balance);
     if (p.annual_floor_cost > 0) set('mc_floor', p.annual_floor_cost);
-    const filled = ['mc_engine','mc_sgov','mc_checking','mc_full_ss']
+    const filled = ['mc_engine','mc_sgov','mc_checking','mc_full_ss','mc_trad']
       .filter(id => parseFloat(document.getElementById(id).value) > 0);
     if (filled.length > 0) {
       const note = document.getElementById('mc_prefill_note');
