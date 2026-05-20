@@ -1286,7 +1286,8 @@
               <label class="mc-toggle"><input type="checkbox" id="mc_use_conv" onchange="const v=this.checked?'grid':'none';document.getElementById('mc_conv_opts').style.display=v;document.getElementById('mc_conv_cliff_opts').style.display=this.checked?'flex':'none';"> Enable Roth Conversion</label>
             </div>
             <div id="mc_conv_opts" class="mc-row-3" style="display:none">
-              <div class="field"><label>Trad Balance ($)</label><input type="number" id="mc_trad" value="0" min="0"></div>
+              <div class="field"><label>Trad 401k ($)</label><input type="number" id="mc_trad" value="0" min="0"></div>
+              <div class="field"><label>Roth 401k ($)</label><input type="number" id="mc_roth_401k" value="0" min="0" oninput="splitRoth401k(this.value)" title="Roth 401k balance — shifts this amount from Trad 401k to Engine (already tax-free, no RMDs)"></div>
               <div class="field"><label>Target Bracket</label>
                 <select id="mc_tgt_bkt" class="mc-select">
                   <option value="0.12">12%</option>
@@ -2234,6 +2235,16 @@ async function uploadLedger(input) {
   }
 }
 
+function splitRoth401k(val) {
+  const roth = Math.max(0, parseFloat(val) || 0);
+  const tradTotal = window._trad401kPrefill || 0;
+  const engBase   = window._enginePrefill   || 0;
+  const tradEl = document.getElementById('mc_trad');
+  const engEl  = document.getElementById('mc_engine');
+  if (tradEl) tradEl.value = Math.max(0, tradTotal - roth);
+  if (engEl)  engEl.value  = engBase + roth;
+}
+
 // ── Portfolio ──────────────────────────────────────────────────────────────
 
 function acctType(section, apiType) {
@@ -2479,6 +2490,8 @@ async function prefillMC() {
     set('mc_full_ss',  p.full_ss_annual);
     if (p.trad_401k_balance > 0) set('mc_trad', p.trad_401k_balance);
     if (p.annual_floor_cost > 0) set('mc_floor', p.annual_floor_cost);
+    window._enginePrefill   = p.engine_balance   || 0;
+    window._trad401kPrefill = p.trad_401k_balance || 0;
     const filled = ['mc_engine','mc_sgov','mc_checking','mc_full_ss','mc_trad']
       .filter(id => parseFloat(document.getElementById(id).value) > 0);
     if (filled.length > 0) {
