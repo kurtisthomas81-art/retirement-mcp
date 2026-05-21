@@ -237,9 +237,9 @@ def _aggregate_results(t0, n_trials, current_age, target_age, end_age, all_paths
 
     euph_arr = arrays["euph_arr"]
     euphoria_stats = {
+        "p10_bonus": round(float(np.percentile(euph_arr, 10))),
         "p50_bonus": round(float(np.median(euph_arr))),
         "p90_bonus": round(float(np.percentile(euph_arr, 90))),
-        "fire_rate": round(float(np.mean(euph_arr > 0) * 100), 1),
     }
 
     prime_harvest_stats = None

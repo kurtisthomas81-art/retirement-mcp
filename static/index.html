@@ -3191,20 +3191,20 @@ function renderMCResults(d) {
            across your full retirement horizon.
          </p>
          <div class="mc-stats-strip">
-           <div class="stat-card accent-amber">
-             <div class="sc-label">Median Lifetime Bonus</div>
-             <div class="sc-value" style="font-size:1rem;">${fm(et.p50_bonus)}</div>
-             <div class="sc-sub">P50 across all trials</div>
-           </div>
-           <div class="stat-card accent-amber">
-             <div class="sc-label">Bull Case Bonus</div>
-             <div class="sc-value" style="font-size:1rem;">${fm(et.p90_bonus)}</div>
-             <div class="sc-sub">P90 — generational bull run</div>
-           </div>
            <div class="stat-card">
-             <div class="sc-label">Euphoria Fire Rate</div>
-             <div class="sc-value" style="font-size:1rem;">${et.fire_rate}%</div>
-             <div class="sc-sub">of trials had ≥1 ≥20% year</div>
+             <div class="sc-label">Bear Case (P10)</div>
+             <div class="sc-value" style="font-size:1rem;">${fm(et.p10_bonus)}</div>
+             <div class="sc-sub">low-euphoria retirement</div>
+           </div>
+           <div class="stat-card accent-amber key-metric">
+             <div class="sc-label">Median Bonus (P50)</div>
+             <div class="sc-value" style="font-size:1rem;">${fm(et.p50_bonus)}</div>
+             <div class="sc-sub">lifetime house money captured</div>
+           </div>
+           <div class="stat-card accent-amber">
+             <div class="sc-label">Bull Case (P90)</div>
+             <div class="sc-value" style="font-size:1rem;">${fm(et.p90_bonus)}</div>
+             <div class="sc-sub">generational bull run</div>
            </div>
          </div>
        </div>`
@@ -3304,7 +3304,7 @@ function renderMCResults(d) {
   if (s.median_drawdown > 40)  notes.push(`Median max drawdown ${s.median_drawdown}% — expect significant paper losses in adverse scenarios.`);
   if (s.tax_savings > 0)       goods.push(`Roth conversions save ~${fm(s.tax_savings)} median lifetime taxes vs. no-conversion baseline.`);
   if (pct >= 90)               goods.push(`At ${pct}% confidence your plan comfortably clears the institutional 90% solvency target.`);
-  if (d.euphoria_stats && d.euphoria_stats.fire_rate > 50) goods.push(`Euphoria Tranche fires in ${d.euphoria_stats.fire_rate}% of trials — strong bull-market bonus capture across the retirement horizon.`);
+  if (d.euphoria_stats && d.euphoria_stats.p50_bonus > 0) goods.push(`Euphoria Tranche delivers ${fm(d.euphoria_stats.p50_bonus)} median lifetime house-money bonus — strong bull-market capture across the retirement horizon.`);
 
   const alertsHTML = [
     ...warns.map(w => `<div class="pd-warn">\u26a0\ufe0f ${w}</div>`),
@@ -3324,9 +3324,9 @@ function renderMCResults(d) {
   const rasHTML = d.euphoria_stats && d.euphoria_stats.p90_bonus > 0 ? `
     <div class="pd-section">
       <h3>Euphoria Tranche</h3>
-      <div class="pd-row"><span class="pd-key">Median lifetime bonus</span><span class="pd-val">${fm(d.euphoria_stats.p50_bonus)}</span></div>
+      <div class="pd-row"><span class="pd-key">Bear case bonus (P10)</span><span class="pd-val">${fm(d.euphoria_stats.p10_bonus)}</span></div>
+      <div class="pd-row"><span class="pd-key">Median lifetime bonus (P50)</span><span class="pd-val">${fm(d.euphoria_stats.p50_bonus)}</span></div>
       <div class="pd-row"><span class="pd-key">Bull case bonus (P90)</span><span class="pd-val">${fm(d.euphoria_stats.p90_bonus)}</span></div>
-      <div class="pd-row"><span class="pd-key">Euphoria fire rate</span><span class="pd-val">${d.euphoria_stats.fire_rate}% of trials had ≥1 year ≥20% return</span></div>
     </div>` : '';
 
   const phHTML = d.prime_harvest_stats ? `
