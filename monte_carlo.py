@@ -38,7 +38,7 @@ def compute_federal_tax(gross, year_off, infl, filing, reverted=False):
         else:
             bkts = [(9325*f,.10),(37950*f,.15),(91900*f,.25),(191650*f,.28),(416700*f,.33),(418400*f,.35),(math.inf,.396)]
     else:
-        std = (32200 if filing == "mfj" else 16100) * f
+        std = (config.RULES_2026["std_deduction_mfj"] if filing == "mfj" else config.RULES_2026["std_deduction_single"]) * f
         if filing == "mfj":
             bkts = [(23850*f,.10),(96950*f,.12),(206700*f,.22),(394600*f,.24),(501050*f,.32),(751600*f,.35),(math.inf,.37)]
         else:
@@ -72,7 +72,7 @@ def compute_conversion_amount(trad, ss, rate, year_off, infl, filing):
     if trad <= 0:
         return 0.0
     f = (1 + infl) ** year_off
-    std = (32200 if filing == "mfj" else 16100) * f
+    std = (config.RULES_2026["std_deduction_mfj"] if filing == "mfj" else config.RULES_2026["std_deduction_single"]) * f
     if filing == "mfj":
         bkts = [(23850*f,.10),(96950*f,.12),(206700*f,.22),(394600*f,.24),(501050*f,.32),(751600*f,.35)]
     else:

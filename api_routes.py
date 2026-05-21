@@ -25,6 +25,9 @@ import monte_carlo
 STATIC_DIR = Path(__file__).parent / "static"
 FINN_MEMORY_PATH = config.FINN_MEMORY_PATH
 
+# ── Concurrency guards ─────────────────────────────────────────────────────────
+_plans_lock: asyncio.Lock = asyncio.Lock()
+
 # ── SSE broadcast ─────────────────────────────────────────────────────────────
 _sse_subscribers: set[asyncio.Queue] = set()
 
@@ -361,7 +364,8 @@ async def api_plans_create(request: Request):
         data["plans"].append(new_plan)
         _write_plans(data)
         return new_plan
-    plan = await asyncio.to_thread(_do_create)
+    async with _plans_lock:
+        plan = await asyncio.to_thread(_do_create)
     return JSONResponse(plan, status_code=201)
 
 
@@ -399,7 +403,8 @@ async def api_plans_update(request: Request):
                 return p
         return None
 
-    result = await asyncio.to_thread(_do_update)
+    async with _plans_lock:
+        result = await asyncio.to_thread(_do_update)
     if result is None:
         return JSONResponse({"error": "plan not found"}, status_code=404)
     return JSONResponse(result)
@@ -417,7 +422,8 @@ async def api_plans_activate(request: Request):
         _write_plans(data)
         return True
 
-    ok = await asyncio.to_thread(_do_activate)
+    async with _plans_lock:
+        ok = await asyncio.to_thread(_do_activate)
     if not ok:
         return JSONResponse({"error": "plan not found"}, status_code=404)
     return JSONResponse({"ok": True, "active_id": plan_id})
@@ -437,7 +443,8 @@ async def api_plans_delete(request: Request):
         _write_plans(data)
         return "ok"
 
-    result = await asyncio.to_thread(_do_delete)
+    async with _plans_lock:
+        result = await asyncio.to_thread(_do_delete)
     if result == "active":
         return JSONResponse({"error": "cannot delete the active plan"}, status_code=409)
     if result == "not_found":
@@ -1031,17 +1038,13 @@ async def api_grid_search(request: Request):
     })
 
 
-async def api_chat_stream(request: Request):
-    import json as _json
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    message        = str(body.get("message", "")).strip()[:4096]
-    context_type   = body.get("context_type", "all")
-    model          = body.get("model") or config.OLLAMA_MODEL
-    history        = body.get("history", [])
-    sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
+async def _build_chat_messages(body: dict) -> tuple[list, str]:
+    """Build Ollama messages list from a chat request body. Returns (messages, model)."""
+    message      = str(body.get("message", "")).strip()[:4096]
+    context_type = body.get("context_type", "all")
+    model        = body.get("model") or config.OLLAMA_MODEL
+    history      = body.get("history", [])
+    sim_data     = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
     if context_type in ("all", "dashboard"):
         try:
@@ -1060,6 +1063,16 @@ async def api_chat_stream(request: Request):
             messages.append({"role": turn["role"], "content": turn["content"]})
     user_content = f"/no_think\n{message}" if model.startswith("qwen3") else message
     messages.append({"role": "user", "content": user_content})
+    return messages, model
+
+
+async def api_chat_stream(request: Request):
+    import json as _json
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+    messages, model = await _build_chat_messages(body)
 
     def generate():
         try:
@@ -1092,29 +1105,7 @@ async def api_chat(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    message        = str(body.get("message", "")).strip()[:4096]
-    context_type   = body.get("context_type", "all")
-    model          = body.get("model") or config.OLLAMA_MODEL
-    history        = body.get("history", [])
-    sim_data       = body.get("sim_data") if context_type in ("all", "simulation") else None
-    dashboard_data = None
-    if context_type in ("all", "dashboard"):
-        try:
-            dashboard_data = await asyncio.to_thread(excel_reader.read_dashboard_data)
-            if isinstance(dashboard_data, dict) and "error" in dashboard_data:
-                dashboard_data = None
-        except Exception:
-            pass
-    ctx = _build_context_string(sim_data, dashboard_data)
-    brain = _read_finn_brain()
-    brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
-    system_prompt = _fmt_system_prompt() + brain_section + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
-    messages = [{"role": "system", "content": system_prompt}]
-    for turn in history[-8:]:
-        if turn.get("role") in ("user", "assistant") and turn.get("content"):
-            messages.append({"role": turn["role"], "content": turn["content"]})
-    user_content = f"/no_think\n{message}" if model.startswith("qwen3") else message
-    messages.append({"role": "user", "content": user_content})
+    messages, model = await _build_chat_messages(body)
     t0 = time.time()
     try:
         resp = await asyncio.to_thread(

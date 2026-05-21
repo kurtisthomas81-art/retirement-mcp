@@ -102,3 +102,57 @@ def test_federal_tax_below_standard_deduction():
 def test_federal_tax_positive_above_deduction():
     tax = compute_federal_tax(100000, 0, 0.03, "single")
     assert tax > 0
+
+
+# ── Edge cases — fiduciary correctness ──────────────────────────────────────
+
+def test_ss_haircut_reduces_terminal_wealth():
+    base = run_monte_carlo(FUNDED, seed=42)
+    with_haircut = run_monte_carlo({**FUNDED, "use_ss_haircut": True, "ss_haircut_pct": 0.21}, seed=42)
+    assert with_haircut["stats"]["median_terminal"] <= base["stats"]["median_terminal"]
+
+
+def test_roth_conversion_produces_tax_paid():
+    params = {**FUNDED, "use_conversion": True, "trad_balance": 200000,
+              "target_bracket": 0.12, "trials": 300}
+    result = run_monte_carlo(params, seed=42)
+    assert result["stats"]["conv_tax_paid"] > 0
+
+
+def test_aca_cliff_modulates_conversions():
+    params = {**FUNDED, "use_conversion": True, "trad_balance": 200000,
+              "use_aca_cliff": True, "aca_cliff_magi": 30000, "trials": 300}
+    result = run_monte_carlo(params, seed=42)
+    assert result["stats"]["aca_cliff_modulated_pct"] > 0
+
+
+def test_irmaa_blast_modulates_conversions():
+    params = {**FUNDED, "use_conversion": True, "trad_balance": 500000,
+              "use_irmaa_blast": True, "irmaa_tier1_magi": 106000, "trials": 300}
+    result = run_monte_carlo(params, seed=42)
+    assert result["stats"]["irmaa_blast_pct"] > 0
+
+
+def test_super_catchup_improves_terminal_wealth():
+    base_params = {"current_age": 60, "target_age": 62,
+                   "start_engine": 400000, "start_sgov": 100000,
+                   "annual_contribution": 24500, "trials": 300}
+    base    = run_monte_carlo(base_params, seed=10)
+    with_sc = run_monte_carlo({**base_params, "use_super_catchup": True,
+                               "super_catchup_annual": 11250}, seed=10)
+    assert with_sc["stats"]["median_terminal"] >= base["stats"]["median_terminal"]
+
+
+def test_zero_bridge_with_draw_lowers_success():
+    funded_bridge = run_monte_carlo({**FUNDED, "start_sgov": 360000,
+                                     "bridge_draw_ann": 72000}, seed=5)
+    no_bridge     = run_monte_carlo({**FUNDED, "start_sgov": 0,
+                                     "bridge_draw_ann": 72000}, seed=5)
+    assert no_bridge["success_pct"] <= funded_bridge["success_pct"]
+
+
+def test_severely_underfunded_plan_has_early_ruin():
+    result = run_monte_carlo({"current_age": 55, "target_age": 62,
+                               "start_engine": 5000, "full_ss": 0,
+                               "biological_floor": 30000, "trials": 300}, seed=0)
+    assert result["ruin_by_age"]["70"] > 0
