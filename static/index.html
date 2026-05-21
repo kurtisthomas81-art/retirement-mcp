@@ -2321,7 +2321,7 @@ function acctType(section, apiType) {
   if (!raw) {
     const s = section.toLowerCase();
     const hasRoth = s.includes('roth') || s.includes('converted');
-    const has401k = s.includes('401') || s.includes('proxy') || s.includes('voya');
+    const has401k = s.includes('401') || s.includes('proxy') || s.includes('voya') || s.includes('converted');
     if (hasRoth && has401k) raw = '401k-roth';
     else if (has401k)       raw = '401k-trad';
     else if (hasRoth)       raw = 'roth-ira';

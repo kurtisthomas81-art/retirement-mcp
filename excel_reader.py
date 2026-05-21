@@ -8,7 +8,7 @@ ENGINE_TICKERS = {"FXAIX", "VTI", "SWPPX", "SPLG", "VXF", "SPDW", "BTC"}
 def _acct_type(section: str) -> str:
     s = section.lower()
     has_roth = "roth" in s or "converted" in s
-    has_401k = "401" in s or "proxy" in s or "voya" in s
+    has_401k = "401" in s or "proxy" in s or "voya" in s or "converted" in s
     if has_roth and has_401k:
         return "401k-roth"
     if has_401k:
