@@ -2317,20 +2317,23 @@ function splitRoth401k(val) {
 // ── Portfolio ──────────────────────────────────────────────────────────────
 
 function acctType(section, apiType) {
-  if (apiType) return apiType;
-  const s = section.toLowerCase();
-  const hasRoth = s.includes('roth') || s.includes('converted');
-  const has401k = s.includes('401') || s.includes('proxy') || s.includes('voya');
-  if (hasRoth && has401k) return '401k-roth';
-  if (has401k)            return '401k-trad';
-  if (hasRoth)            return 'roth-ira';
-  if (s.includes('crypto') || s.includes('bitcoin')) return 'crypto';
-  return 'taxable';
+  let raw = apiType;
+  if (!raw) {
+    const s = section.toLowerCase();
+    const hasRoth = s.includes('roth') || s.includes('converted');
+    const has401k = s.includes('401') || s.includes('proxy') || s.includes('voya');
+    if (hasRoth && has401k) raw = '401k-roth';
+    else if (has401k)       raw = '401k-trad';
+    else if (hasRoth)       raw = 'roth-ira';
+    else if (s.includes('crypto') || s.includes('bitcoin')) raw = 'crypto';
+    else raw = 'taxable';
+  }
+  if (raw === '401k-trad' || raw === '401k-roth') return '401k';
+  return raw;
 }
 function acctTypeLabel(section, apiType) {
   const t = acctType(section, apiType);
-  return {'roth-ira':'ROTH IRA', '401k-trad':'401K TRAD', '401k-roth':'401K ROTH',
-          roth:'ROTH IRA', '401k':'401K', crypto:'CRYPTO', taxable:'TAXABLE'}[t] || t.toUpperCase();
+  return {'roth-ira':'ROTH IRA', '401k':'401K', crypto:'CRYPTO', taxable:'TAXABLE'}[t] || t.toUpperCase();
 }
 
 function buildPortTable(holdings, priceField, valueField) {
