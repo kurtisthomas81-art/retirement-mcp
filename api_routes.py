@@ -520,6 +520,12 @@ async def api_ledger_dashboard(request: Request):
         if "error" in data:
             return JSONResponse(data, status_code=503)
 
+        # Load 90-day investment transactions for dynamic Coast FI contribution rate
+        inv_data = await asyncio.to_thread(
+            excel_reader.read_transactions_data, 1, 1000, None, "Investment"
+        )
+        inv_txns = inv_data.get("rows", []) if isinstance(inv_data, dict) else []
+
         from datetime import date as _date
         plan    = config.load_active_plan()
         profile = config.load_profile()
@@ -530,7 +536,7 @@ async def api_ledger_dashboard(request: Request):
             data.setdefault("metrics", {})["FI TARGET (Age 62)"] = plan_fi
 
         # Compute Coast FI: project forward with contributions to find when portfolio
-        # can stop contributing and still reach Full FI by 65 via compounding alone.
+        # can stop contributing and still reach Full FI by retirement age via compounding alone.
         # Use plan fi_target if set; otherwise use last visible freedom level goal
         # (the Full FI level) rather than the Excel "FI TARGET (Age 62)" metric cell,
         # which is a nominal inflated value and would cause the loop to never cross.
@@ -552,23 +558,26 @@ async def api_ledger_dashboard(request: Request):
             dob = _date.fromisoformat(profile["dob"])
             today = _date.today()
             current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-            mean_ret      = plan.get("mean_return", 0.10)
-            annual_contrib = plan.get("annual_engine_contribution", 0) or 0
-            engine_bal    = float(data.get("mc_prefill", {}).get("engine_balance", 0) or 0)
+            mean_ret       = plan.get("mean_return", 0.10)
+            # Use actual 90-day transaction average for contributions; fall back to plan override if set
+            annual_contrib = (_compute_engine_annual(inv_txns)
+                              or plan.get("annual_engine_contribution", 0) or 0)
+            engine_bal     = float(data.get("mc_prefill", {}).get("engine_balance", 0) or 0)
+            coast_retire_age = config.CLIENT_RETIRE_AGE  # from .env, e.g. 62
 
             coast_fi  = None
             coast_age = None
             if annual_contrib > 0:
                 bal = engine_bal
-                for age in range(current_age, 65):
-                    threshold = coast_base / (1 + mean_ret) ** (65 - age)
+                for age in range(current_age, coast_retire_age):
+                    threshold = coast_base / (1 + mean_ret) ** (coast_retire_age - age)
                     if bal >= threshold:
                         coast_fi  = round(threshold)
                         coast_age = age
                         break
                     bal = bal * (1 + mean_ret) + annual_contrib
             if coast_fi is None:
-                coast_fi = round(coast_base / (1 + mean_ret) ** max(0, 65 - current_age))
+                coast_fi = round(coast_base / (1 + mean_ret) ** max(0, coast_retire_age - current_age))
 
             data["metrics"]["COAST FI"] = coast_fi
             if coast_age is not None:
@@ -577,9 +586,9 @@ async def api_ledger_dashboard(request: Request):
                 visible[5]["goal"]        = coast_fi
                 visible[5]["computed"]    = True
                 visible[5]["description"] = (
-                    f"Hit ${coast_fi:,} by age {coast_age}, then stop contributing"
+                    f"Hit ${coast_fi:,} by age {coast_age}, then stop contributing — coast to {coast_retire_age}"
                     if coast_age else
-                    f"${coast_fi:,} needed to coast to Full FI by 65"
+                    f"${coast_fi:,} needed to coast to Full FI by {coast_retire_age}"
                 )
 
         # Override Full FI freedom level goal with plan's fi_target when set
@@ -850,6 +859,26 @@ async def api_ss_sensitivity(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _compute_engine_annual(all_investment_txns: list) -> float:
+    """Return annualized engine contribution from the last 90 days of investment transactions.
+
+    Excludes SGOV transactions (those belong to the bridge portfolio).
+    Returns 0.0 if there are no transactions in the window.
+    """
+    from datetime import date as _date, timedelta
+    cutoff = _date.today() - timedelta(days=90)
+    inv_90 = [t for t in all_investment_txns if t.get("date", "") >= cutoff.isoformat()]
+    engine_sum = 0.0
+    for t in inv_90:
+        acct = (t.get("account") or "").lower()
+        memo = (t.get("memo")    or "").lower()
+        cat  = (t.get("category") or "").lower()
+        amt  = abs(float(t.get("signed", 0) or 0))
+        if not ("sgov" in acct or "sgov" in memo or "sgov" in cat):
+            engine_sum += amt
+    return engine_sum / 90 * 365 if engine_sum else 0.0
+
+
 def _compute_roadmap(dashboard_data, all_investment_txns):
     from datetime import date, timedelta
     dob         = date.fromisoformat(config.load_profile()["dob"])
@@ -878,7 +907,7 @@ def _compute_roadmap(dashboard_data, all_investment_txns):
     # 90-day contribution averages from Investment transactions
     cutoff = today - timedelta(days=90)
     inv_90 = [t for t in all_investment_txns if t.get("date", "") >= cutoff.isoformat()]
-    sgov_sum = 0.0; engine_sum = 0.0
+    sgov_sum = 0.0
     for t in inv_90:
         acct = (t.get("account") or "").lower()
         memo = (t.get("memo")    or "").lower()
@@ -886,11 +915,9 @@ def _compute_roadmap(dashboard_data, all_investment_txns):
         amt  = abs(float(t.get("signed", 0) or 0))
         if "sgov" in acct or "sgov" in memo or "sgov" in cat:
             sgov_sum += amt
-        else:
-            engine_sum += amt
     days_sampled  = len(inv_90) and 90  # always report 90-day window
-    sgov_annual   = sgov_sum   / 90 * 365 if sgov_sum   else 0.0
-    engine_annual = engine_sum / 90 * 365 if engine_sum else 0.0
+    sgov_annual   = sgov_sum / 90 * 365 if sgov_sum else 0.0
+    engine_annual = _compute_engine_annual(all_investment_txns)
 
     rows = []
     moat_funded_year = fi_target_year = None
