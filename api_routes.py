@@ -1108,7 +1108,12 @@ async def api_chat_stream(request: Request):
             resp = requests.post(
                 f"{config.OLLAMA_URL}/api/chat",
                 json={"model": model, "messages": messages, "stream": True,
-                      "think": False, "options": {"num_ctx": 32768}},
+                      "think": False, "options": {
+                          "num_ctx":       32768,
+                          "temperature":   0.1,    # factual, low hallucination
+                          "num_predict":   500,    # hard cap — system prompt says 3 short paragraphs
+                          "repeat_penalty": 1.1,  # stop circular rambling
+                      }},
                 stream=True, timeout=120
             )
             for line in resp.iter_lines():
@@ -1141,7 +1146,12 @@ async def api_chat(request: Request):
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "think": False, "options": {"num_ctx": 32768}},
+                  "think": False, "options": {
+                      "num_ctx":       32768,
+                      "temperature":   0.1,
+                      "num_predict":   500,
+                      "repeat_penalty": 1.1,
+                  }},
             timeout=120
         )
         data = resp.json()
@@ -1225,7 +1235,12 @@ async def api_summarize(request: Request):
             requests.post,
             f"{config.OLLAMA_URL}/api/chat",
             json={"model": model, "messages": messages, "stream": False,
-                  "think": False, "options": {"num_ctx": 32768}},
+                  "think": False, "options": {
+                      "num_ctx":       32768,
+                      "temperature":   0.1,
+                      "num_predict":   800,   # summaries need more room than chat
+                      "repeat_penalty": 1.1,
+                  }},
             timeout=120
         )
         data = resp.json()
