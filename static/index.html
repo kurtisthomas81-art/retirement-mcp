@@ -4852,6 +4852,7 @@ function renderPlansList(d) {
     const st = activePlan.strategy || {};
     const mk = activePlan.market || {};
     const ri = activePlan.risk || {};
+    const fn = activePlan.finn || {};
     html += `
     <div style="border:1px solid var(--accent);border-radius:10px;padding:20px;margin-bottom:24px;background:rgba(205,133,63,0.04);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
@@ -4891,6 +4892,21 @@ function renderPlansList(d) {
             ${pf('Euphoria Trigger %','euph_trig_pct',       (ri.euph_trig      ?? 0.20)*100,   'number','1')}
             ${pf('Euphoria Bonus %',  'euph_bonus_pct_f',    (ri.euph_bonus_pct ?? 0.10)*100,   'number','1')}
             ${pf('Portfolio Cap ($)', 'portfolio_cap',        ri.portfolio_cap   ?? 5000000,     'number')}
+          </div>
+        </div>
+        <div style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Finn AI</div>
+          <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:end;">
+            <div>
+              <label style="display:block;font-size:0.72rem;color:var(--muted);margin-bottom:2px;">Ollama Model</label>
+              <input type="text" name="ollama_model" value="${fn.ollama_model || ''}"
+                placeholder="e.g. qwen2.5:14b  (blank = server default)"
+                style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:0.82rem;font-family:var(--font-mono);">
+            </div>
+            <div style="font-size:0.72rem;color:var(--muted2);line-height:1.5;">
+              Sets the Ollama model Finn uses for chat and plan summaries.<br>
+              Leave blank to use the server default (<code style="color:var(--muted);">${fn.ollama_model || 'env OLLAMA_MODEL'}</code>).
+            </div>
           </div>
         </div>
         <div style="display:flex;gap:10px;">
@@ -4961,6 +4977,7 @@ async function saveActivePlan(e, planId) {
     euph_trig:             get('euph_trig_pct')      / 100,
     euph_bonus_pct:        get('euph_bonus_pct_f')   / 100,
     portfolio_cap:         get('portfolio_cap'),
+    ollama_model:          (fd.get('ollama_model') || '').trim(),
   };
   const st = document.getElementById('planSaveStatus');
   try {

@@ -48,6 +48,7 @@ PROFILE_PATH     = Path(__file__).parent / "data" / "profile.json"
 # ── Plan defaults (used when plans.json is missing or as seed values) ───────────
 
 PLAN_DEFAULTS = {
+    "ollama_model":          "",               # "" = use OLLAMA_MODEL env var
     "retire_age":            62,
     "ss_age":                67,
     "full_ss_annual":        25620,
@@ -104,6 +105,9 @@ _SEED_PLAN = {
         "bear_streak_cut":   0.25,
         "portfolio_cap":     5000000,
     },
+    "finn": {
+        "ollama_model": "",   # "" = use OLLAMA_MODEL env var
+    },
 }
 
 
@@ -125,7 +129,7 @@ def load_active_plan() -> dict:
         for p in data.get("plans", []):
             if p["id"] == active_id:
                 flat = {}
-                for section in ("client", "strategy", "market", "risk"):
+                for section in ("client", "strategy", "market", "risk", "finn"):
                     flat.update(p.get(section, {}))
                 flat.update({k: v for k, v in p.items()
                              if k not in ("client", "strategy", "market", "risk")})

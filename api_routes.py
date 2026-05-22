@@ -392,6 +392,7 @@ async def api_plans_update(request: Request):
                                   "inflation_rate", "dividend_yield"]),
                     ("risk",     ["hwm_infl_rate", "max_wr_gogo", "max_wr_slowgo",
                                   "max_wr_nogo", "euph_trig", "euph_bonus_pct", "portfolio_cap"]),
+                    ("finn",     ["ollama_model"]),
                 ]:
                     if section not in p:
                         p[section] = {}
@@ -1069,7 +1070,8 @@ async def _build_chat_messages(body: dict) -> tuple[list, str]:
     """Build Ollama messages list from a chat request body. Returns (messages, model)."""
     message      = str(body.get("message", "")).strip()[:4096]
     context_type = body.get("context_type", "all")
-    model        = body.get("model") or config.OLLAMA_MODEL
+    plan         = config.load_active_plan()
+    model        = body.get("model") or plan.get("ollama_model") or config.OLLAMA_MODEL
     history      = body.get("history", [])
     sim_data     = body.get("sim_data") if context_type in ("all", "simulation") else None
     dashboard_data = None
@@ -1158,7 +1160,8 @@ async def api_summarize(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
-    model        = body.get("model") or config.OLLAMA_MODEL
+    plan         = config.load_active_plan()
+    model        = body.get("model") or plan.get("ollama_model") or config.OLLAMA_MODEL
     summary_type = body.get("summary_type", "playbook")
     sim_data     = body.get("sim_data")
     dash_data    = body.get("dashboard_data")
