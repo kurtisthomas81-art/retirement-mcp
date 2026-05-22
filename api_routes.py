@@ -168,6 +168,13 @@ def _build_context_string(sim_data, dashboard_data):
         ]
         if runway:
             lines.append(f"  Survival runway: {runway}")
+        coast_fi_val = m.get("COAST FI")
+        coast_age_val = m.get("COAST AGE")
+        if coast_fi_val:
+            coast_desc = (f"  Coast FI: ${coast_fi_val:,.0f} — hit by age {coast_age_val}, then stop contributing"
+                          if coast_age_val else
+                          f"  Coast FI: ${coast_fi_val:,.0f} needed today to coast with no contributions")
+            lines.append(coast_desc)
         if mc:
             if mc.get("engine_balance"):    lines.append(f"  VTI/brokerage balance: ${mc['engine_balance']:,.0f}")
             if mc.get("sgov_balance"):      lines.append(f"  SGOV / bridge fund balance: ${mc['sgov_balance']:,.0f}")
@@ -182,7 +189,17 @@ def _build_context_string(sim_data, dashboard_data):
     _sa  = plan.get("ss_age", 67)
     _bw  = _sa - _ra
     _wr  = plan.get("withdrawal_rate_post_ss", 0.0)
+    _mr  = plan.get("mean_return", 0.10)
+    _vol = plan.get("volatility", 0.15)
+    _inf = plan.get("inflation_rate", 0.03)
+    _sgy = plan.get("sgov_yield", 0.04)
     lines += [
+        "\nPLAN ASSUMPTIONS (NOMINAL, not inflation-adjusted — use these numbers exactly, never substitute 7% or any other default):",
+        f"  Stock portfolio growth: {_mr*100:.1f}% per year NOMINAL (this already includes inflation — do NOT subtract inflation)",
+        f"  Inflation rate: {_inf*100:.1f}% per year",
+        f"  Bridge account (T-bills/SGOV) yield: {_sgy*100:.1f}% per year",
+        f"  Volatility: {_vol*100:.1f}%",
+        f"  All projections in this app use NOMINAL dollars. When you calculate time-to-FI or future values, use {_mr*100:.1f}% — never 7%.",
         "\nPLAN TARGETS (fixed numbers — cite these directly, do not recalculate):",
         f"  Bridge account (T-bills) goal by age {_ra}: ${plan.get('bridge_target', 360000):,}",
         f"  Annual draw from bridge (ages {_ra}–{_sa}): ${plan.get('bridge_draw_annual', 72000):,}/yr, grows with inflation",
@@ -191,6 +208,14 @@ def _build_context_string(sim_data, dashboard_data):
         f"  Bridge window: {_bw} years (age {_ra} to {_sa})",
         f"  Post-{_sa} withdrawal rate: {_wr*100:.0f}% — Social Security covers everything",
     ]
+
+    if dashboard_data and dashboard_data.get("contributions"):
+        c = dashboard_data["contributions"]
+        lines += [
+            "\nCONTRIBUTIONS (90-day average from actual transactions — use these for time-to-FI calculations, not savings rate):",
+            f"  Weekly engine (stock portfolio) contribution: ${c.get('weekly_engine', 0):,}/wk",
+            f"  Annual engine contribution: ${c.get('annual_engine', 0):,}/yr",
+        ]
 
     if dashboard_data and dashboard_data.get("freedom_levels"):
         lines.append("\nFREEDOM LEVELS:")
@@ -591,6 +616,13 @@ async def api_ledger_dashboard(request: Request):
                     if coast_age else
                     f"${coast_fi:,} needed to coast to Full FI by {coast_retire_age}"
                 )
+
+        # Expose contributions so Finn's context includes actual dollar amounts
+        if coast_base > 0 and annual_contrib > 0:
+            data["contributions"] = {
+                "annual_engine": round(annual_contrib),
+                "weekly_engine": round(annual_contrib / 52),
+            }
 
         # Override Full FI freedom level goal with plan's fi_target when set
         if plan_fi > 0:
