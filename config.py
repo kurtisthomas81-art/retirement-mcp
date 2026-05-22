@@ -37,7 +37,7 @@ LEDGER_PATH = os.environ.get(
     str(Path(__file__).parent / "data" / "ledger.xlsx")
 )
 OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://172.17.0.1:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:9b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b")
 AV_KEY       = os.environ.get("AV_KEY", "")
 
 FINN_MEMORY_PATH = str(Path(__file__).parent / "finn_memory.md")

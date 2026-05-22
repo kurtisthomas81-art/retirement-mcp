@@ -123,17 +123,77 @@ def _fmt_system_prompt():
 
 
 def _build_context_string(sim_data, dashboard_data):
+    """Build Finn's situational awareness — critical numbers first, noise last."""
+    plan = config.load_active_plan()
+    _ra  = plan.get("retire_age", 62)
+    _sa  = plan.get("ss_age", 67)
+    _bw  = _sa - _ra
+    _wr  = plan.get("withdrawal_rate_post_ss", 0.0)
+    _mr  = plan.get("mean_return", 0.10)
+    _vol = plan.get("volatility", 0.15)
+    _inf = plan.get("inflation_rate", 0.03)
+    _sgy = plan.get("sgov_yield", 0.04)
+
     lines = []
+
+    # ── 1. CURRENT POSITION ──────────────────────────────────────────────────
+    if dashboard_data:
+        m  = dashboard_data.get("metrics", {})
+        mc = dashboard_data.get("mc_prefill", {})
+        lnw       = m.get("LIQUID NET WORTH", 0) or 0
+        tnw       = m.get("TOTAL NET WORTH", 0) or 0
+        pct       = float(m.get("PROGRESS TO FI", 0) or 0) * 100
+        fi_target = m.get("FI TARGET (Age 62)", 0) or 0
+        runway    = m.get("SURVIVAL RUNWAY")
+
+        lines.append("YOUR CURRENT POSITION:")
+        if mc.get("engine_balance"):    lines.append(f"  Stock portfolio (engine): ${mc['engine_balance']:,.0f}")
+        if mc.get("sgov_balance"):      lines.append(f"  Bridge account (SGOV):   ${mc['sgov_balance']:,.0f}")
+        if mc.get("checking_balance"):  lines.append(f"  Checking:                ${mc['checking_balance']:,.0f}")
+        if lnw:  lines.append(f"  Liquid net worth: ${lnw:,.0f}  |  Total NW: ${tnw:,.0f}")
+        if fi_target: lines.append(f"  FI progress: {pct:.1f}% toward ${fi_target:,.0f} target")
+        if mc.get("monthly_burn"):      lines.append(f"  Monthly burn: ${mc['monthly_burn']:,.0f}  |  Annual floor: ${mc.get('annual_floor_cost', 0):,.0f}")
+        if mc.get("net_monthly_income"): lines.append(f"  Net monthly income: ${mc['net_monthly_income']:,.0f}")
+        if mc.get("full_ss_annual"):    lines.append(f"  Projected SS at 67: ${mc['full_ss_annual']:,.0f}/yr")
+        if runway: lines.append(f"  Survival runway: {runway}")
+
+        coast_fi_val  = m.get("COAST FI")
+        coast_age_val = m.get("COAST AGE")
+        if coast_fi_val:
+            lines.append(
+                f"  Coast FI: ${coast_fi_val:,.0f} — hit by age {coast_age_val}, then stop contributing"
+                if coast_age_val else
+                f"  Coast FI: ${coast_fi_val:,.0f} needed to coast with no contributions"
+            )
+
+    # ── 2. CONTRIBUTIONS ─────────────────────────────────────────────────────
+    if dashboard_data and dashboard_data.get("contributions"):
+        c = dashboard_data["contributions"]
+        lines.append("\nYOUR CONTRIBUTIONS (90-day average from actual transactions):")
+        lines.append(f"  Stock portfolio: ${c.get('weekly_engine', 0):,}/wk  =  ${c.get('annual_engine', 0):,}/yr")
+
+    # ── 3. YOUR PLAN ─────────────────────────────────────────────────────────
+    lines += [
+        "\nYOUR PLAN:",
+        f"  Retire at {_ra}  |  Social Security at {_sa}  |  Bridge window: {_bw} years",
+        f"  Bridge target by {_ra}: ${plan.get('bridge_target', 360000):,}",
+        f"  Bridge draw (ages {_ra}–{_sa}): ${plan.get('bridge_draw_annual', 72000):,}/yr (inflation-adjusted)",
+        f"  SS benefit at {_sa}: ${plan.get('full_ss_annual', 36697):,}/yr in today's dollars",
+        f"  Living floor: ${plan.get('biological_floor', 17000):,}/yr in today's dollars",
+        f"  Post-{_sa} withdrawal rate: {_wr*100:.0f}% (SS covers everything)",
+        f"  Return assumption (nominal): {_mr*100:.1f}%/yr  |  Inflation: {_inf*100:.1f}%  |  SGOV yield: {_sgy*100:.1f}%  |  Volatility: {_vol*100:.1f}%",
+    ]
+
+    # ── 4. MONTE CARLO (if a simulation was run) ─────────────────────────────
     if sim_data:
         s = sim_data.get("stats", {})
         lines += [
-            f"MONTE CARLO SIMULATION ({sim_data.get('trial_count', 0):,} trials):",
+            f"\nMONTE CARLO SIMULATION ({sim_data.get('trial_count', 0):,} trials):",
             f"  Success rate (alive at 95): {sim_data.get('success_pct')}%",
             f"  Arrival wealth at retirement (median): ${s.get('median_arrival', 0):,.0f}",
-            f"  SS claim age (median): {s.get('median_ss_age')}",
-            f"  Early SS (ripcord) rate: {s.get('ripcord_rate')}%",
-            f"  SGOV moat breach rate: {s.get('moat_breach_rate')}%",
             f"  Terminal wealth at 95 (median): ${s.get('median_terminal', 0):,.0f}",
+            f"  SGOV moat breach rate: {s.get('moat_breach_rate')}%",
+            f"  Early SS (ripcord) rate: {s.get('ripcord_rate')}%",
             f"  Go-Go discretionary spend (median): ${s.get('median_gogo_spend', 0):,.0f}",
             f"  Max drawdown (median): {s.get('median_drawdown')}%",
         ]
@@ -146,77 +206,14 @@ def _build_context_string(sim_data, dashboard_data):
         ms = sim_data.get("milestones", [])
         if ms:
             lines.append("  Wealth percentiles (P10 / P50 / P90):")
-            for m in ms:
-                lines.append(f"    Age {m['age']}: ${m['p10']:,.0f} / ${m['p50']:,.0f} / ${m['p90']:,.0f}")
+            for mv in ms:
+                lines.append(f"    Age {mv['age']}: ${mv['p10']:,.0f} / ${mv['p50']:,.0f} / ${mv['p90']:,.0f}")
         ls = sim_data.get("lifetime_spend")
         if ls:
             lines.append(f"  Lifetime spend P50: ${ls.get('p50_total', 0):,.0f} "
                          f"(go-go ${ls.get('p50_gogo', 0):,.0f} / slow-go ${ls.get('p50_slowgo', 0):,.0f} / no-go ${ls.get('p50_nogo', 0):,.0f})")
-    if dashboard_data:
-        m  = dashboard_data.get("metrics", {})
-        mc = dashboard_data.get("mc_prefill", {})
-        lnw       = m.get("LIQUID NET WORTH", 0) or 0
-        tnw       = m.get("TOTAL NET WORTH", 0) or 0
-        pct       = float(m.get("PROGRESS TO FI", 0) or 0) * 100
-        fi_target = m.get("FI TARGET (Age 62)", 0) or 0
-        runway    = m.get("SURVIVAL RUNWAY")
-        lines += [
-            "\nCURRENT FINANCIAL SNAPSHOT:",
-            f"  Liquid net worth: ${lnw:,.0f}",
-            f"  Total net worth: ${tnw:,.0f}",
-            f"  FI progress: {pct:.1f}%  (target: ${fi_target:,.0f})",
-        ]
-        if runway:
-            lines.append(f"  Survival runway: {runway}")
-        coast_fi_val = m.get("COAST FI")
-        coast_age_val = m.get("COAST AGE")
-        if coast_fi_val:
-            coast_desc = (f"  Coast FI: ${coast_fi_val:,.0f} — hit by age {coast_age_val}, then stop contributing"
-                          if coast_age_val else
-                          f"  Coast FI: ${coast_fi_val:,.0f} needed today to coast with no contributions")
-            lines.append(coast_desc)
-        if mc:
-            if mc.get("engine_balance"):    lines.append(f"  VTI/brokerage balance: ${mc['engine_balance']:,.0f}")
-            if mc.get("sgov_balance"):      lines.append(f"  SGOV / bridge fund balance: ${mc['sgov_balance']:,.0f}")
-            if mc.get("checking_balance"):  lines.append(f"  Checking balance: ${mc['checking_balance']:,.0f}")
-            if mc.get("full_ss_annual"):    lines.append(f"  Projected SS benefit (age 67): ${mc['full_ss_annual']:,.0f}/yr")
-            if mc.get("monthly_burn"):      lines.append(f"  Monthly burn rate: ${mc['monthly_burn']:,.0f}")
-            if mc.get("annual_floor_cost"): lines.append(f"  Annual floor cost: ${mc['annual_floor_cost']:,.0f}")
-            if mc.get("net_monthly_income"): lines.append(f"  Net monthly income: ${mc['net_monthly_income']:,.0f}")
 
-    plan = config.load_active_plan()
-    _ra  = plan.get("retire_age", 62)
-    _sa  = plan.get("ss_age", 67)
-    _bw  = _sa - _ra
-    _wr  = plan.get("withdrawal_rate_post_ss", 0.0)
-    _mr  = plan.get("mean_return", 0.10)
-    _vol = plan.get("volatility", 0.15)
-    _inf = plan.get("inflation_rate", 0.03)
-    _sgy = plan.get("sgov_yield", 0.04)
-    lines += [
-        "\nPLAN ASSUMPTIONS (NOMINAL, not inflation-adjusted — use these numbers exactly, never substitute 7% or any other default):",
-        f"  Stock portfolio growth: {_mr*100:.1f}% per year NOMINAL (this already includes inflation — do NOT subtract inflation)",
-        f"  Inflation rate: {_inf*100:.1f}% per year",
-        f"  Bridge account (T-bills/SGOV) yield: {_sgy*100:.1f}% per year",
-        f"  Volatility: {_vol*100:.1f}%",
-        f"  All projections in this app use NOMINAL dollars. When you calculate time-to-FI or future values, use {_mr*100:.1f}% — never 7%.",
-        "\nPLAN TARGETS (fixed numbers — cite these directly, do not recalculate):",
-        f"  Bridge account (T-bills) goal by age {_ra}: ${plan.get('bridge_target', 360000):,}",
-        f"  Annual draw from bridge (ages {_ra}–{_sa}): ${plan.get('bridge_draw_annual', 72000):,}/yr, grows with inflation",
-        f"  Living expense floor: ${plan.get('biological_floor', 17000):,}/yr in today's dollars",
-        f"  Social Security at {_sa}: ${plan.get('full_ss_annual', 36697):,}/yr in today's dollars",
-        f"  Bridge window: {_bw} years (age {_ra} to {_sa})",
-        f"  Post-{_sa} withdrawal rate: {_wr*100:.0f}% — Social Security covers everything",
-    ]
-
-    if dashboard_data and dashboard_data.get("contributions"):
-        c = dashboard_data["contributions"]
-        lines += [
-            "\nCONTRIBUTIONS (90-day average from actual transactions — use these for time-to-FI calculations, not savings rate):",
-            f"  Weekly engine (stock portfolio) contribution: ${c.get('weekly_engine', 0):,}/wk",
-            f"  Annual engine contribution: ${c.get('annual_engine', 0):,}/yr",
-        ]
-
+    # ── 5. FREEDOM LEVELS ────────────────────────────────────────────────────
     if dashboard_data and dashboard_data.get("freedom_levels"):
         lines.append("\nFREEDOM LEVELS:")
         for lv in dashboard_data["freedom_levels"]:
@@ -225,11 +222,13 @@ def _build_context_string(sim_data, dashboard_data):
             goal   = f"  (goal: ${lv['goal']:,.0f})" if isinstance(lv.get("goal"), (int, float)) else ""
             lines.append(f"  {lv['name']}{goal}: {status}")
 
+    # ── 6. ASSET ALLOCATION ──────────────────────────────────────────────────
     if dashboard_data and dashboard_data.get("allocation"):
         lines.append("\nASSET ALLOCATION:")
         for k, v in dashboard_data["allocation"].items():
             lines.append(f"  {k}: {v:.1f}%")
 
+    # ── 7. SPENDING ──────────────────────────────────────────────────────────
     if dashboard_data and dashboard_data.get("spending") and dashboard_data.get("spending_months"):
         sp_months = dashboard_data["spending_months"]
         period = f"{sp_months[0]}–{sp_months[-1]}" if len(sp_months) > 1 else (sp_months[0] if sp_months else "N/A")
@@ -239,26 +238,26 @@ def _build_context_string(sim_data, dashboard_data):
             if nums:
                 avg = sum(nums) / len(nums)
                 if "SAVINGS RATE" in cat.upper():
-                    # Sheet stores savings rate as a decimal (e.g. 0.35 = 35%)
                     lines.append(f"  {cat}: {avg * 100:.1f}% avg")
                 else:
                     lines.append(f"  {cat}: ${avg:,.0f}/mo avg")
 
+    # ── 8. 2026 TAX RULES ────────────────────────────────────────────────────
     r = config.RULES_2026
     lines += [
-        "\n2026 TAX & RETIREMENT RULES:",
-        f"  401k limit: ${r['contrib_401k']:,}  |  Catch-up 50+: +${r['catchup_50_plus']:,}  |  Super catch-up 60–63: +${r['super_catchup_60_63']:,}",
-        f"  IRA/Roth: ${r['ira_roth_limit']:,} (<50) / ${r['ira_roth_50_plus']:,} (50+)  |  SIMPLE IRA: ${r['simple_ira_limit']:,}",
-        f"  Roth-ification threshold: ${r['rothification_income_threshold']:,} FICA wages (prior year)",
-        f"  Std deduction: ${r['std_deduction_single']:,} single / ${r['std_deduction_mfj']:,} MFJ  (+${r['senior_addl_deduction_single']:,}/${r['senior_addl_deduction_mfj']:,} if 65+)",
-        f"  Senior bonus deduction: ${r['senior_bonus_deduction']:,} if 65+ and MAGI < ${r['senior_bonus_magi_single']:,} single / ${r['senior_bonus_magi_mfj']:,} MFJ",
-        f"  LTCG 0%: ≤${r['ltcg_0pct_single']:,} single / ≤${r['ltcg_0pct_mfj']:,} MFJ  |  NIIT 3.8%: MAGI >${r['niit_threshold_single']:,} single / >${r['niit_threshold_mfj']:,} MFJ",
-        f"  Roth IRA phase-out: ${r['roth_phaseout_single_low']:,}–${r['roth_phaseout_single_high']:,} single / ${r['roth_phaseout_mfj_low']:,}–${r['roth_phaseout_mfj_high']:,} MFJ",
+        "\n2026 TAX RULES:",
+        f"  401k: ${r['contrib_401k']:,}  |  Catch-up 50+: +${r['catchup_50_plus']:,}  |  Super catch-up 60–63: +${r['super_catchup_60_63']:,}",
+        f"  IRA/Roth: ${r['ira_roth_limit']:,} (<50) / ${r['ira_roth_50_plus']:,} (50+)",
+        f"  Std deduction: ${r['std_deduction_single']:,} single / ${r['std_deduction_mfj']:,} MFJ",
+        f"  LTCG 0%: ≤${r['ltcg_0pct_single']:,} single  |  IRMAA Tier 1: >${r['irmaa_tier1_single']:,} MAGI single",
+        f"  ACA cliff: ${r['aca_cliff_magi_single']:,} MAGI single  |  NIIT: MAGI >${r['niit_threshold_single']:,} single",
+        f"  Roth phase-out (single): ${r['roth_phaseout_single_low']:,}–${r['roth_phaseout_single_high']:,}",
     ]
 
+    # ── 9. FINN'S MEMORY (overrides everything above) ────────────────────────
     memory = _read_finn_memory()
     if memory:
-        lines.append(f"\nFINN'S MEMORY (corrections — follow these absolutely):\n{memory}")
+        lines.append(f"\nFINN'S MEMORY (corrections — these override everything above):\n{memory}")
 
     return "\n".join(lines) if lines else "No financial data available."
 
@@ -1117,7 +1116,7 @@ async def _build_chat_messages(body: dict) -> tuple[list, str]:
     ctx = _build_context_string(sim_data, dashboard_data)
     brain = _read_finn_brain()
     brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
-    system_prompt = _fmt_system_prompt() + brain_section + f"\n\nLIVE FINANCIAL DATA:\n{ctx}"
+    system_prompt = _fmt_system_prompt() + f"\n\nYOUR CLIENT'S CURRENT SITUATION:\n{ctx}" + brain_section
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-8:]:
         if turn.get("role") in ("user", "assistant") and turn.get("content"):
@@ -1218,8 +1217,7 @@ async def api_summarize(request: Request):
     today = time.strftime("%Y-%m-%d")
     if summary_type == "playbook":
         prompt = (
-            f"You are a fiduciary retirement planning AI. Today is {today}.\n"
-            f"The user plans to retire at 62, claim SS at 67, and uses a SGOV bridge moat strategy.\n\n"
+            f"Today is {today}.\n\n"
             f"SIMULATION DATA:\n{ctx}\n\n"
             f"Write an Advisor Playbook with exactly three sections using these exact labels:\n\n"
             f"WHAT WORKS\n"
@@ -1255,7 +1253,7 @@ async def api_summarize(request: Request):
         )
     brain = _read_finn_brain()
     brain_section = f"\n\nKNOWLEDGE BASE:\n{brain}" if brain else ""
-    sys_prompt = _fmt_system_prompt() + brain_section
+    sys_prompt = _fmt_system_prompt() + f"\n\nYOUR CLIENT'S CURRENT SITUATION:\n{ctx}" + brain_section
     user_content = f"/no_think\n{prompt}" if model.startswith("qwen3") else prompt
     messages   = [
         {"role": "system", "content": sys_prompt},
