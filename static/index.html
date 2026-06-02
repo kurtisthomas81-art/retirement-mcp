@@ -1727,9 +1727,7 @@ async function loadHome() {
     const mc        = d.mc_prefill || {};
     const bridgeVal = m['SGOV BRIDGE'] || m['BRIDGE'] || mc.sgov_balance || alloc['SGOV'] || 0;
     const cashVal   = mc.checking_balance || m['LIQUID CASH'] || m['CASH'] || 0;
-    const engineVal = mc.engine_balance   || Object.entries(alloc)
-      .filter(([k]) => !/(sgov|bond|cash|money|treasury)/i.test(k))
-      .reduce((s, [, v]) => s + (v || 0), 0);
+    const engineVal = mc.engine_balance || 0;
 
     const setEl  = (id, v)   => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const setHtml= (id, v)   => { const el = document.getElementById(id); if (el) el.innerHTML   = v; };
