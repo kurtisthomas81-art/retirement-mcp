@@ -221,10 +221,10 @@ def read_dashboard_data():
                 shares = h.get("shares") or 0.0
                 price  = h.get("cached_price") or 0.0
                 if sym in ENGINE_TICKERS and shares and price:
+                    value = shares * price
+                    engine_bal_port += value
                     if h.get("account_type") == "401k-trad":
-                        trad_401k_port += shares * price
-                    else:
-                        engine_bal_port += shares * price
+                        trad_401k_port += value
     except Exception as e:
         print(f"engine_scan error: {e}")
 
