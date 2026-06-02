@@ -2,7 +2,7 @@ from pathlib import Path
 import openpyxl
 import config
 
-ENGINE_TICKERS = {"FXAIX", "VTI", "SWPPX", "SPLG", "VXF", "SPDW", "BTC"}
+ENGINE_TICKERS = {"FXAIX", "VTI", "ITOT", "SWPPX", "SPLG", "VXF", "SPDW", "BTC"}
 
 
 def _acct_type(section: str) -> str:
