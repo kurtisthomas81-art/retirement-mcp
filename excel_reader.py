@@ -215,23 +215,18 @@ def read_dashboard_data():
     trad_401k_port  = 0.0
     try:
         holdings = read_portfolio_data()
-        print(f"[DEBUG engine_scan] holdings type={type(holdings)}, count={len(holdings) if isinstance(holdings, list) else 'N/A'}")
         if isinstance(holdings, list):
             for h in holdings:
-                sym = h.get("ticker", "")
+                sym    = h.get("ticker", "")
                 shares = h.get("shares") or 0.0
                 price  = h.get("cached_price") or 0.0
-                acct   = h.get("account_type", "")
-                match  = sym in ENGINE_TICKERS and shares and price
-                print(f"[DEBUG engine_scan] sym={sym} shares={shares} price={price} acct={acct} match={match}")
-                if match:
-                    if acct == "401k-trad":
+                if sym in ENGINE_TICKERS and shares and price:
+                    if h.get("account_type") == "401k-trad":
                         trad_401k_port += shares * price
                     else:
                         engine_bal_port += shares * price
-        print(f"[DEBUG engine_scan] engine_bal_port={engine_bal_port} trad_401k_port={trad_401k_port}")
     except Exception as e:
-        print(f"[DEBUG engine_scan] EXCEPTION: {e}")
+        print(f"engine_scan error: {e}")
 
     engine_bal       = engine_bal_port if engine_bal_port > 0 else max(0.0, nw["total_invested"] - nw["sgov_balance"])
     trad_401k_final  = nw["trad_401k_balance"] if nw["trad_401k_balance"] > 0 else trad_401k_port
