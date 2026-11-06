@@ -1,110 +1,101 @@
 # CLAUDE.md — KVibeOS build agent
 
-You are building KVibeOS milestone by milestone. **PLAN.md is the source of truth. Follow it. Flag design changes. Don't improvise them.** Nobody reads your code. The tests are the only reviewer, so never weaken them.
+You are building KVibeOS, a bare-metal x86-64 OS in Rust, milestone by milestone.
+**PLAN.md is the source of truth. Follow it. Flag design changes. Don't improvise them.**
+Nobody reads your code. The tests are the only reviewer, so never weaken them.
 
-## 1. What this project is (so you don't drift)
-- A minimal **Arch Linux–based** distro: systemd, labwc (Wayland), and our Rust/GTK4 `kvibe-shell` for the Windows-style taskbar and start menu. Shipped as a UEFI live ISO plus a qcow2 VM image.
-- **It is NOT a bare-metal kernel.** `no_std` does **not** apply. All Rust here is normal `std` userland on the stable toolchain pinned in `rust-toolchain.toml`. Never add `#![no_std]`, a custom target, or a kernel.
-- The only bare-metal code is `harness/stub.S`, a ~30-line multiboot stub used to self-test the QEMU harness. Don't grow it.
+## 1. Environment rules
+1. **`no_std` everywhere except host tooling and tests.** `kernel/`, `user/`, and `crates/*` are `#![no_std]`. Crates use `#![cfg_attr(not(test), no_std)]` so `cargo test` runs on the host. Only `tools/xtask` and `tests/e2e` may use `std`/Python.
+2. **Stable Rust**, pinned by `rust-toolchain.toml`. Kernel and user target: `x86_64-unknown-none` (soft-float, no red zone). No nightly features, no `build-std`, no custom target JSON. If you think you need one, flag it.
+3. **Dependencies** only from the PLAN.md §4.4 allowlist. Anything else needs a flag.
+4. **`unsafe`** only in `kernel/src/{arch,mm,drivers,syscall}` and `user/libkv/src/sys.rs`. Every `unsafe` block gets a `// SAFETY:` comment. Use `#![deny(unsafe_op_in_unsafe_fn)]`, and run clippy with `-D warnings` in `make build`.
+5. **Kernel builds with frame pointers** (`-C force-frame-pointers=yes`) so the watchdog and panic backtraces work. Keep `build/kernel.elf` unstripped for `addr2line`. Strip only the copy that goes on the ISO.
+6. **Logic goes in `crates/`** (host-testable). The kernel and desktop stay thin. Write the host unit test first.
+7. **No polling, no busy waits** outside early boot calibration. Idle means `hlt`. The desktop blocks on its IPC channel.
+8. **Never touch host block devices.** Disk work happens only on image files under `build/`. Never `dd` to `/dev/*`.
+9. **Test hooks** (isa-debug-exit, fw_cfg, watchdog) must stay gated as in PLAN.md §7. Never loosen the gate.
+10. **No Microsoft assets.** Windows-*style* layout only. Fonts must be OFL. Art must be original.
 
-## 2. Environment rules
-1. **Everything goes through `make`.** Make targets re-exec themselves inside the `kvibe-builder` Docker container (Arch, privileged, `/dev/kvm` passed through when present). Don't install packages on the host. Don't run `mkarchiso`, `pacstrap`, or QEMU outside the builder.
-2. **Never touch host block devices.** No `dd`, `sgdisk`, `mkfs`, `kvibe-install`, or `losetup` on anything except image files under `build/`. The installer is only ever run inside QEMU or against loop-mounted files in `build/`.
-3. **Hermetic tests.** QEMU runs with `-nic user,restrict=on` unless the target is `make test-net`. Don't add network fetches to `make test`.
-4. **Pinned base.** Arch packages come from the archive snapshot in `ARCH_SNAPSHOT` (Makefile). Bump it only in its own commit, followed by a full `make test`.
-5. **Packages.** Add packages only from the official repos at the pinned date, or from a PKGBUILD in `pkgs/`. No AUR helpers. Add a one-line `# why` comment next to every package you add to `iso/packages.x86_64`.
-6. **No fixed sleeps for readiness.** Poll for a marker or socket with a deadline (`tools/lib.sh: wait_for`).
-7. **Shell code is event-driven.** No timers faster than 60 s (the clock aligns to the minute). No busy polling. No new daemons or enabled units: those need a `tests/services.allow` change, and that file is protected.
-8. **Branding.** No Microsoft logos, icons, fonts, or wallpapers. Windows-*style* layout and behaviour only.
+## 2. Host prerequisites (`make doctor` checks them)
+`rustup`, `qemu-system-x86_64` (≥ 8.0), OVMF/edk2, `xorriso`, `mtools`, `dosfstools` (`fsck.fat`), `gptfdisk` (`sgdisk`), `git`, `cc`, `python3`, `binutils` (`addr2line`), and later `virt-fw-vars` (pip `virt-firmware`, M14). Limine is fetched into `build/limine` at the pinned ref by `make limine`.
 
-## 3. QEMU commands (use these exactly; `tools/qemu-run.sh` must produce them)
+## 3. QEMU commands (`tools/qemu-run.sh` must produce exactly these)
 
-### 3.1 Harness self-test / early-boot debug (M0; `make test-harness`, `make debug-boot`)
-This is the canonical low-level command. `-d int` only logs under TCG, so KVM is deliberately not used here.
+### 3.1 Kernel test suite (fast loop; `make test-kernel SUITE=<suite>`)
+SeaBIOS + TCG, deterministic, works without KVM. `-d int` logs only under TCG, which is why KVM is not used here.
 ```
 timeout 5 qemu-system-x86_64 \
-  -machine q35,accel=tcg -cpu max -m 128M -smp 1 \
-  -kernel build/harness/stub-$(VARIANT).elf \
-  -display none \
-  -serial file:build/logs/serial-harness-$(VARIANT).log \
+  -machine q35,accel=tcg -cpu max -m 256M -smp 1 \
+  -cdrom build/kvibeos.iso -boot d \
+  -fw_cfg name=opt/kvibe/test,string=$(SUITE) \
+  -vga std -display none \
+  -serial file:build/logs/serial-$(SUITE).log \
   -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
-  -no-reboot -d int,cpu_reset -D build/logs/qemu-harness-$(VARIANT).log
+  -no-reboot -d int,cpu_reset -D build/logs/qemu-$(SUITE).log
 ```
-For `make debug-boot` (kernel dies before userspace), the shape is the same, but it boots the ISO's kernel and initramfs directly with `-kernel/-initrd -append "console=ttyS0 panic=-1 earlyprintk=serial"`, uses `timeout 120` (TCG plus `-d int` is slow and its log is large), and writes `-D build/logs/qemu-debug.log`. Use it only for diagnosis. It is never part of `make test`.
+Variants, built only by `qemu-run.sh` flags and otherwise identical:
+- **UEFI** (`make test-uefi`): add `-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) -drive if=pflash,format=raw,file=build/vm/OVMF_VARS.fd` and use `timeout 20`.
+- **E2E** (`make test-e2e`): add `-qmp unix:build/vm/qmp.sock,server=on,wait=off -device qemu-xhci -device usb-kbd -device usb-tablet`, use `timeout 30`, and the Python driver tails the serial log.
+- **Storage**: add `-drive file=build/test/<fixture>.img,format=raw,if=none,id=d0` plus one of `-device virtio-blk-pci,drive=d0` | `-device ich9-ahci,id=ahci -device ide-hd,drive=d0,bus=ahci.0` | `-device nvme,drive=d0,serial=kv0`. Use `timeout 10`.
+- **Perf** (`PERF=1`, budgets only): `accel=kvm`, drop `-d int` (it's a no-op under KVM), keep `-d cpu_reset`.
+- **Debug** (`make debug`): add `-s -S`, no timeout. Get a backtrace non-interactively with `gdb -batch -ex 'target remote :1234' -ex 'bt' build/kernel.elf`.
 
-### 3.2 Live ISO test (`make test-iso SUITE=<suite>`)
-`timeout 5` is too short for a Linux userspace boot, so the timeout is 90 s with KVM and 540 s under TCG. `-d int` is omitted because it floods the log and is a no-op under KVM. `-d cpu_reset` is kept to explain exit code 0.
-```
-timeout 90 qemu-system-x86_64 \
-  -machine q35,accel=kvm:tcg -cpu max -m 4G -smp 2 \
-  -drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
-  -drive if=pflash,format=raw,file=build/vm/OVMF_VARS.iso.fd \
-  -cdrom build/out/kvibeos.iso \
-  -drive file=build/test/testdisk.img,format=raw,if=virtio,readonly=on \
-  -smbios type=11,value=io.systemd.credential:kvibe.test=$(SUITE) \
-  -smbios type=11,value=io.systemd.boot.kernel-cmdline-extra=console=ttyS0,115200 \
-  -device virtio-vga -display none \
-  -qmp unix:build/vm/qmp.sock,server=on,wait=off \
-  -serial file:build/logs/serial-iso-$(SUITE).log \
-  -nic user,model=virtio-net-pci,restrict=on \
-  -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
-  -no-reboot -d cpu_reset -D build/logs/qemu-iso-$(SUITE).log
-```
+### 3.2 Exit-code mapping (full spec: `tests/protocol.md`)
+| Exit | Verdict |
+|---|---|
+| 33 | PASS (also requires a `KVIBE-RESULT PASS` serial line) |
+| 35 | FAIL (assertion, test-mode panic, or watchdog; backtrace is on serial) |
+| 124 | TIMEOUT (hang with interrupts off): read the tail of `qemu-<suite>.log` |
+| 0 | UNEXPECTED_RESET (triple fault): find the `cpu_reset` line and the last exception before it in the `-d int` log |
+| other | ERROR (infra) |
 
-### 3.3 Installed-disk test (`make test-disk SUITE=<suite>`)
-Same as 3.2, with these changes: replace `-cdrom …` with
-`-drive file=build/vm/kvibeos.qcow2,format=qcow2,if=virtio,snapshot=on`, use `OVMF_VARS.disk.fd`, `timeout 60`, and logs `serial-disk-$(SUITE).log`.
-Install tests (`make test-install`, `make test-dualboot`) attach the ISO plus a writable fixture disk (no `snapshot=on`), use `timeout 300`, then run a second boot from the fixture.
+Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budgets are SKIP, never PASS.**
 
-`OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd`, `OVMF_VARS` template `/usr/share/edk2/x64/OVMF_VARS.4m.fd` (builder paths). Copy VARS fresh per test unless the test needs NVRAM persistence across boots.
+## 4. Debugging order when something fails
+1. `build/logs/serial-<suite>.log`: `KVIBE-TEST` lines, panic message, backtrace.
+2. Symbolize: `addr2line -f -C -e build/kernel.elf <addr>...` (the runner does this automatically for backtrace lines).
+3. `build/logs/qemu-<suite>.log`: last `v=` interrupt vectors and `cpu_reset` dumps (`check_exception old: ... new 0xe` = page fault, `0x8` = double fault).
+4. `build/logs/screen-<scenario>.png` for E2E failures (QMP screendump on failure).
+5. `make debug SUITE=<suite>` + `gdb -batch` for hangs.
 
-## 4. Test protocol (summary; full spec in `tests/protocol.md`)
-- Guest prints `KVIBE-TEST <suite>/<case> PASS|FAIL|SKIP <detail>` to `/dev/ttyS0`, then `KVIBE-RESULT PASS|FAIL`, then exits through `kvibe-vm-exit 0x10` (pass) or `0x11` (fail). Those write to port `0xf4`.
-- QEMU exit → verdict: **33** PASS (also requires the `KVIBE-RESULT PASS` line), **35** FAIL, **124** TIMEOUT, **0** UNEXPECTED_RESET (read the `cpu_reset` log), anything else ERROR.
-- Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. TCG multiplies timeouts by 6 and marks performance budgets SKIP, **never PASS**.
-- Test hooks run only in a VM, with the `kvibe.test` SMBIOS credential, **and** with a `KVIBETEST`-labelled disk present. Never loosen this gating.
-
-## 5. Where to look when something fails
-`build/logs/serial-*.log` (guest console and test lines) → `build/logs/qemu-*.log` (`cpu_reset`/`int`) → `build/logs/journal-*.txt` (guest journal exported by testd on failure) → `build/logs/screen-*.png` (QMP screendump on failure) → `build/logs/build-*.log` (mkarchiso/makepkg/cargo).
-
-## 6. Workflow per milestone
-1. Read the milestone in PLAN.md §8: goal, files, acceptance, out-of-scope. **Touch only the listed files** (plus tests you add for them). Out-of-scope items stay out.
-2. Write or extend the acceptance test first, register it in `tests/suites.txt` with the milestone number, and confirm it fails for the right reason.
-3. Implement. Iterate with the fastest tier first: `make test-unit` → `make test-shell` → guest tests.
-4. Done means: the milestone's acceptance command exits 0, **`make test` exits 0** (all suites ≤ `MILESTONE`), and `make budget` is green once M3+ is reached.
-5. **Commit after each milestone.** Stage files by name (no `git add -A`). Message format:
+## 5. Workflow per milestone
+1. Read the milestone in PLAN.md §9: goal, files, acceptance, out-of-scope. **Touch only the listed files**, plus tests and the `Cargo.toml` entries they need. Out-of-scope items stay out.
+2. Write the acceptance test first. Register it in `tests/suites.txt` with the milestone number. Confirm it fails for the right reason.
+3. Implement with the fastest tier first: `make test-unit` → `make test-kernel` → `make test-e2e`.
+4. Done means: the acceptance command exits 0, **`make test` exits 0** (every suite ≤ `MILESTONE`), clippy is clean, and from M9 on `make budget` is green (or SKIP without KVM, noted in the commit).
+5. **Commit after each milestone.** Stage files by name, never `git add -A`. Message:
    ```
    M<n>: <milestone title>
 
    Acceptance: <command> -> PASS
-   make test: <N> suites PASS, <M> SKIP (reason)
-   Budgets: boot <x>s, RAM <y>MiB, procs <z>, ISO <w>GiB
+   make test: <N> suites PASS, <M> SKIP (<reason>)
+   Budgets: boot <x>ms, RAM <y>MiB, idle <z>%, ISO <w>MiB   (from M9)
    ```
-   Then `git tag m<n>`, bump `MILESTONE` in that same commit, and push.
+   Bump `MILESTONE` in the same commit, `git tag m<n>`, push.
 6. Don't start milestone N+1 until N is committed.
 
-## 7. Flag, don't improvise
-**Stop and write an entry in `FLAGS.md`** (then commit with prefix `WIP M<n>:` and stop) when any of these happens:
-- You need to change a **protected file**: `PLAN.md`, `CLAUDE.md`, `tests/budgets.toml`, `tests/services.allow`, `tests/protocol.md`, `tests/suites.txt` (except adding your milestone's own suite lines).
-- You'd deviate from PLAN.md: a different component, toolkit, bootloader, filesystem, partition layout, language, or a new daemon.
-- A hard budget can't be met by trimming or configuration.
+## 6. Flag, don't improvise
+**Stop, add an entry to `FLAGS.md`, commit with prefix `WIP M<n>:`, and stop working** when any of these happens:
+- A change is needed to a **protected file**: `PLAN.md`, `CLAUDE.md`, `tests/protocol.md`, `tests/budgets.toml`, `tests/suites.txt` (adding your own milestone's lines is allowed).
+- You'd deviate from PLAN.md: a new dependency, nightly Rust, a different bootloader, a design that moves logic out of `crates/`, a new background process, or work the milestone marks out-of-scope.
+- A hard budget can't be met.
 - The same acceptance test has failed after **3 distinct fix attempts**.
-- Anything touches installer partition planning (`installer/kvibe_install/plan.py`) beyond what the current milestone specifies.
-- A milestone marked 🔶 in PLAN.md is about to start or has just finished. Write the review-request entry anyway.
+- Any change to FAT write paths or installer disk writes outside what the milestone specifies.
+- A milestone marked 🔶 is about to start or has just finished. Write the review-request entry.
 
-FLAGS.md entry template:
+Template:
 ```
-## FLAG <date> M<n>: <short title>
-- Observed: <what failed / what's in the way, with log excerpt paths>
-- Tried: <attempts so far>
-- Proposed change: <exact change and which PLAN.md section it alters>
-- Impact on budgets/compat: <...>
+## FLAG <date> M<n>: <title>
+- Observed: <failure + log paths/excerpts>
+- Tried: <attempts>
+- Proposed change: <exact change, PLAN.md section affected>
+- Budget/compat impact: <...>
 - Blocking: yes/no
 ```
 
-## 8. Never
-- Never edit a test to match broken behaviour, skip a failing test, add `|| true` to test commands, or raise a budget.
-- Never mark a TCG performance result as PASS.
-- Never run destructive disk commands outside `build/`.
-- Never add Microsoft assets or copy another OS's artwork.
-- Never put secrets, tokens, or personal data in the repo or the images.
+## 7. Never
+- Never edit a test to match broken behaviour, delete or skip a failing test, add `|| true` to test commands, or loosen a budget or tolerance.
+- Never replace `timeout 5` with a longer timeout for `test-kernel`. If a suite is too slow, split it or flag it.
+- Never mark a TCG performance number as PASS.
+- Never write to disks outside `build/`.
+- Never commit secrets, personal data, or non-OFL/non-original assets.

@@ -1,164 +1,139 @@
-# KVibeOS — top-level entry points. See PLAN.md (design) and CLAUDE.md (agent rules).
-# Every real target runs inside the kvibe-builder container. Outside it, targets re-exec there.
+# KVibeOS — bare-metal Rust OS. See PLAN.md (design) and CLAUDE.md (agent rules).
+# Requested core targets: build, run, test, iso. The rest are helpers used by the test loop.
 
 SHELL         := /bin/bash
 .SHELLFLAGS   := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
-ARCH_SNAPSHOT ?= 2026/11/01
-BUILDER_IMAGE ?= kvibe-builder:latest
-BUILD         ?= build
-OUT           := $(BUILD)/out
+# --- Pins (M0: replace LIMINE_REF with an exact commit hash of the chosen vN.x-binary branch) ---
+LIMINE_REPO   ?= https://github.com/limine-bootloader/limine.git
+LIMINE_REF    ?= v9.x-binary
+
+BUILD         := build
 LOGS          := $(BUILD)/logs
 VMDIR         := $(BUILD)/vm
-ISO           := $(OUT)/kvibeos.iso
-QCOW          := $(VMDIR)/kvibeos.qcow2
+KERNEL_ELF    := $(BUILD)/kernel.elf
+INITRD        := $(BUILD)/initrd.tar
+ISO           := $(BUILD)/kvibeos.iso
+IMG           := $(BUILD)/kvibeos.img
+LIMINE_DIR    := $(BUILD)/limine
 SUITE         ?= smoke
-FIXTURE       ?= blank
-VARIANT       ?= pass
+SCENARIO      ?= desktop_basic
+FIXTURE       ?= fat32-known
+CTRL          ?= virtio
+PERF          ?= 0
 MILESTONE_N   := $(shell cat MILESTONE 2>/dev/null || echo 0)
 
-export ARCH_SNAPSHOT BUILD OUT LOGS VMDIR ISO QCOW SUITE FIXTURE VARIANT MILESTONE_N
+export BUILD LOGS VMDIR KERNEL_ELF INITRD ISO IMG LIMINE_DIR SUITE SCENARIO FIXTURE CTRL PERF MILESTONE_N
 
-# ---------------------------------------------------------------------------
-# Builder re-exec: `make X` on the host == `make X` inside the container.
-# ---------------------------------------------------------------------------
-ifneq ($(KVIBE_IN_BUILDER),1)
-KVM_FLAG := $(if $(wildcard /dev/kvm),--device /dev/kvm,)
-DOCKER_RUN := docker run --rm --privileged $(KVM_FLAG) \
-	-v $(CURDIR):/src -w /src \
-	-v kvibe-pacman-cache:/var/cache/pacman/pkg \
-	-v kvibe-cargo:/root/.cargo/registry \
-	-e KVIBE_IN_BUILDER=1 -e ARCH_SNAPSHOT=$(ARCH_SNAPSHOT) \
-	-e SUITE=$(SUITE) -e FIXTURE=$(FIXTURE) -e VARIANT=$(VARIANT)
-
-INNER_TARGETS := build iso vmimage test test-harness test-unit test-shell test-iso \
-                 test-disk test-install test-dualboot test-net budget debug-boot release
-
-$(INNER_TARGETS): builder
-	$(DOCKER_RUN) $(BUILDER_IMAGE) make $@
-
-run run-disk: builder
-	$(DOCKER_RUN) -p 127.0.0.1:5900:5900 $(BUILDER_IMAGE) make $@
-
-builder:
-	docker build -t $(BUILDER_IMAGE) --build-arg ARCH_SNAPSHOT=$(ARCH_SNAPSHOT) tools/builder
-
-else
-# ---------------------------------------------------------------------------
-# Inside the builder.
-# `need` fails clearly if a milestone's script doesn't exist yet.
-# ---------------------------------------------------------------------------
-need = @test -x $(1) || { echo "ERROR: $(1) not implemented yet (see PLAN.md $(2))" >&2; exit 2; }
-
-builder:
-	@true
+# `need` fails clearly when a milestone's script isn't written yet.
+need = @test -x $(1) || { echo "ERROR: $(1) not implemented yet (PLAN.md $(2))" >&2; exit 2; }
 
 dirs:
-	@mkdir -p $(OUT) $(LOGS) $(VMDIR) $(BUILD)/test $(BUILD)/repo
+	@mkdir -p $(LOGS) $(VMDIR) $(BUILD)/test
 
-## build: compile Rust workspace + build [kvibe] pacman packages
+## doctor: check host tools
+doctor:
+	$(call need,tools/doctor.sh,M0)
+	tools/doctor.sh
+
+## limine: fetch + build the pinned Limine binary release
+limine: $(LIMINE_DIR)/limine
+$(LIMINE_DIR)/limine:
+	rm -rf $(LIMINE_DIR)
+	git clone --depth=1 --branch=$(LIMINE_REF) $(LIMINE_REPO) $(LIMINE_DIR) 2>/dev/null \
+	  || { git clone $(LIMINE_REPO) $(LIMINE_DIR) && git -C $(LIMINE_DIR) checkout $(LIMINE_REF); }
+	$(MAKE) -C $(LIMINE_DIR)
+
+## build: kernel + userspace + initrd (clippy -D warnings)
 build: dirs
-	$(call need,tools/build-shell.sh,M5)
-	tools/build-shell.sh 2>&1 | tee $(LOGS)/build-shell.log
-	$(call need,tools/build-pkgs.sh,M1)
-	tools/build-pkgs.sh 2>&1 | tee $(LOGS)/build-pkgs.log
+	cd kernel && cargo clippy --release -- -D warnings && cargo build --release
+	cp kernel/target/x86_64-unknown-none/release/kernel $(KERNEL_ELF)
+	@if [ -d user ]; then \
+	  (cd user && cargo clippy --release -- -D warnings && cargo build --release) && \
+	  cargo run --quiet --release --manifest-path tools/xtask/Cargo.toml -- initrd --out $(INITRD); \
+	else echo "note: user/ not present yet (arrives in M5)"; fi
 
-## iso: build the UEFI live ISO -> build/out/kvibeos.iso
-iso: build
-	$(call need,tools/build-iso.sh,M1)
-	tools/build-iso.sh 2>&1 | tee $(LOGS)/build-iso.log
+## iso: hybrid BIOS+UEFI live ISO -> build/kvibeos.iso
+iso: build limine
+	$(call need,tools/mkiso.sh,M0)
+	tools/mkiso.sh 2>&1 | tee $(LOGS)/mkiso.log
 
-## vmimage: install the ISO into a qcow2 via the installer -> build/vm/kvibeos.qcow2 (+ .vmdk)
-vmimage: iso
-	$(call need,tools/make-vmimage.sh,M2)
-	tools/make-vmimage.sh 2>&1 | tee $(LOGS)/build-vmimage.log
+## img: GPT disk image (ESP + KVIBEDATA) -> build/kvibeos.img (+ .qcow2/.vmdk)
+img: build limine
+	$(call need,tools/mkimg.sh,M14)
+	tools/mkimg.sh 2>&1 | tee $(LOGS)/mkimg.log
 
-## run: boot the live ISO interactively (VNC on 127.0.0.1:5900)
+## run: boot the ISO with a window (GTK/SDL), KVM if available, USB tablet + keyboard
 run: iso
 	$(call need,tools/qemu-run.sh,M0)
-	tools/qemu-run.sh interactive $(ISO)
+	tools/qemu-run.sh interactive
 
-## run-disk: boot the installed VM image interactively (VNC on 127.0.0.1:5900)
-run-disk: vmimage
+## debug: boot paused with gdb stub on :1234 (use gdb -batch, see CLAUDE.md §3.1)
+debug: iso
 	$(call need,tools/qemu-run.sh,M0)
-	tools/qemu-run.sh interactive-disk $(QCOW)
+	tools/qemu-run.sh debug
 
-## test: run every suite registered for milestones <= MILESTONE (full regression)
+## test: full regression: every suite with milestone <= MILESTONE
 test: dirs
 	$(call need,tools/test.sh,M0)
 	tools/test.sh --upto $(MILESTONE_N)
 
-## test-harness: QEMU harness self-test (multiboot stub, timeout 5, -d int,cpu_reset)
-test-harness: dirs
+## test-harness: harness self-test (pass/fail/hang/triple-fault/no-test-mode)
+test-harness: iso
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --suite harness
+	tools/test.sh --tier harness
 
-test-unit: dirs
+## test-unit: cargo test over host-testable crates + xtask
+test-unit:
 	$(call need,tools/test.sh,M0)
 	tools/test.sh --tier unit
 
-test-shell: dirs
+## test-kernel: one in-kernel suite via SeaBIOS/TCG with timeout 5
+test-kernel: iso
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier shell
+	tools/test.sh --tier kernel --suite $(SUITE)
 
-test-iso: iso
+## test-uefi: smoke boot via OVMF (ISO, and disk image once it exists)
+test-uefi: iso
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier iso --suite $(SUITE)
+	tools/test.sh --tier uefi
 
-test-disk: vmimage
+## test-e2e: QMP-driven GUI scenario
+test-e2e: iso
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier disk --suite $(SUITE)
+	tools/test.sh --tier e2e --scenario $(SCENARIO)
 
-test-install: iso
+## test-storage: storage suite against a fixture disk on a given controller
+test-storage: iso
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier install --fixture $(FIXTURE)
+	tools/test.sh --tier storage --fixture $(FIXTURE) --ctrl $(CTRL)
 
-test-dualboot: iso
+## test-install: installer scenarios (whole disk + alongside fake Windows ESP)
+test-install: iso img
 	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier install --fixture windows-like --suite install-alongside
+	tools/test.sh --tier install
 
-## test-net: opt-in tests that need the internet (Steam bootstrap, Flathub, NVIDIA)
-test-net: vmimage
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier net
+## budget: resource budgets under KVM (SKIP without /dev/kvm)
+budget: iso
+	$(call need,tools/budget.sh,M9)
+	PERF=1 tools/budget.sh | tee $(LOGS)/budget.txt
 
-## budget: measure boot/RAM/CPU/procs/size against tests/budgets.toml
-budget: vmimage
-	$(call need,tools/budget.sh,M3)
-	tools/budget.sh | tee $(LOGS)/budget.txt
-
-## debug-boot: TCG boot of the ISO kernel with -d int,cpu_reset (diagnosis only)
-debug-boot: iso
-	$(call need,tools/qemu-run.sh,M0)
-	tools/qemu-run.sh debug $(ISO)
-
-release: dirs
-	$(call need,tools/release.sh,M14)
-	tools/release.sh
-
-endif
-
-# ---------------------------------------------------------------------------
-# Host-or-builder targets
-# ---------------------------------------------------------------------------
 clean:
-	rm -rf $(BUILD)/work $(BUILD)/logs $(BUILD)/test $(BUILD)/harness
+	rm -rf $(LOGS) $(VMDIR) $(BUILD)/test $(KERNEL_ELF) $(INITRD) $(ISO) $(IMG)
+	cd kernel && cargo clean 2>/dev/null || true
+	[ -d user ] && (cd user && cargo clean) || true
 
-distclean:
+distclean: clean
 	rm -rf $(BUILD)
 
 help:
-	@echo "KVibeOS make targets (milestone $(MILESTONE_N)):"
-	@echo "  build        compile shell + [kvibe] packages"
-	@echo "  iso          build live ISO -> $(ISO)"
-	@echo "  vmimage      build installed qcow2 -> $(QCOW)"
-	@echo "  run          boot ISO (VNC :5900)        run-disk  boot qcow2 (VNC :5900)"
-	@echo "  test         full regression up to MILESTONE"
-	@echo "  test-harness | test-unit | test-shell | test-iso SUITE=x | test-disk SUITE=x"
-	@echo "  test-install FIXTURE=x | test-dualboot | test-net | budget | debug-boot"
-	@echo "  builder | release | clean | distclean"
+	@echo "KVibeOS (milestone $(MILESTONE_N))"
+	@echo "  build | iso | img | run | debug | doctor | limine"
+	@echo "  test                    full regression up to MILESTONE"
+	@echo "  test-harness | test-unit | test-kernel SUITE=x | test-uefi"
+	@echo "  test-e2e SCENARIO=x | test-storage FIXTURE=x CTRL=virtio|ahci|nvme | test-install"
+	@echo "  budget (KVM) | clean | distclean"
 
-.PHONY: builder dirs build iso vmimage run run-disk test test-harness test-unit test-shell \
-        test-iso test-disk test-install test-dualboot test-net budget debug-boot release \
-        clean distclean help
+.PHONY: dirs doctor limine build iso img run debug test test-harness test-unit test-kernel \
+        test-uefi test-e2e test-storage test-install budget clean distclean help
