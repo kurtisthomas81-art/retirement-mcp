@@ -20,6 +20,7 @@ Nobody reads your code. The tests are the only reviewer, so never weaken them.
 13. **Keyboard: US QWERTY only.** Don't add layout switching (parked).
 14. **Parsers of untrusted bytes** (ELF, USTAR, FAT32, GPT, IPC, cmdline, symbol map) get `proptest` property tests, written as dev-dependencies.
 15. **Respect safe mode:** every risky driver (xHCI, AHCI, NVMe, USB storage, ACPI AML) checks `kvibe.safe` and skips itself with `KVIBE-INFO <driver>=skipped`.
+16. **No project license (owner decision).** Don't add a LICENSE file or a `license` field to any Cargo.toml. Third-party components keep their own licenses in `THIRD_PARTY_NOTICES.md`.
 
 ## 2. Host prerequisites (`make doctor` checks them)
 `rustup`, `qemu-system-x86_64` (≥ 8.0), OVMF/edk2, `xorriso`, `mtools`, `dosfstools` (`fsck.fat`), `gptfdisk` (`sgdisk`), `git`, `cc`, `python3`, `binutils` (`addr2line`, `nm`, `strip`), `cargo-mutants` and `cargo-llvm-cov` (gate test-quality checks), and later `virt-fw-vars` (pip `virt-firmware`, M14). Limine is fetched into `build/limine` at the pinned ref by `make limine`.
