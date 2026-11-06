@@ -110,7 +110,10 @@ ua="$(cat "$LOGS/gate-unsafe.tmp" 2>/dev/null | tr '\n' ' ')"; rm -f "$LOGS/gate
 # --- G5: repo hygiene -------------------------------------------------------------------
 tracked_build=$(git ls-files -- build target kernel/target user/target | head -3)
 [[ -z "$tracked_build" ]] && check "no build outputs tracked" PASS "build/ and target/ ignored" || check "no build outputs tracked" FAIL "$tracked_build"
-big=$(git ls-files -co --exclude-standard -z -- . | xargs -0 -r find 2>/dev/null -maxdepth 0 -size +5M | head -3)
+big=""
+while IFS= read -r -d '' f; do
+  [[ -f "$f" ]] && [[ $(stat -c %s "$f") -gt 5242880 ]] && big="$big $f"
+done < <(git ls-files -co --exclude-standard -z -- .)
 [[ -z "$big" ]] && check "no files > 5 MiB" PASS "" || check "no files > 5 MiB" FAIL "$big"
 
 # --- G6: clean build + full regression -------------------------------------------------
