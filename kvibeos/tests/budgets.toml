@@ -1,0 +1,51 @@
+# KVibeOS resource budgets (PROTECTED). Enforced by tools/budget.sh from M9.
+# Measured under KVM: q35, 1 vCPU, -m 256M, 1280x800, idle desktop. Without KVM -> SKIP, never PASS.
+# hard = test fails above (or below, for idle_cpu) this; target = reported.
+
+[boot_ms]          # kernel entry -> desktop first frame (TSC)
+target = 250
+hard   = 500
+
+[wall_boot_ms]     # QEMU start -> desktop, SeaBIOS
+target = 1500
+hard   = 3000
+
+[ram_idle_mib]     # frame-allocator used frames at idle desktop
+target = 24
+hard   = 40
+
+[min_ram_mib]      # smallest -m that reaches the desktop
+target = 64
+hard   = 128
+
+[idle_cpu_pct]     # hlt-time share over 10 s, no input (higher is better)
+target = 99.5
+hard   = 99.0
+
+[composite_ms]     # full-screen composite
+target = 8
+hard   = 16
+
+[input_latency_ms] # input IRQ -> presented frame
+target = 8
+hard   = 16
+
+[kernel_size_mib]  # stripped kernel ELF
+target = 1
+hard   = 2
+
+[initrd_size_mib]
+target = 6
+hard   = 12
+
+[iso_size_mib]
+target = 16
+hard   = 32
+
+[esp_install_mib]  # \EFI\kvibeos\** after install
+target = 12
+hard   = 24
+
+[procs_idle]       # processes at idle desktop
+target = 2
+hard   = 3

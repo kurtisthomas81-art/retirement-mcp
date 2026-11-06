@@ -1,0 +1,12 @@
+# M1 — CPU foundation and diagnostics
+run:kernel/boot
+run:uefi/boot
+boot/gdt-tss-loaded
+boot/int3-returns
+boot/pagefault-cr2
+boot/double-fault-ist
+boot/memmap-parsed
+boot/fbcon-render
+host/fbcon-checksum-stable
+host/screendump-nonblank
+host/panic-backtrace-symbolized

@@ -1,0 +1,17 @@
+# M11 — Storage
+run:unit/cargo:crates/kv-fat
+run:storage/virtio
+run:storage/ahci
+run:storage/nvme
+storage-virtio/read-known
+storage-virtio/write-1mib
+storage-virtio/nested-dirs
+storage-virtio/esp-mode-erofs
+storage-ahci/read-known
+storage-ahci/write-1mib
+storage-nvme/read-known
+storage-nvme/write-1mib
+host/storage-virtio-verify
+host/storage-virtio-fsck
+host/storage-ahci-verify
+host/storage-nvme-verify

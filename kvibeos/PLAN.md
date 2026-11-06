@@ -1,6 +1,6 @@
 # KVibeOS — Build Plan (bare-metal path)
 
-Status: **approved architecture, pre-M0.** This file is the source of truth for the build agent.
+Status: **approved architecture. M0 implemented by the reviewer; the build agent starts at M1.** This file is the source of truth for the build agent.
 Architecture, budget, or acceptance-test changes go through `FLAGS.md` and a stronger-model or human review (§10). They are never improvised.
 
 Decision log: Path B (Arch-based distro) was planned first. The owner chose **Path A, a bare-metal Rust OS**, as the more fun project. **Gaming is benched** (§2.3).
@@ -43,7 +43,7 @@ No Steam, Proton, Vulkan, or GPU drivers. If gaming comes back later, the realis
 
 - **CPU:** x86-64, single core in v1. SMP is a parked stretch goal.
 - **Firmware:** UEFI primary, legacy BIOS supported because Limine supports both. **The fast test loop boots via SeaBIOS** because it starts far faster under TCG, so the `timeout 5` budget is realistic. A separate suite boots via OVMF/UEFI every run.
-- **Bootloader:** **Limine**, pinned binary release, using the Limine boot protocol through the `limine` crate. Limine provides the memory map, framebuffer, RSDP, higher-half direct map, kernel command line, and modules (initrd).
+- **Bootloader:** **Limine v11.4.1**, pinned by commit (`LIMINE_COMMIT` in the Makefile; v11 is the newest line with a prebuilt `-binary` branch). The Limine boot protocol is used through the **`limine` crate pinned at `=0.5.0`**, base revision 3. (0.6.x requires nightly Rust, so it is not allowed.) The live ISO uses `timeout: 0`. Limine provides the memory map, framebuffer, RSDP, higher-half direct map, kernel command line, and modules (initrd).
 - **Images:**
   - `build/kvibeos.iso`: hybrid BIOS+UEFI ISO (xorriso + `limine bios-install`). Works as a live USB via `dd`/Rufus DD mode/Ventoy.
   - `build/kvibeos.img`: GPT disk image with a 64 MiB ESP (Limine + kernel + initrd) and a 64 MiB FAT32 `KVIBEDATA` partition. Also converted to `.qcow2` and `.vmdk`.
@@ -108,7 +108,7 @@ kvibeos/
 ```
 
 ### 4.4 Dependencies (allowlist; anything else goes through a flag)
-`limine`, `x86_64`, `spin`, `bitflags`, `uart_16550`, `acpi` (rust-osdev, including its AML support; verify the current crate layout when first used), `pc-keyboard`, `linked_list_allocator`, `fontdue` (no_std + alloc), `log`. Host-only (tools/tests): `png`, `qoi`, anything in `tools/xtask`. **No `std` in `kernel/`, `crates/` (non-test), or `user/`.**
+`limine` (=0.5.0), `x86_64`, `spin`, `bitflags`, `uart_16550`, `acpi` (rust-osdev, including its AML support; verify the current crate layout when first used), `pc-keyboard`, `linked_list_allocator`, `fontdue` (no_std + alloc), `log`. Host-only (tools/tests): `png`, `qoi`, anything in `tools/xtask`. **No `std` in `kernel/`, `crates/` (non-test), or `user/`.**
 
 ---
 
@@ -202,12 +202,26 @@ Rules: wait for markers with a deadline, never a fixed sleep. A suite that flake
 
 ## 9. Milestones
 
-Every milestone: its acceptance command exits 0, **and `make test` exits 0** (all suites with milestone ≤ `MILESTONE`), and from M9 on, `make budget` is green when KVM is available. Then commit, tag `mN`, and bump `MILESTONE`.
+### Milestone gate: nothing moves forward until every check passes
+A milestone is done **only** when `make gate` passes. `tests/gates/m<N>.txt` is the binding acceptance list: every check ID derived from the acceptance text below. The gate is enforced by a git `commit-msg` hook, which refuses an `M<N>:` commit unless the gate passed for exactly the tree being committed. `make gate` checks, in order:
 
-### M0 — Toolchain, Limine, harness self-test
-- **Goal:** `make doctor` checks host tools. `make iso` builds a Limine ISO with a kernel that prints `KVIBE-BOOT OK` on COM1. The harness verdicts are proven correct.
-- **Files:** `Makefile`, `rust-toolchain.toml`, `kernel/{Cargo.toml,.cargo/config.toml,linker.ld,build.rs,src/main.rs,src/test/exit.rs,src/drivers/{serial,fwcfg}.rs}`, `boot/limine.conf`, `tools/{doctor,qemu-run,test,mkiso}.sh`, `tests/{protocol.md,suites.txt}`, `.gitignore`.
-- **Acceptance (`make test-harness`):** four fw_cfg-selected kernel behaviours produce the expected verdicts: `harness-pass`→33, `harness-fail`→35, `harness-hang` (`cli; hlt` loop)→124, `harness-triplefault` (load a null IDT, then `int3`)→0 with a `cpu_reset` line in the `-d` log. A fifth run with **no** fw_cfg key must print `KVIBE-BOOT OK` and **not** write to `0xf4` (timeout 124 is the expected result, and the serial log must contain no `KVIBE-TEST` lines).
+1. **Order:** gating `MILESTONE + 1` only (no skipping), the checklist exists, the hook is installed, and suites are registered for M<N>.
+2. **Protected files:** unchanged since the last `REVIEW:`/`M<n>:` commit. `tests/suites.txt` and `tests/gates/m<N>.txt` are append-only, and only for M<N>.
+3. **No open blocking flags** in `FLAGS.md`.
+4. **Static:** `rustfmt --check` and `clippy -D warnings` per workspace. No `todo!`/`unimplemented!`/`dbg!`/`#[ignore]`/crate-wide `allow`. No `|| true` in test tooling. Every `unsafe` has a `SAFETY:` comment and sits only in `arch/`, `mm/`, `drivers/`, `syscall/`, or `libkv/src/sys.rs`.
+5. **Hygiene:** no tracked build outputs, no files > 5 MiB.
+6. **Clean build + full regression** of M0..M<N>, with zero FAIL lines in `results.txt`.
+7. **Every checklist ID PASS.** `budget/*` may be SKIP only without KVM, and that is reported as a warning.
+8. **Flake check:** M<N>'s suites run 3× more (20× at M15).
+9. **Budgets** (M9+).
+
+On success the gate bumps `MILESTONE`, writes a report (`build/logs/gate-m<N>.md`), and fingerprints the tree. Any edit after that invalidates the gate. Commit subjects: `M<N>: …` (gated), `WIP M<N>: …` (cannot touch protected files), `REVIEW: …` (stronger-model/human reviews only).
+
+### M0 — Toolchain, Limine, harness self-test ✅ (done by the reviewer)
+- **Goal:** `make doctor` checks host tools. `make iso` builds a Limine ISO with a kernel that prints `KVIBE-BOOT OK` on COM1. The harness verdicts are proven correct. The gate and commit hook are in place.
+- **Files:** `Makefile`, `rust-toolchain.toml`, `kernel/{Cargo.toml,.cargo/config.toml,linker.ld,build.rs}`, `kernel/src/{main.rs,log.rs}`, `kernel/src/arch/x86_64/{cpu,port}.rs`, `kernel/src/drivers/{serial,fwcfg,qemu_exit}.rs`, `kernel/src/test/{mod,exit,harness,smoke}.rs`, `boot/limine.conf`, `tools/{doctor,qemu-run,test,mkiso,gate}.sh`, `tools/lib/{common,classify}.sh`, `tests/{protocol.md,suites.txt,budgets.toml}`, `tests/unit/classifier.sh`, `tests/gates/*`, `.githooks/commit-msg`, `.gitignore`.
+- **Acceptance:** `make gate M=0`, i.e. every ID in `tests/gates/m0.txt`. Verdicts: `harness-pass`→33/PASS, `harness-fail`→35/FAIL, `harness-panic`→35/FAIL, `harness-hang`→124/TIMEOUT, `harness-triplefault`→0/TRIPLE_FAULT (`Triple fault` in the `-d` log), `none` (no fw_cfg key)→124 with `KVIBE-BOOT OK` and no `KVIBE-TESTMODE`/`KVIBE-TEST` lines, `smoke` via SeaBIOS and via OVMF→PASS, and the classifier unit test passes.
+- **Measured:** a TCG boot to the test result takes 0.4 s under SeaBIOS and 3.3 s under OVMF. The ISO is 3.8 MiB.
 - **Out of scope:** interrupts, memory management, graphics.
 
 ### M1 — CPU foundation and diagnostics

@@ -1,0 +1,7 @@
+# M7 — Input
+run:e2e/input_basic-ps2
+run:e2e/input_basic-xhci
+e2e/input_basic-ps2/key-a
+e2e/input_basic-xhci/key-a
+e2e/input_basic-xhci/tablet-abs
+e2e/input_basic-xhci/usb-hotplug

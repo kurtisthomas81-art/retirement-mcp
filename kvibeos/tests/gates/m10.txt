@@ -1,0 +1,13 @@
+# M10 — Start menu, kv-ui, first apps
+run:unit/cargo:crates/kv-ui
+run:e2e/start_menu
+run:e2e/calc
+run:e2e/terminal
+run:e2e/crash_isolation
+e2e/start_menu/super-opens
+e2e/start_menu/esc-closes
+e2e/start_menu/search-launch-calc
+e2e/calc/two-plus-three
+e2e/terminal/echo
+e2e/crash_isolation/desktop-survives
+budget/input_latency

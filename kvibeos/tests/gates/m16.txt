@@ -1,0 +1,5 @@
+# M16 — Real-hardware bring-up (human evidence)
+file:docs/hw-checklist.md
+file:docs/hw-results/machine-1.md
+file:docs/hw-results/machine-2.md
+file:docs/hw-results/machine-3.md

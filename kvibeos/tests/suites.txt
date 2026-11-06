@@ -1,0 +1,18 @@
+# KVibeOS suite registry (PROTECTED: append-only, and only lines for the milestone in progress).
+# Format:  milestone | tier | suite | expected-verdict | assertions
+#   tier:       unit (tests/unit/<suite>.sh, or cargo:<dir>) | harness | kernel | uefi | e2e | storage | install | budget
+#   verdict:    PASS FAIL NO_RESULT TIMEOUT TRIPLE_FAULT POWEROFF RESET  (see tests/protocol.md)
+#   assertions: ';'-separated  has=TEXT  lacks=TEXT  qlog=TEXT   (serial log / qemu -d log)
+#
+# Runner IDs written to build/logs/results.txt:  run:<tier>/<suite>
+# Guest case IDs (kernel/uefi tiers only):          <suite>/<case>
+
+0 | unit    | classifier          | PASS         |
+0 | harness | harness-pass        | PASS         | has=KVIBE-TEST harness-pass/exit PASS
+0 | harness | harness-fail        | FAIL         | has=KVIBE-TEST harness-fail/exit FAIL; has=KVIBE-RESULT FAIL
+0 | harness | harness-panic       | FAIL         | has=KVIBE-PANIC; has=deliberate panic
+0 | harness | harness-hang        | TIMEOUT      | has=KVIBE-TESTMODE suite=harness-hang; lacks=KVIBE-RESULT
+0 | harness | harness-triplefault | TRIPLE_FAULT | has=KVIBE-TESTMODE suite=harness-triplefault; qlog=check_exception old: 0x8
+0 | harness | none                | TIMEOUT      | has=KVIBE-BOOT OK; lacks=KVIBE-TESTMODE; lacks=KVIBE-TEST
+0 | kernel  | smoke               | PASS         | has=KVIBE-INFO bootloader=Limine
+0 | uefi    | smoke               | PASS         | has=KVIBE-INFO bootloader=Limine

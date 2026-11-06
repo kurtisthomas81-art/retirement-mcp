@@ -1,0 +1,6 @@
+# M8 — Graphics and font libraries
+run:unit/cargo:crates/kv-gfx
+run:unit/cargo:crates/kv-font
+run:kernel/fb
+fb/user-map-draw
+host/fb-pattern-region

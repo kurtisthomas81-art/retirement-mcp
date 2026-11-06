@@ -1,0 +1,9 @@
+# M5 — Userspace
+run:unit/cargo:crates/kv-elf
+run:unit/cargo:crates/kv-ustar
+run:kernel/user
+user/init-syscall-print
+user/exit-code-7
+user/null-deref-isolated
+user/efault-kernel-pointer
+user/spawn-100-no-leak

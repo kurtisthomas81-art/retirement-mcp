@@ -1,0 +1,19 @@
+# M9 — Desktop: compositor, window manager, taskbar
+run:unit/cargo:crates/kv-wm
+run:unit/cargo:crates/kv-proto
+run:e2e/desktop_basic
+run:e2e/window_ops
+e2e/desktop_basic/taskbar-strip-colour
+e2e/desktop_basic/clock-visible
+e2e/window_ops/two-windows-taskbar
+e2e/window_ops/drag-200px
+e2e/window_ops/taskbar-minimize-restore
+e2e/window_ops/snap-left
+e2e/window_ops/close
+budget/boot_ms
+budget/ram_idle
+budget/idle_cpu
+budget/composite_ms
+budget/kernel_size
+budget/iso_size
+budget/procs_idle

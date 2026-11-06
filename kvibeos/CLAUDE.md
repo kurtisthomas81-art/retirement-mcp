@@ -1,14 +1,14 @@
 # CLAUDE.md — KVibeOS build agent
 
-You are building KVibeOS, a bare-metal x86-64 OS in Rust, milestone by milestone.
+You are building KVibeOS, a bare-metal x86-64 OS in Rust, milestone by milestone. **M0 is done. Start at M1.**
 **PLAN.md is the source of truth. Follow it. Flag design changes. Don't improvise them.**
 Nobody reads your code. The tests are the only reviewer, so never weaken them.
 
 ## 1. Environment rules
 1. **`no_std` everywhere except host tooling and tests.** `kernel/`, `user/`, and `crates/*` are `#![no_std]`. Crates use `#![cfg_attr(not(test), no_std)]` so `cargo test` runs on the host. Only `tools/xtask` and `tests/e2e` may use `std`/Python.
 2. **Stable Rust**, pinned by `rust-toolchain.toml`. Kernel and user target: `x86_64-unknown-none` (soft-float, no red zone). No nightly features, no `build-std`, no custom target JSON. If you think you need one, flag it.
-3. **Dependencies** only from the PLAN.md §4.4 allowlist. Anything else needs a flag.
-4. **`unsafe`** only in `kernel/src/{arch,mm,drivers,syscall}` and `user/libkv/src/sys.rs`. Every `unsafe` block gets a `// SAFETY:` comment. Use `#![deny(unsafe_op_in_unsafe_fn)]`, and run clippy with `-D warnings` in `make build`.
+3. **Dependencies** only from the PLAN.md §4.4 allowlist, pinned with `=` versions. `limine` stays at `=0.5.0` (0.6.x needs nightly). Anything else needs a flag.
+4. **`unsafe`** only in `kernel/src/{arch,mm,drivers,syscall}` and `user/libkv/src/sys.rs` (the gate enforces this). Every `unsafe` block gets a `// SAFETY:` comment. Use `#![deny(unsafe_op_in_unsafe_fn)]`, and run clippy with `-D warnings` in `make build`.
 5. **Kernel builds with frame pointers** (`-C force-frame-pointers=yes`) so the watchdog and panic backtraces work. Keep `build/kernel.elf` unstripped for `addr2line`. Strip only the copy that goes on the ISO.
 6. **Logic goes in `crates/`** (host-testable). The kernel and desktop stay thin. Write the host unit test first.
 7. **No polling, no busy waits** outside early boot calibration. Idle means `hlt`. The desktop blocks on its IPC channel.
@@ -29,9 +29,9 @@ timeout 5 qemu-system-x86_64 \
   -cdrom build/kvibeos.iso -boot d \
   -fw_cfg name=opt/kvibe/test,string=$(SUITE) \
   -vga std -display none \
-  -serial file:build/logs/serial-$(SUITE).log \
+  -serial file:build/logs/serial-kernel-$(SUITE).log \
   -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
-  -no-reboot -d int,cpu_reset -D build/logs/qemu-$(SUITE).log
+  -no-reboot -d int,cpu_reset -D build/logs/qemu-kernel-$(SUITE).log
 ```
 Variants, built only by `qemu-run.sh` flags and otherwise identical:
 - **UEFI** (`make test-uefi`): add `-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) -drive if=pflash,format=raw,file=build/vm/OVMF_VARS.fd` and use `timeout 20`.
@@ -45,25 +45,26 @@ Variants, built only by `qemu-run.sh` flags and otherwise identical:
 |---|---|
 | 33 | PASS (also requires a `KVIBE-RESULT PASS` serial line) |
 | 35 | FAIL (assertion, test-mode panic, or watchdog; backtrace is on serial) |
-| 124 | TIMEOUT (hang with interrupts off): read the tail of `qemu-<suite>.log` |
+| 124 | TIMEOUT (hang with interrupts off): read the tail of `qemu-<mode>-<suite>.log` |
 | 0 | UNEXPECTED_RESET (triple fault): find the `cpu_reset` line and the last exception before it in the `-d int` log |
 | other | ERROR (infra) |
 
 Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budgets are SKIP, never PASS.**
 
 ## 4. Debugging order when something fails
-1. `build/logs/serial-<suite>.log`: `KVIBE-TEST` lines, panic message, backtrace.
+1. `build/logs/serial-<mode>-<suite>.log` (mode = kernel or uefi): `KVIBE-TEST` lines, panic message, backtrace.
 2. Symbolize: `addr2line -f -C -e build/kernel.elf <addr>...` (the runner does this automatically for backtrace lines).
-3. `build/logs/qemu-<suite>.log`: last `v=` interrupt vectors and `cpu_reset` dumps (`check_exception old: ... new 0xe` = page fault, `0x8` = double fault).
+3. `build/logs/qemu-<mode>-<suite>.log`: last `v=` interrupt vectors and `cpu_reset` dumps (`check_exception old: ... new 0xe` = page fault, `0x8` = double fault).
 4. `build/logs/screen-<scenario>.png` for E2E failures (QMP screendump on failure).
 5. `make debug SUITE=<suite>` + `gdb -batch` for hangs.
 
 ## 5. Workflow per milestone
-1. Read the milestone in PLAN.md §9: goal, files, acceptance, out-of-scope. **Touch only the listed files**, plus tests and the `Cargo.toml` entries they need. Out-of-scope items stay out.
-2. Write the acceptance test first. Register it in `tests/suites.txt` with the milestone number. Confirm it fails for the right reason.
-3. Implement with the fastest tier first: `make test-unit` → `make test-kernel` → `make test-e2e`.
-4. Done means: the acceptance command exits 0, **`make test` exits 0** (every suite ≤ `MILESTONE`), clippy is clean, and from M9 on `make budget` is green (or SKIP without KVM, noted in the commit).
-5. **Commit after each milestone.** Stage files by name, never `git add -A`. Message:
+0. Once per clone: `make doctor && make hooks`.
+1. Read the milestone in PLAN.md §9 **and its checklist `tests/gates/m<N>.txt`**. Every ID in the checklist must end up as `KVIBE-TEST <id> PASS` in `build/logs/results.txt`. **Touch only the listed files**, plus tests and the `Cargo.toml` entries they need. Out-of-scope items stay out.
+2. Write the tests first. Register suites in `tests/suites.txt` (rows for M<N> only) and emit exactly the checklist IDs. Confirm they fail for the right reason.
+3. Implement with the fastest tier first: `make test-unit` → `make test-kernel SUITE=x` → `make test-e2e`. `make test` runs everything up to the milestone in progress.
+4. **Done means `make gate` passes.** It runs every check in PLAN.md §9 "Milestone gate" and bumps `MILESTONE` itself. Don't edit `MILESTONE` by hand. If the gate fails, read `build/logs/gate-m<N>.md`, fix, and re-run. Never commit an `M<N>:` subject without a passing gate (the hook refuses it anyway).
+5. **Commit immediately after the gate passes, with no edits in between.** Stage every file the gate saw, by name. Message:
    ```
    M<n>: <milestone title>
 
@@ -71,7 +72,7 @@ Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budget
    make test: <N> suites PASS, <M> SKIP (<reason>)
    Budgets: boot <x>ms, RAM <y>MiB, idle <z>%, ISO <w>MiB   (from M9)
    ```
-   Bump `MILESTONE` in the same commit, `git tag m<n>`, push.
+   Paste the gate summary line into the body, then push.
 6. Don't start milestone N+1 until N is committed.
 
 ## 6. Flag, don't improvise
@@ -82,6 +83,7 @@ Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budget
 - The same acceptance test has failed after **3 distinct fix attempts**.
 - Any change to FAT write paths or installer disk writes outside what the milestone specifies.
 - A milestone marked 🔶 is about to start or has just finished. Write the review-request entry.
+- The gate fails on a check you believe is wrong. Never work around the gate or hook (`--no-verify`, editing `tools/gate.sh`, unsetting `core.hooksPath`).
 
 Template:
 ```
@@ -94,6 +96,7 @@ Template:
 ```
 
 ## 7. Never
+- Never use `git commit --no-verify` or change `core.hooksPath`.
 - Never edit a test to match broken behaviour, delete or skip a failing test, add `|| true` to test commands, or loosen a budget or tolerance.
 - Never replace `timeout 5` with a longer timeout for `test-kernel`. If a suite is too slow, split it or flag it.
 - Never mark a TCG performance number as PASS.

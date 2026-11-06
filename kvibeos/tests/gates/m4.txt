@@ -1,0 +1,7 @@
+# M4 — Kernel threads and scheduler
+run:kernel/sched
+sched/four-threads-progress
+sched/producer-consumer-10k
+sched/sleep-50-ticks
+sched/lock-stress-2s
+sched/thread-exit-reaped

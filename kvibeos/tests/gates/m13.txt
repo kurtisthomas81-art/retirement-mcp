@@ -1,0 +1,9 @@
+# M13 — Settings, Task Manager, power
+run:e2e/power
+run:e2e/taskmgr
+run:e2e/resolution
+e2e/power/shutdown-poweroff
+e2e/power/restart-reset
+e2e/taskmgr/process-list-matches
+e2e/taskmgr/end-task
+e2e/resolution/1920x1080

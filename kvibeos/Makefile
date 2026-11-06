@@ -1,13 +1,15 @@
 # KVibeOS — bare-metal Rust OS. See PLAN.md (design) and CLAUDE.md (agent rules).
-# Requested core targets: build, run, test, iso. The rest are helpers used by the test loop.
+# Core targets: build, run, test, iso. Milestone completion: make gate.
 
 SHELL         := /bin/bash
 .SHELLFLAGS   := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
-# --- Pins (M0: replace LIMINE_REF with an exact commit hash of the chosen vN.x-binary branch) ---
+# --- Pins -------------------------------------------------------------------
+# Limine v11.4.1 (newest release line that ships a prebuilt -binary branch).
 LIMINE_REPO   ?= https://github.com/limine-bootloader/limine.git
-LIMINE_REF    ?= v9.x-binary
+LIMINE_BRANCH ?= v11.x-binary
+LIMINE_COMMIT ?= 5be26a73d7b7b4d4477d18be94e1d16e615adf56
 
 BUILD         := build
 LOGS          := $(BUILD)/logs
@@ -21,12 +23,13 @@ SUITE         ?= smoke
 SCENARIO      ?= desktop_basic
 FIXTURE       ?= fat32-known
 CTRL          ?= virtio
-PERF          ?= 0
-MILESTONE_N   := $(shell cat MILESTONE 2>/dev/null || echo 0)
+# MILESTONE = last completed milestone (-1 before M0). `make test` covers it plus the one in progress.
+MILESTONE_N   := $(shell cat MILESTONE 2>/dev/null || echo -1)
+CURRENT_N     := $(shell echo $$(( $(MILESTONE_N) + 1 )))
+M             ?= $(CURRENT_N)
 
-export BUILD LOGS VMDIR KERNEL_ELF INITRD ISO IMG LIMINE_DIR SUITE SCENARIO FIXTURE CTRL PERF MILESTONE_N
+export BUILD LOGS VMDIR KERNEL_ELF INITRD ISO IMG LIMINE_DIR
 
-# `need` fails clearly when a milestone's script isn't written yet.
 need = @test -x $(1) || { echo "ERROR: $(1) not implemented yet (PLAN.md $(2))" >&2; exit 2; }
 
 dirs:
@@ -34,106 +37,98 @@ dirs:
 
 ## doctor: check host tools
 doctor:
-	$(call need,tools/doctor.sh,M0)
 	tools/doctor.sh
 
-## limine: fetch + build the pinned Limine binary release
-limine: $(LIMINE_DIR)/limine
-$(LIMINE_DIR)/limine:
-	rm -rf $(LIMINE_DIR)
-	git clone --depth=1 --branch=$(LIMINE_REF) $(LIMINE_REPO) $(LIMINE_DIR) 2>/dev/null \
-	  || { git clone $(LIMINE_REPO) $(LIMINE_DIR) && git -C $(LIMINE_DIR) checkout $(LIMINE_REF); }
-	$(MAKE) -C $(LIMINE_DIR)
+## hooks: install the commit gate hook (required by make gate)
+hooks:
+	git config core.hooksPath "$$(git rev-parse --show-prefix).githooks"
+	@echo "core.hooksPath = $$(git config core.hooksPath)"
 
-## build: kernel + userspace + initrd (clippy -D warnings)
+## limine: fetch + build the pinned Limine binary release
+limine: $(LIMINE_DIR)/.pinned-$(LIMINE_COMMIT)
+$(LIMINE_DIR)/.pinned-$(LIMINE_COMMIT):
+	rm -rf $(LIMINE_DIR)
+	git clone --quiet --branch=$(LIMINE_BRANCH) $(LIMINE_REPO) $(LIMINE_DIR)
+	git -C $(LIMINE_DIR) -c advice.detachedHead=false checkout --quiet $(LIMINE_COMMIT)
+	$(MAKE) --no-print-directory -C $(LIMINE_DIR) >/dev/null
+	touch $@
+
+## build: kernel (+ userspace/initrd from M5), clippy -D warnings
 build: dirs
-	cd kernel && cargo clippy --release -- -D warnings && cargo build --release
+	cd kernel && cargo clippy --release --quiet -- -D warnings && cargo build --release --quiet
 	cp kernel/target/x86_64-unknown-none/release/kernel $(KERNEL_ELF)
 	@if [ -d user ]; then \
-	  (cd user && cargo clippy --release -- -D warnings && cargo build --release) && \
+	  (cd user && cargo clippy --release --quiet -- -D warnings && cargo build --release --quiet) && \
 	  cargo run --quiet --release --manifest-path tools/xtask/Cargo.toml -- initrd --out $(INITRD); \
-	else echo "note: user/ not present yet (arrives in M5)"; fi
+	fi
 
 ## iso: hybrid BIOS+UEFI live ISO -> build/kvibeos.iso
 iso: build limine
-	$(call need,tools/mkiso.sh,M0)
-	tools/mkiso.sh 2>&1 | tee $(LOGS)/mkiso.log
+	tools/mkiso.sh
 
-## img: GPT disk image (ESP + KVIBEDATA) -> build/kvibeos.img (+ .qcow2/.vmdk)
+## img: GPT disk image (ESP + KVIBEDATA) -> build/kvibeos.img
 img: build limine
 	$(call need,tools/mkimg.sh,M14)
-	tools/mkimg.sh 2>&1 | tee $(LOGS)/mkimg.log
+	tools/mkimg.sh
 
-## run: boot the ISO with a window (GTK/SDL), KVM if available, USB tablet + keyboard
+## run: boot the ISO in a window (VNC 127.0.0.1:5900 if no display)
 run: iso
-	$(call need,tools/qemu-run.sh,M0)
 	tools/qemu-run.sh interactive
 
-## debug: boot paused with gdb stub on :1234 (use gdb -batch, see CLAUDE.md §3.1)
+## debug: boot paused with gdb stub on :1234
 debug: iso
-	$(call need,tools/qemu-run.sh,M0)
-	tools/qemu-run.sh debug
+	tools/qemu-run.sh debug $(SUITE)
 
-## test: full regression: every suite with milestone <= MILESTONE
-test: dirs
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --upto $(MILESTONE_N)
+## test: every suite up to the milestone in progress
+test: iso
+	tools/test.sh --upto $(CURRENT_N) --fresh
 
-## test-harness: harness self-test (pass/fail/hang/triple-fault/no-test-mode)
 test-harness: iso
-	$(call need,tools/test.sh,M0)
 	tools/test.sh --tier harness
 
-## test-unit: cargo test over host-testable crates + xtask
 test-unit:
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier unit
+	tools/test.sh --tier unit --upto $(CURRENT_N)
 
-## test-kernel: one in-kernel suite via SeaBIOS/TCG with timeout 5
 test-kernel: iso
-	$(call need,tools/test.sh,M0)
 	tools/test.sh --tier kernel --suite $(SUITE)
 
-## test-uefi: smoke boot via OVMF (ISO, and disk image once it exists)
 test-uefi: iso
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier uefi
+	tools/test.sh --tier uefi --upto $(CURRENT_N)
 
-## test-e2e: QMP-driven GUI scenario
 test-e2e: iso
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier e2e --scenario $(SCENARIO)
+	tools/test.sh --tier e2e --suite $(SCENARIO)
 
-## test-storage: storage suite against a fixture disk on a given controller
 test-storage: iso
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier storage --fixture $(FIXTURE) --ctrl $(CTRL)
+	tools/test.sh --tier storage --suite $(CTRL)
 
-## test-install: installer scenarios (whole disk + alongside fake Windows ESP)
 test-install: iso img
-	$(call need,tools/test.sh,M0)
-	tools/test.sh --tier install
+	tools/test.sh --tier install --upto $(CURRENT_N)
 
-## budget: resource budgets under KVM (SKIP without /dev/kvm)
+## budget: resource budgets (KVM; SKIP without /dev/kvm)
 budget: iso
 	$(call need,tools/budget.sh,M9)
-	PERF=1 tools/budget.sh | tee $(LOGS)/budget.txt
+	tools/budget.sh
+
+## gate: ALL checks for milestone M (default: next). Must pass before an "M<n>:" commit.
+gate: dirs
+	tools/gate.sh $(M)
 
 clean:
-	rm -rf $(LOGS) $(VMDIR) $(BUILD)/test $(KERNEL_ELF) $(INITRD) $(ISO) $(IMG)
-	cd kernel && cargo clean 2>/dev/null || true
-	[ -d user ] && (cd user && cargo clean) || true
+	rm -rf $(LOGS) $(VMDIR) $(BUILD)/test $(BUILD)/iso_root $(KERNEL_ELF) $(INITRD) $(ISO) $(IMG)
+	cd kernel && cargo clean --quiet
+	if [ -d user ]; then cd user && cargo clean --quiet; fi
 
 distclean: clean
 	rm -rf $(BUILD)
 
 help:
-	@echo "KVibeOS (milestone $(MILESTONE_N))"
-	@echo "  build | iso | img | run | debug | doctor | limine"
-	@echo "  test                    full regression up to MILESTONE"
+	@echo "KVibeOS — completed milestone: $(MILESTONE_N), in progress: M$(CURRENT_N)"
+	@echo "  build | iso | img | run | debug | doctor | hooks | limine"
+	@echo "  test                    every suite up to M$(CURRENT_N)"
+	@echo "  gate [M=n]              all milestone checks; required before an 'M<n>:' commit"
 	@echo "  test-harness | test-unit | test-kernel SUITE=x | test-uefi"
-	@echo "  test-e2e SCENARIO=x | test-storage FIXTURE=x CTRL=virtio|ahci|nvme | test-install"
+	@echo "  test-e2e SCENARIO=x | test-storage CTRL=virtio|ahci|nvme | test-install"
 	@echo "  budget (KVM) | clean | distclean"
 
-.PHONY: dirs doctor limine build iso img run debug test test-harness test-unit test-kernel \
-        test-uefi test-e2e test-storage test-install budget clean distclean help
+.PHONY: dirs doctor hooks limine build iso img run debug test test-harness test-unit test-kernel \
+        test-uefi test-e2e test-storage test-install budget gate clean distclean help

@@ -1,0 +1,9 @@
+# M2 — Memory management
+run:kernel/mm
+run:kernel/boot-64m
+run:kernel/boot-4g
+mm/alloc-10k-no-leak
+mm/box-vec-roundtrip
+mm/map-unmap-roundtrip
+mm/stack-guard-fault
+mm/frame-count-baseline

@@ -1,0 +1,10 @@
+# M3 — Interrupts and time
+run:kernel/time
+run:kernel/watchdog
+time/madt-parsed
+time/ioapic-routed
+time/ticks-monotonic
+time/tsc-vs-ticks-25pct
+time/idle-accounting-95pct
+time/rtc-read
+host/watchdog-backtrace-symbolized

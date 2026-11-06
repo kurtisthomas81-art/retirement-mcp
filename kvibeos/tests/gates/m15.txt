@@ -1,0 +1,9 @@
+# M15 — Polish and performance pass
+flake:20
+budget/boot_ms
+budget/ram_idle
+budget/idle_cpu
+budget/composite_ms
+budget/input_latency
+budget/iso_size
+file:build/logs/budget-targets.md

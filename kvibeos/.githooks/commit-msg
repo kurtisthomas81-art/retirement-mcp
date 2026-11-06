@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# KVibeOS commit gate. Installed by `make hooks` (core.hooksPath).
+#  - "M<n>: ..."   requires a passing `make gate` for exactly this working tree.
+#  - "REVIEW: ..." reserved for stronger-model/human reviews (may change protected files).
+#  - anything else (incl. "WIP M<n>: ...") may not touch protected files.
+set -euo pipefail
+top="$(git rev-parse --show-toplevel)"
+if [[ -f "$top/PLAN.md" && -f "$top/MILESTONE" ]]; then kv="$top"; elif [[ -d "$top/kvibeos" ]]; then kv="$top/kvibeos"; else exit 0; fi
+rel="${kv#"$top"}"; rel="${rel#/}"; pre="${rel:+$rel/}"
+subj="$(head -1 "$1")"
+
+staged="$(git diff --cached --name-only)"
+# Only police commits that touch the OS tree.
+echo "$staged" | grep -q "^${pre}" || [[ -z "$pre" ]] || exit 0
+
+protected_re="^${pre}(PLAN\.md|CLAUDE\.md|tests/protocol\.md|tests/budgets\.toml|tests/suites\.txt|tests/gates/|tools/gate\.sh|tools/lib/classify\.sh|tests/unit/classifier\.sh|\.githooks/)"
+
+if [[ "$subj" =~ ^M([0-9]+): ]]; then
+  n="${BASH_REMATCH[1]}"
+  ok="$kv/build/logs/gate-m$n.ok"
+  [[ -f "$ok" ]] || { echo "commit-msg: no passing gate for M$n. Run: make gate" >&2; exit 1; }
+  fp="$(cd "$kv" && tools/gate.sh --fingerprint)"
+  [[ "$fp" == "$(cat "$ok")" ]] || { echo "commit-msg: tree changed since gate passed for M$n. Re-run: make gate M=$n" >&2; exit 1; }
+  ms="$(git show ":${pre}MILESTONE" 2>/dev/null | tr -d '[:space:]')"
+  [[ "$ms" == "$n" ]] || { echo "commit-msg: staged MILESTONE is '$ms', expected $n (stage MILESTONE)" >&2; exit 1; }
+  unstaged="$(cd "$kv" && git status --porcelain -- . | grep -v '^[MADR] ' || true)"
+  [[ -z "$unstaged" ]] || { echo "commit-msg: unstaged/untracked changes remain; stage everything the gate saw:" >&2; echo "$unstaged" >&2; exit 1; }
+  exit 0
+fi
+[[ "$subj" =~ ^REVIEW: ]] && exit 0
+if echo "$staged" | grep -qE "$protected_re"; then
+  echo "commit-msg: protected files staged in a non-milestone commit:" >&2
+  echo "$staged" | grep -E "$protected_re" >&2
+  echo "Raise a FLAGS.md entry instead (CLAUDE.md §6)." >&2
+  exit 1
+fi

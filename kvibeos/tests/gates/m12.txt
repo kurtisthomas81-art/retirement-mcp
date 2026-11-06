@@ -1,0 +1,8 @@
+# M12 — File Explorer, dialogs, Image Viewer, settings persistence
+run:e2e/explorer
+run:e2e/save_file
+run:e2e/settings_persist
+e2e/explorer/open-readme
+e2e/explorer/new-folder
+e2e/save_file/host-verified
+e2e/settings_persist/accent-survives-reboot

@@ -1,0 +1,14 @@
+# M0 — Toolchain, Limine, harness self-test
+run:unit/classifier
+run:harness/harness-pass
+run:harness/harness-fail
+run:harness/harness-panic
+run:harness/harness-hang
+run:harness/harness-triplefault
+run:harness/none
+run:kernel/smoke
+run:uefi/smoke
+smoke/serial
+smoke/limine-base-revision
+smoke/bootloader-info
+smoke/hypervisor-gate

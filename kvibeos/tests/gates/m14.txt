@@ -1,0 +1,12 @@
+# M14 — Installer and dual-boot
+run:install/whole
+run:install/alongside
+install/alongside/microsoft-hashes-unchanged
+install/alongside/bootx64-unchanged
+install/alongside/ntfs-unchanged
+install/alongside/fsck-clean
+install/alongside/boots-desktop
+install/alongside/windows-chainload
+install/whole/boots-ovmf
+install/whole/boots-seabios
+budget/esp_install_size

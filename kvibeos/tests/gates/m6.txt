@@ -1,0 +1,6 @@
+# M6 — IPC, shared memory, VFS
+run:kernel/ipc
+ipc/pingpong-10k
+ipc/shm-checksum
+ipc/dead-peer-epipe
+ipc/initrd-read
