@@ -117,8 +117,14 @@ done < <(git ls-files -co --exclude-standard -z -- .)
 [[ -z "$big" ]] && check "no files > 5 MiB" PASS "" || check "no files > 5 MiB" FAIL "$big"
 
 # --- G6: clean build + full regression -------------------------------------------------
-if make --no-print-directory iso >"$LOGS/gate-build.log" 2>&1; then check "clean build (make iso)" PASS "$(stat -c %s "$ISO") byte ISO"; else check "clean build (make iso)" FAIL "see $LOGS/gate-build.log"; fi
-if tools/test.sh --upto "$N" --fresh >"$LOGS/gate-test.log" 2>&1; then
+# Never test stale artifacts: remove them first, and skip testing if the build fails.
+rm -f "$ISO" "$KERNEL_ELF"
+: > "$results"
+built=0
+if make --no-print-directory iso >"$LOGS/gate-build.log" 2>&1; then built=1; check "clean build (make iso)" PASS "$(stat -c %s "$ISO") byte ISO"; else check "clean build (make iso)" FAIL "see $LOGS/gate-build.log"; fi
+if [[ $built -eq 0 ]]; then
+  check "full regression M0..M$N" FAIL "not run: build failed"
+elif tools/test.sh --upto "$N" --fresh >"$LOGS/gate-test.log" 2>&1; then
   check "full regression M0..M$N" PASS "$(tail -1 "$LOGS/gate-test.log")"
 else
   check "full regression M0..M$N" FAIL "$(tail -1 "$LOGS/gate-test.log") — see $LOGS/gate-test.log"
