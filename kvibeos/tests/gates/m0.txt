@@ -12,3 +12,5 @@ smoke/serial
 smoke/limine-base-revision
 smoke/bootloader-info
 smoke/hypervisor-gate
+run:release/smoke
+scope:*

@@ -1,13 +1,27 @@
-# M10 — Start menu, kv-ui, first apps
+# M10 — Start menu, kv-ui, first apps, clipboard, desktop auto-restart
+scope:crates/kv-ui/*
+scope:crates/kv-proto/*
+scope:crates/kv-wm/*
+scope:user/*
+scope:kernel/src/*
+scope:tests/e2e/*
+scope:assets/*
 run:unit/cargo:crates/kv-ui
 run:e2e/start_menu
 run:e2e/calc
 run:e2e/terminal
+run:e2e/clipboard
 run:e2e/crash_isolation
 e2e/start_menu/super-opens
 e2e/start_menu/esc-closes
 e2e/start_menu/search-launch-calc
 e2e/calc/two-plus-three
 e2e/terminal/echo
-e2e/crash_isolation/desktop-survives
+e2e/clipboard/copy-paste-between-apps
+e2e/crash_isolation/app-crash-desktop-survives
+e2e/crash_isolation/desktop-crash-restarts
 budget/input_latency
+quality/kv-ui/coverage
+quality/kv-ui/mutants
+shot:start-menu
+shot:calc

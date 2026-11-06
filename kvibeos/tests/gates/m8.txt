@@ -1,6 +1,19 @@
-# M8 — Graphics and font libraries
+# M8 — Graphics and font libraries; write-only front buffer; UI scaling
+scope:crates/kv-gfx/*
+scope:crates/kv-font/*
+scope:tools/xtask/*
+scope:assets/*
+scope:kernel/src/*
+scope:user/*
 run:unit/cargo:crates/kv-gfx
 run:unit/cargo:crates/kv-font
 run:kernel/fb
 fb/user-map-draw
+fb/front-buffer-write-only
+fb/scale-auto-2x-at-4k
 host/fb-pattern-region
+quality/kv-gfx/coverage
+quality/kv-gfx/mutants
+quality/kv-font/coverage
+quality/kv-font/mutants
+shot:fb

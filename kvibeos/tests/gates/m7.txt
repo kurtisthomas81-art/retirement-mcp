@@ -1,7 +1,23 @@
-# M7 — Input
+# M7 — Input (US QWERTY), PCI, xHCI; safe mode skips USB
+scope:kernel/src/*
+scope:kernel/Cargo.toml
+scope:crates/kv-input/*
+scope:user/libkv/*
+scope:tests/e2e/*
+run:unit/cargo:crates/kv-input
 run:e2e/input_basic-ps2
 run:e2e/input_basic-xhci
+run:kernel/safe-mode-usb
 e2e/input_basic-ps2/key-a
+e2e/input_basic-ps2/shifted-symbols
+e2e/input_basic-ps2/key-repeat
+e2e/input_basic-ps2/scroll-wheel
 e2e/input_basic-xhci/key-a
+e2e/input_basic-xhci/key-repeat
 e2e/input_basic-xhci/tablet-abs
+e2e/input_basic-xhci/scroll-wheel
 e2e/input_basic-xhci/usb-hotplug
+safe-mode-usb/xhci-skipped
+hw/pci-devices
+quality/kv-input/coverage
+quality/kv-input/mutants

@@ -1,4 +1,8 @@
-# M11 — Storage
+# M11 — Storage (virtio, AHCI, NVMe), GPT, FAT32; safe mode skips storage writes
+scope:kernel/src/*
+scope:kernel/Cargo.toml
+scope:crates/kv-fat/*
+scope:tests/fixtures/*
 run:unit/cargo:crates/kv-fat
 run:storage/virtio
 run:storage/ahci
@@ -15,3 +19,5 @@ host/storage-virtio-verify
 host/storage-virtio-fsck
 host/storage-ahci-verify
 host/storage-nvme-verify
+quality/kv-fat/coverage
+quality/kv-fat/mutants

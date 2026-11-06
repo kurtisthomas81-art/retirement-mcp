@@ -1,10 +1,22 @@
-# M9 — Desktop: compositor, window manager, taskbar
+# M9 — Desktop: compositor, window manager, taskbar; budgets at 1280x800, 1080p, 4K
+scope:crates/kv-wm/*
+scope:crates/kv-proto/*
+scope:crates/kv-gfx/*
+scope:user/*
+scope:kernel/src/*
+scope:tests/e2e/*
+scope:assets/*
+scope:tools/budget.sh
 run:unit/cargo:crates/kv-wm
 run:unit/cargo:crates/kv-proto
 run:e2e/desktop_basic
+run:e2e/desktop_1080p
+run:e2e/desktop_4k
 run:e2e/window_ops
 e2e/desktop_basic/taskbar-strip-colour
 e2e/desktop_basic/clock-visible
+e2e/desktop_1080p/taskbar-44px
+e2e/desktop_4k/taskbar-88px-scale-2x
 e2e/window_ops/two-windows-taskbar
 e2e/window_ops/drag-200px
 e2e/window_ops/taskbar-minimize-restore
@@ -12,8 +24,17 @@ e2e/window_ops/snap-left
 e2e/window_ops/close
 budget/boot_ms
 budget/ram_idle
+budget/ram_idle_1080p
+budget/ram_idle_4k
 budget/idle_cpu
 budget/composite_ms
+budget/composite_4k_ms
 budget/kernel_size
 budget/iso_size
 budget/procs_idle
+quality/kv-wm/coverage
+quality/kv-wm/mutants
+quality/kv-proto/coverage
+quality/kv-proto/mutants
+shot:desktop
+shot:desktop-4k

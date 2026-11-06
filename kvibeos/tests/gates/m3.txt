@@ -1,4 +1,6 @@
-# M3 — Interrupts and time
+# M3 — Interrupts, time, hardware report
+scope:kernel/src/*
+scope:kernel/Cargo.toml
 run:kernel/time
 run:kernel/watchdog
 time/madt-parsed
@@ -7,4 +9,7 @@ time/ticks-monotonic
 time/tsc-vs-ticks-25pct
 time/idle-accounting-95pct
 time/rtc-read
-host/watchdog-backtrace-symbolized
+hw/cpu-model
+hw/memmap
+hw/acpi-tables
+watchdog/backtrace-symbolized

@@ -1,4 +1,7 @@
 # M6 — IPC, shared memory, VFS
+scope:kernel/src/*
+scope:crates/kv-abi/*
+scope:user/*
 run:kernel/ipc
 ipc/pingpong-10k
 ipc/shm-checksum

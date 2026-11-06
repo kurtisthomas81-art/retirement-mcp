@@ -1,12 +1,29 @@
-# M14 — Installer and dual-boot
+# M14 — Installer, dual-boot, update with rollback
+scope:user/*
+scope:kernel/src/*
+scope:crates/kv-fat/*
+scope:boot/*
+scope:tools/mkimg.sh
+scope:tools/mkiso.sh
+scope:tests/fixtures/*
+scope:tests/e2e/*
+scope:iso-extras/*
+scope:docs/dual-boot.md
+scope:Makefile
 run:install/whole
 run:install/alongside
+run:install/update
 install/alongside/microsoft-hashes-unchanged
 install/alongside/bootx64-unchanged
 install/alongside/ntfs-unchanged
 install/alongside/fsck-clean
 install/alongside/boots-desktop
 install/alongside/windows-chainload
+install/alongside/bitlocker-warning
 install/whole/boots-ovmf
 install/whole/boots-seabios
+install/update/previous-entry-kept
+install/update/previous-version-boots
 budget/esp_install_size
+file:docs/dual-boot.md
+shot:installer

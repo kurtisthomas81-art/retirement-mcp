@@ -1,8 +1,18 @@
-# M12 — File Explorer, dialogs, Image Viewer, settings persistence
+# M12 — File Explorer, dialogs, Image Viewer, settings persistence, PrtSc
+scope:user/*
+scope:crates/kv-ui/*
+scope:crates/kv-proto/*
+scope:crates/kv-gfx/*
+scope:tests/e2e/*
+scope:tests/fixtures/*
+scope:assets/*
 run:e2e/explorer
 run:e2e/save_file
 run:e2e/settings_persist
+run:e2e/screenshot_key
 e2e/explorer/open-readme
 e2e/explorer/new-folder
 e2e/save_file/host-verified
 e2e/settings_persist/accent-survives-reboot
+e2e/screenshot_key/file-saved
+shot:explorer

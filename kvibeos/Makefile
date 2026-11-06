@@ -17,6 +17,7 @@ VMDIR         := $(BUILD)/vm
 KERNEL_ELF    := $(BUILD)/kernel.elf
 INITRD        := $(BUILD)/initrd.tar
 ISO           := $(BUILD)/kvibeos.iso
+TEST_ISO      := $(BUILD)/kvibeos-test.iso
 IMG           := $(BUILD)/kvibeos.img
 LIMINE_DIR    := $(BUILD)/limine
 SUITE         ?= smoke
@@ -28,7 +29,7 @@ MILESTONE_N   := $(shell cat MILESTONE 2>/dev/null || echo -1)
 CURRENT_N     := $(shell echo $$(( $(MILESTONE_N) + 1 )))
 M             ?= $(CURRENT_N)
 
-export BUILD LOGS VMDIR KERNEL_ELF INITRD ISO IMG LIMINE_DIR
+export BUILD LOGS VMDIR KERNEL_ELF INITRD ISO TEST_ISO IMG LIMINE_DIR
 
 need = @test -x $(1) || { echo "ERROR: $(1) not implemented yet (PLAN.md $(2))" >&2; exit 2; }
 
@@ -113,8 +114,16 @@ budget: iso
 gate: dirs
 	tools/gate.sh $(M)
 
+## verify: re-check the last completed milestone from scratch (what CI runs)
+verify: dirs
+	tools/gate.sh --verify
+
+## screenshot: boot SUITE and save build/logs/screens/<SUITE>.png (the agent can open it)
+screenshot: iso
+	tools/screenshot.py --suite "$(SUITE)" --out $(LOGS)/screens/$(SUITE).png
+
 clean:
-	rm -rf $(LOGS) $(VMDIR) $(BUILD)/test $(BUILD)/iso_root $(KERNEL_ELF) $(INITRD) $(ISO) $(IMG)
+	rm -rf $(LOGS) $(VMDIR) $(BUILD)/test $(BUILD)/iso_root $(KERNEL_ELF) $(INITRD) $(ISO) $(TEST_ISO) $(IMG)
 	cd kernel && cargo clean --quiet
 	if [ -d user ]; then cd user && cargo clean --quiet; fi
 
@@ -126,9 +135,11 @@ help:
 	@echo "  build | iso | img | run | debug | doctor | hooks | limine"
 	@echo "  test                    every suite up to M$(CURRENT_N)"
 	@echo "  gate [M=n]              all milestone checks; required before an 'M<n>:' commit"
+	@echo "  verify                  re-check the last completed milestone (CI)"
+	@echo "  screenshot SUITE=x      PNG of the screen when SUITE prints KVIBE-SCREEN-READY"
 	@echo "  test-harness | test-unit | test-kernel SUITE=x | test-uefi"
 	@echo "  test-e2e SCENARIO=x | test-storage CTRL=virtio|ahci|nvme | test-install"
 	@echo "  budget (KVM) | clean | distclean"
 
 .PHONY: dirs doctor hooks limine build iso img run debug test test-harness test-unit test-kernel \
-        test-uefi test-e2e test-storage test-install budget gate clean distclean help
+        test-uefi test-e2e test-storage test-install budget gate verify screenshot clean distclean help

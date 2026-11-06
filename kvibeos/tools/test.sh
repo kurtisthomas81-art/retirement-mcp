@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KVibeOS suite runner.
+# KVibeOS suite runner. (PROTECTED)
 #   test.sh --upto N            every suite with milestone <= N
 #   test.sh --milestone N       only suites of milestone N
 #   test.sh --tier T [--suite S]
@@ -31,13 +31,13 @@ trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; echo "${s%"${s##*[![:spac
 rows=()
 while IFS= read -r line; do
   [[ -z "$(trim "$line")" || "$(trim "$line")" == \#* ]] && continue
-  IFS='|' read -r ms t s exp asserts <<< "$line"
-  ms="$(trim "$ms")"; t="$(trim "$t")"; s="$(trim "$s")"; exp="$(trim "$exp")"; asserts="$(trim "${asserts:-}")"
+  IFS='|' read -r ms t s exp asserts cmdl <<< "$line"
+  ms="$(trim "$ms")"; t="$(trim "$t")"; s="$(trim "$s")"; exp="$(trim "$exp")"; asserts="$(trim "${asserts:-}")"; cmdl="$(trim "${cmdl:-}")"
   [[ -n "$upto" && "$ms" -gt "$upto" ]] && continue
   [[ -n "$only_ms" && "$ms" -ne "$only_ms" ]] && continue
   [[ -n "$tier" && "$t" != "$tier" ]] && continue
   [[ -n "$suite" && "$s" != "$suite" ]] && continue
-  rows+=("$ms|$t|$s|$exp|$asserts")
+  rows+=("$ms|$t|$s|$exp|$asserts|$cmdl")
 done < tests/suites.txt
 
 [[ ${#rows[@]} -gt 0 ]] || { echo "No suites selected (upto=$upto milestone=$only_ms tier=$tier suite=$suite)"; exit 1; }
@@ -46,7 +46,7 @@ record() { echo "KVIBE-TEST $1 $2 $3" >> "$results"; }
 
 npass=0; nfail=0; nerr=0
 run_row() {
-  local ms="$1" t="$2" s="$3" exp="$4" asserts="$5" id="run:$2/$3"
+  local ms="$1" t="$2" s="$3" exp="$4" asserts="$5" cmdl="$6" id="run:$2/$3"
   local start end rc verdict detail serial qlog mode
   start=$(date +%s.%N)
   case "$t" in
@@ -60,10 +60,12 @@ run_row() {
         if "tests/unit/$s.sh" >"$log" 2>&1; then rc=0; else rc=$?; fi
       fi
       if [[ $rc -eq 0 ]]; then verdict=PASS; else verdict=FAIL; fi
+      # Host check scripts may report individual checks as KVIBE-TEST lines.
+      grep '^KVIBE-TEST ' "$log" >> "$results" || [[ $? -eq 1 ]]
       serial="$log"; qlog=/dev/null ;;
-    harness|kernel|uefi)
-      mode=kernel; [[ "$t" == uefi ]] && mode=uefi
-      if tools/qemu-run.sh "$mode" "$s" >/dev/null 2>"$LOGS/stderr-$mode-$s.log"; then rc=0; else rc=$?; fi
+    harness|kernel|uefi|release)
+      mode=kernel; [[ "$t" == uefi || "$t" == release ]] && mode="$t"
+      if KVIBE_CMDLINE="$cmdl" tools/qemu-run.sh "$mode" "$s" >/dev/null 2>"$LOGS/stderr-$mode-$s.log"; then rc=0; else rc=$?; fi
       serial="$LOGS/serial-$mode-$s.log"; qlog="$LOGS/qemu-$mode-$s.log"
       [[ -f "$serial" ]] || : > "$serial"
       verdict="$(classify "$rc" "$serial" "$qlog")"
@@ -98,8 +100,8 @@ run_row() {
 for ((i = 1; i <= repeat; i++)); do
   [[ $repeat -gt 1 ]] && echo "--- repeat $i/$repeat ---"
   for r in "${rows[@]}"; do
-    IFS='|' read -r ms t s exp asserts <<< "$r"
-    run_row "$ms" "$t" "$s" "$exp" "$asserts"
+    IFS='|' read -r ms t s exp asserts cmdl <<< "$r"
+    run_row "$ms" "$t" "$s" "$exp" "$asserts" "$cmdl"
   done
 done
 

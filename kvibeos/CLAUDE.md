@@ -14,10 +14,15 @@ Nobody reads your code. The tests are the only reviewer, so never weaken them.
 7. **No polling, no busy waits** outside early boot calibration. Idle means `hlt`. The desktop blocks on its IPC channel.
 8. **Never touch host block devices.** Disk work happens only on image files under `build/`. Never `dd` to `/dev/*`.
 9. **Test hooks** (isa-debug-exit, fw_cfg, watchdog) must stay gated as in PLAN.md §7. Never loosen the gate.
-10. **No Microsoft assets.** Windows-*style* layout only. Fonts must be OFL. Art must be original.
+10. **No Microsoft assets.** Windows-*style* layout only. Fonts must be OFL. Art must be original. Every bundled font, asset or crate gets a line in `THIRD_PARTY_NOTICES.md` in the same commit.
+11. **Framebuffer: never read it.** Compose into a RAM back buffer and copy only damaged rectangles to the screen (PLAN.md §6.1). Use the write-only front-buffer type in `kv-gfx`.
+12. **Hardware safety features stay on:** NX, W^X, SMEP and SMAP once their milestones land. User memory is touched only through the copy routines.
+13. **Keyboard: US QWERTY only.** Don't add layout switching (parked).
+14. **Parsers of untrusted bytes** (ELF, USTAR, FAT32, GPT, IPC, cmdline, symbol map) get `proptest` property tests, written as dev-dependencies.
+15. **Respect safe mode:** every risky driver (xHCI, AHCI, NVMe, USB storage, ACPI AML) checks `kvibe.safe` and skips itself with `KVIBE-INFO <driver>=skipped`.
 
 ## 2. Host prerequisites (`make doctor` checks them)
-`rustup`, `qemu-system-x86_64` (≥ 8.0), OVMF/edk2, `xorriso`, `mtools`, `dosfstools` (`fsck.fat`), `gptfdisk` (`sgdisk`), `git`, `cc`, `python3`, `binutils` (`addr2line`), and later `virt-fw-vars` (pip `virt-firmware`, M14). Limine is fetched into `build/limine` at the pinned ref by `make limine`.
+`rustup`, `qemu-system-x86_64` (≥ 8.0), OVMF/edk2, `xorriso`, `mtools`, `dosfstools` (`fsck.fat`), `gptfdisk` (`sgdisk`), `git`, `cc`, `python3`, `binutils` (`addr2line`, `nm`, `strip`), `cargo-mutants` and `cargo-llvm-cov` (gate test-quality checks), and later `virt-fw-vars` (pip `virt-firmware`, M14). Limine is fetched into `build/limine` at the pinned ref by `make limine`.
 
 ## 3. QEMU commands (`tools/qemu-run.sh` must produce exactly these)
 
@@ -38,6 +43,9 @@ Variants, built only by `qemu-run.sh` flags and otherwise identical:
 - **E2E** (`make test-e2e`): add `-qmp unix:build/vm/qmp.sock,server=on,wait=off -device qemu-xhci -device usb-kbd -device usb-tablet`, use `timeout 30`, and the Python driver tails the serial log.
 - **Storage**: add `-drive file=build/test/<fixture>.img,format=raw,if=none,id=d0` plus one of `-device virtio-blk-pci,drive=d0` | `-device ich9-ahci,id=ahci -device ide-hd,drive=d0,bus=ahci.0` | `-device nvme,drive=d0,serial=kv0`. Use `timeout 10`.
 - **Perf** (`PERF=1`, budgets only): `accel=kvm`, drop `-d int` (it's a no-op under KVM), keep `-d cpu_reset`.
+- **Release** (`release` tier): boots the *release* ISO (boot menu, default entry) via OVMF, `timeout 25`. All other test modes boot `build/kvibeos-test.iso`.
+- **Shot** (`make screenshot SUITE=x`): adds a QMP socket, `timeout 30`. Waits for `KVIBE-SCREEN-READY` on serial, then saves `build/logs/screens/<suite>.png`. **Open that PNG to check your UI work visually.**
+- **Test-only kernel options:** the sixth column of `tests/suites.txt` (or `KVIBE_CMDLINE=...`) is passed as fw_cfg `opt/kvibe/cmdline`. The kernel honours it only in gated test mode.
 - **Debug** (`make debug`): add `-s -S`, no timeout. Get a backtrace non-interactively with `gdb -batch -ex 'target remote :1234' -ex 'bt' build/kernel.elf`.
 
 ### 3.2 Exit-code mapping (full spec: `tests/protocol.md`)
@@ -60,9 +68,12 @@ Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budget
 
 ## 5. Workflow per milestone
 0. Once per clone: `make doctor && make hooks`.
-1. Read the milestone in PLAN.md §9 **and its checklist `tests/gates/m<N>.txt`**. Every ID in the checklist must end up as `KVIBE-TEST <id> PASS` in `build/logs/results.txt`. **Touch only the listed files**, plus tests and the `Cargo.toml` entries they need. Out-of-scope items stay out.
+1. Read the milestone in PLAN.md §9, PLAN.md §11, **its checklist `tests/gates/m<N>.txt`**, and the previous milestone's journal `docs/progress/m<N-1>.md`. Every ID in the checklist must end up as `KVIBE-TEST <id> PASS` in `build/logs/results.txt`, and every `shot:` line must produce a non-blank screenshot. **Touch only files matching the checklist's `scope:` lines** (the gate enforces this). Out-of-scope items stay out.
 2. Write the tests first. Register suites in `tests/suites.txt` (rows for M<N> only) and emit exactly the checklist IDs. Confirm they fail for the right reason.
-3. Implement with the fastest tier first: `make test-unit` → `make test-kernel SUITE=x` → `make test-e2e`. `make test` runs everything up to the milestone in progress.
+3. Implement with the fastest tier first: `make test-unit` → `make test-kernel SUITE=x` → `make test-e2e`. `make test` runs everything up to the milestone in progress. For UI work, `make screenshot SUITE=x` and look at the PNG.
+   Host crates need **≥ 80% line coverage and ≥ 80% mutation score** (`cargo llvm-cov`, `cargo mutants`). Surviving mutants in `build/logs/mutants-<crate>/mutants.out/missed.txt` show exactly which assertions are missing.
+   Host check scripts in `tests/unit/` report individual checks by printing `KVIBE-TEST host/<check> PASS|FAIL <detail>`.
+3b. Write `docs/progress/m<N>.md` with `## Summary`, `## Decisions`, `## Known issues` and `## Next`. The next session (possibly you, with no memory of this one) starts from it.
 4. **Done means `make gate` passes.** It runs every check in PLAN.md §9 "Milestone gate" and bumps `MILESTONE` itself. Don't edit `MILESTONE` by hand. If the gate fails, read `build/logs/gate-m<N>.md`, fix, and re-run. Never commit an `M<N>:` subject without a passing gate (the hook refuses it anyway).
 5. **Commit immediately after the gate passes, with no edits in between.** Stage every file the gate saw, by name. Message:
    ```
@@ -77,7 +88,7 @@ Runner exits: 0 pass, 1 fail, 2 infra error, 77 skip. **Without KVM, perf budget
 
 ## 6. Flag, don't improvise
 **Stop, add an entry to `FLAGS.md`, commit with prefix `WIP M<n>:`, and stop working** when any of these happens:
-- A change is needed to a **protected file**: `PLAN.md`, `CLAUDE.md`, `tests/protocol.md`, `tests/budgets.toml`, `tests/suites.txt` (adding your own milestone's lines is allowed).
+- A change is needed to a **protected file**: `PLAN.md`, `CLAUDE.md`, `tests/protocol.md`, `tests/budgets.toml`, `tests/gates/*` and `tests/suites.txt` (appending your own milestone's lines is allowed), `tools/gate.sh`, `tools/test.sh`, `tools/qemu-run.sh`, `tools/screenshot.py`, `tools/lib/{classify,quality}.sh`, `tests/unit/classifier.sh`, `.githooks/`, `.github/`. **New test tiers or QEMU options** (e2e before M7, budget before M9, storage before M11, install before M14) are requests: put the exact proposed change in the flag, and the reviewer adds it.
 - You'd deviate from PLAN.md: a new dependency, nightly Rust, a different bootloader, a design that moves logic out of `crates/`, a new background process, or work the milestone marks out-of-scope.
 - A hard budget can't be met.
 - The same acceptance test has failed after **3 distinct fix attempts**.
@@ -102,3 +113,4 @@ Template:
 - Never mark a TCG performance number as PASS.
 - Never write to disks outside `build/`.
 - Never commit secrets, personal data, or non-OFL/non-original assets.
+- Never read back from the framebuffer.

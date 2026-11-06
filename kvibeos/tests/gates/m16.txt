@@ -1,5 +1,26 @@
-# M16 — Real-hardware bring-up (human evidence)
-file:docs/hw-checklist.md
-file:docs/hw-results/machine-1.md
-file:docs/hw-results/machine-2.md
-file:docs/hw-results/machine-3.md
+# M16 — Polish and performance pass
+scope:kernel/src/*
+scope:crates/*
+scope:user/*
+scope:assets/*
+scope:tests/e2e/*
+scope:tests/unit/*
+scope:docs/*
+flake:20
+run:unit/reproducible-iso
+run:unit/profiler-report
+budget/boot_ms
+budget/ram_idle
+budget/ram_idle_1080p
+budget/ram_idle_4k
+budget/idle_cpu
+budget/composite_ms
+budget/composite_4k_ms
+budget/input_latency
+budget/iso_size
+host/reproducible-iso
+host/profiler-report
+file:build/logs/budget-targets.md
+shot:splash
+shot:desktop-1080p
+shot:desktop-4k

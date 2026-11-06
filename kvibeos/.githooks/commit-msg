@@ -13,7 +13,7 @@ staged="$(git diff --cached --name-only)"
 # Only police commits that touch the OS tree.
 echo "$staged" | grep -q "^${pre}" || [[ -z "$pre" ]] || exit 0
 
-protected_re="^${pre}(PLAN\.md|CLAUDE\.md|tests/protocol\.md|tests/budgets\.toml|tests/suites\.txt|tests/gates/|tools/gate\.sh|tools/lib/classify\.sh|tests/unit/classifier\.sh|\.githooks/)"
+protected_re="^${pre}(PLAN\.md|CLAUDE\.md|tests/protocol\.md|tests/budgets\.toml|tests/suites\.txt|tests/gates/|tools/gate\.sh|tools/test\.sh|tools/qemu-run\.sh|tools/screenshot\.py|tools/lib/classify\.sh|tools/lib/quality\.sh|tests/unit/classifier\.sh|\.githooks/|\.github/)"
 
 if [[ "$subj" =~ ^M([0-9]+): ]]; then
   n="${BASH_REMATCH[1]}"

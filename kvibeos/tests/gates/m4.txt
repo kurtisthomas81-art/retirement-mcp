@@ -1,4 +1,6 @@
 # M4 — Kernel threads and scheduler
+scope:kernel/src/*
+scope:kernel/Cargo.toml
 run:kernel/sched
 sched/four-threads-progress
 sched/producer-consumer-10k

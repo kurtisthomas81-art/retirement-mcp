@@ -1,9 +1,21 @@
-# M13 — Settings, Task Manager, power
+# M13 — Settings, Task Manager, power, log viewer, About
+scope:user/*
+scope:kernel/src/*
+scope:crates/*
+scope:tests/e2e/*
+scope:assets/*
 run:e2e/power
 run:e2e/taskmgr
 run:e2e/resolution
+run:e2e/logviewer
+run:e2e/about
 e2e/power/shutdown-poweroff
 e2e/power/restart-reset
+e2e/power/acpi-power-button
 e2e/taskmgr/process-list-matches
 e2e/taskmgr/end-task
 e2e/resolution/1920x1080
+e2e/logviewer/shows-boot-log
+e2e/about/version-and-commit
+shot:settings
+shot:taskmgr

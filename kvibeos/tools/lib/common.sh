@@ -4,7 +4,8 @@ KV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD="${BUILD:-build}"
 LOGS="${LOGS:-$BUILD/logs}"
 VMDIR="${VMDIR:-$BUILD/vm}"
-ISO="${ISO:-$BUILD/kvibeos.iso}"
+ISO="${ISO:-$BUILD/kvibeos.iso}"            # release ISO (boot menu)
+TEST_ISO="${TEST_ISO:-$BUILD/kvibeos-test.iso}" # test ISO (no menu delay)
 KERNEL_ELF="${KERNEL_ELF:-$BUILD/kernel.elf}"
 LIMINE_DIR="${LIMINE_DIR:-$BUILD/limine}"
 cd "$KV_ROOT"

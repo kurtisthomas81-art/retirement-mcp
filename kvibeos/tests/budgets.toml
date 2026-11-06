@@ -10,9 +10,17 @@ hard   = 500
 target = 1500
 hard   = 3000
 
-[ram_idle_mib]     # frame-allocator used frames at idle desktop
+[ram_idle_mib]     # frame-allocator used frames at idle desktop, 1280x800
 target = 24
 hard   = 40
+
+[ram_idle_1080p_mib] # same, 1920x1080 (back buffer + cached wallpaper ~ 16 MiB)
+target = 32
+hard   = 48
+
+[ram_idle_4k_mib]  # same, 3840x2160 at 2x UI scale (back buffer + wallpaper ~ 64 MiB)
+target = 80
+hard   = 112
 
 [min_ram_mib]      # smallest -m that reaches the desktop
 target = 64
@@ -22,9 +30,13 @@ hard   = 128
 target = 99.5
 hard   = 99.0
 
-[composite_ms]     # full-screen composite
+[composite_ms]     # full-screen composite, 1280x800
 target = 8
 hard   = 16
+
+[composite_4k_ms]  # full-screen composite, 3840x2160 (typical frames are damage-only)
+target = 16
+hard   = 33
 
 [input_latency_ms] # input IRQ -> presented frame
 target = 8

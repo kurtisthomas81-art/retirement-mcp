@@ -15,6 +15,9 @@ need cc         "apt: build-essential | pacman: base-devel"
 need python3    ""
 need addr2line  "binutils"
 need strip      "binutils"
+need nm         "binutils"
+need cargo-mutants  "cargo install --locked cargo-mutants   (gate: mutation score)"
+need cargo-llvm-cov "cargo install --locked cargo-llvm-cov  (gate: coverage)"
 if ovmf_code >/dev/null 2>&1; then echo "ok      OVMF                   $(ovmf_code)"; else echo "MISSING OVMF                   apt: ovmf | pacman: edk2-ovmf"; missing=1; fi
 [[ -w /dev/kvm ]] && echo "ok      /dev/kvm               (perf budgets enabled)" || echo "note    /dev/kvm               absent: perf budgets will SKIP"
 [[ $missing -eq 0 ]] || exit 2

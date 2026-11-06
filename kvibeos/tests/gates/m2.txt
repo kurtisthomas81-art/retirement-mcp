@@ -1,4 +1,7 @@
-# M2 — Memory management
+# M2 — Memory management + memory protection
+scope:kernel/src/*
+scope:kernel/Cargo.toml
+scope:kernel/linker.ld
 run:kernel/mm
 run:kernel/boot-64m
 run:kernel/boot-4g
@@ -7,3 +10,8 @@ mm/box-vec-roundtrip
 mm/map-unmap-roundtrip
 mm/stack-guard-fault
 mm/frame-count-baseline
+mm/nx-enabled
+mm/kernel-text-not-writable
+mm/kernel-data-not-executable
+mm/pat-write-combining
+mm/fb-mapped-write-combining

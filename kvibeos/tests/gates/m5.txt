@@ -1,4 +1,14 @@
-# M5 — Userspace
+# M5 — Userspace + user/kernel isolation
+scope:kernel/src/*
+scope:kernel/Cargo.toml
+scope:crates/kv-abi/*
+scope:crates/kv-elf/*
+scope:crates/kv-ustar/*
+scope:user/*
+scope:tools/xtask/*
+scope:tools/mkiso.sh
+scope:boot/*
+scope:Makefile
 run:unit/cargo:crates/kv-elf
 run:unit/cargo:crates/kv-ustar
 run:kernel/user
@@ -7,3 +17,11 @@ user/exit-code-7
 user/null-deref-isolated
 user/efault-kernel-pointer
 user/spawn-100-no-leak
+user/smep-enabled
+user/smap-enabled
+user/stack-heap-nx
+user/oom-kills-process
+quality/kv-elf/coverage
+quality/kv-elf/mutants
+quality/kv-ustar/coverage
+quality/kv-ustar/mutants

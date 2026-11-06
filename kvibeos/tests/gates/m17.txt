@@ -1,0 +1,9 @@
+# M17 — Real-hardware bring-up (human evidence)
+scope:docs/*
+scope:kernel/src/*
+scope:crates/*
+scope:user/*
+file:docs/hw-checklist.md
+file:docs/hw-results/machine-1.md
+file:docs/hw-results/machine-2.md
+file:docs/hw-results/machine-3.md

@@ -1,9 +1,24 @@
-# M15 — Polish and performance pass
-flake:20
-budget/boot_ms
-budget/ram_idle
-budget/idle_cpu
-budget/composite_ms
-budget/input_latency
-budget/iso_size
-file:build/logs/budget-targets.md
+# M15 — Real-hardware readiness: USB mass storage, logs to boot media, safe mode, hardware report
+scope:kernel/src/*
+scope:kernel/Cargo.toml
+scope:crates/*
+scope:user/*
+scope:boot/*
+scope:tests/e2e/*
+scope:tests/fixtures/*
+scope:docs/*
+run:storage/usb
+run:kernel/safe-mode
+run:e2e/live_usb_log
+storage-usb/read-known
+storage-usb/write-1mib
+host/storage-usb-verify
+safe-mode/risky-drivers-skipped
+safe-mode/desktop-reaches-ready
+e2e/live_usb_log/log-file-written
+host/live-usb-log-has-hwreport
+host/live-usb-log-has-panic
+file:docs/vm-compat.md
+file:docs/hw-report-howto.md
+shot:panic-screen
+shot:safe-mode
